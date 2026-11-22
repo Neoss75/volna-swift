@@ -1,0 +1,116 @@
+# Builds the Swift version of «Волна» on a GitHub Mac.
+# With the four Apple secrets set it signs the app and uploads it to TestFlight;
+# without them it only checks that the app builds and keeps an unsigned Volna-swift.ipa.
+# Secrets (Settings → Secrets and variables → Actions), the same values as in volna-ios:
+#   APPLE_TEAM_ID   — Team ID (10 characters, developer.apple.com → Membership)
+#   ASC_KEY_ID      — App Store Connect API key ID
+#   ASC_ISSUER_ID   — Issuer ID shown above the list of keys
+#   ASC_KEY_P8      — full text of the AuthKey_XXXX.p8 file
+# Runs after every upload to main, or by hand: Actions → "TestFlight" → Run workflow.
+name: TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the Apple keys are set
+        id: keys
+        run: |
+          if [ -z "$TEAM_ID" ] || [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8" ]; then
+            echo "::warning::Apple keys are not set yet (see the top of testflight.yml): only a build check, no TestFlight upload"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check line endings (must be LF)
+        run: |
+          if grep -rlI $'\r' Sources Config project.yml .github; then
+            echo "::error::the files above have Windows line endings (CRLF)"; exit 1
+          fi
+
+      - name: Generate the Xcode project
+        run: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen --version
+          xcodegen generate
+          xcodebuild -version
+
+      - name: Build only (no keys yet)
+        if: steps.keys.outputs.ok != 'true'
+        run: |
+          mkdir -p build
+          if ! xcodebuild -project Volna.xcodeproj -scheme Volna -configuration Release \
+               -destination 'generic/platform=iOS' -archivePath build/Volna.xcarchive archive \
+               CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+               CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > build.log 2>&1; then
+            echo "===== errors ====="; grep -E "error:|fatal error" build.log | head -80
+            echo "===== end of log ====="; tail -n 120 build.log
+            exit 1
+          fi
+          grep -E "warning:" build.log | sort -u | head -40 || true
+          tail -n 5 build.log
+          mkdir -p Payload
+          cp -R build/Volna.xcarchive/Products/Applications/Volna.app Payload/
+          zip -qry Volna-swift.ipa Payload
+          ls -l Volna-swift.ipa
+
+      - uses: actions/upload-artifact@v4
+        if: steps.keys.outputs.ok != 'true'
+        with:
+          name: Volna-swift-ipa
+          path: Volna-swift.ipa
+          retention-days: 14
+
+      - name: API key for signing
+        if: steps.keys.outputs.ok == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          echo "KEY_PATH=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
+
+      - name: Build and sign
+        if: steps.keys.outputs.ok == 'true'
+        run: |
+          mkdir -p build
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          if ! xcodebuild -project Volna.xcodeproj -scheme Volna -configuration Release \
+               -destination 'generic/platform=iOS' -archivePath build/Volna.xcarchive archive \
+               DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" "${AUTH[@]}" > build.log 2>&1; then
+            echo "===== errors ====="; grep -E "error:|fatal error" build.log | head -80
+            echo "===== end of log ====="; tail -n 120 build.log
+            exit 1
+          fi
+          tail -n 10 build.log
+
+      - name: Upload to TestFlight
+        if: steps.keys.outputs.ok == 'true'
+        run: |
+          sed "s/TEAM_ID_PLACEHOLDER/$TEAM_ID/" Config/ExportOptions.plist > build/ExportOptions.plist
+          if ! xcodebuild -exportArchive -archivePath build/Volna.xcarchive -exportPath build/export \
+               -exportOptionsPlist build/ExportOptions.plist \
+               -allowProvisioningUpdates -authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" > upload.log 2>&1; then
+            echo "===== errors ====="; grep -iE "error|failed" upload.log | head -60
+            echo "===== end of log ====="; tail -n 120 upload.log
+            exit 1
+          fi
+          tail -n 20 upload.log
+          echo "::notice::Build $BUILD_NUMBER uploaded. In 5–15 minutes it appears in TestFlight on your iPhone."
+
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys"
