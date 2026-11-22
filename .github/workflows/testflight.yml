@@ -43,6 +43,13 @@ jobs:
             echo "::error::the files above have Windows line endings (CRLF)"; exit 1
           fi
 
+      - name: Use Xcode 26 (needed for Liquid Glass and for App Store uploads)
+        run: |
+          X=/Applications/Xcode_26.3.app
+          [ -d "$X" ] || X=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -n 1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+
       - name: Generate the Xcode project
         run: |
           command -v xcodegen >/dev/null || brew install xcodegen

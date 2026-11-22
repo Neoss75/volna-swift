@@ -4,7 +4,7 @@ name: Volna
 options:
   bundleIdPrefix: com.neoss75
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "26.0"
   createIntermediateGroups: true
   developmentLanguage: ru
 settings:
