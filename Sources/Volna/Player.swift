@@ -28,7 +28,7 @@ struct EQPreset: Identifiable {
 @MainActor
 final class Player: ObservableObject {
     static let frequencies: [Float] = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
-    static let bandLabels = ["31", "62", "125", "250", "500", "1к", "2к", "4к", "8к", "16к"]
+    static let bandLabels = ["31", "62", "125", "250", "500", "1к", "2к", "4к", "8к", "16к+"]
     static let gainRange: ClosedRange<Float> = -12...12
 
     @Published private(set) var currentID: UUID?
@@ -295,10 +295,22 @@ final class Player: ObservableObject {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
         engine.attach(node)
         engine.attach(eq)
+        let last = eq.bands.count - 1
         for (i, band) in eq.bands.enumerated() {
-            band.filterType = .parametric
-            band.frequency = Self.frequencies[i]
-            band.bandwidth = 1.0 // octaves
+            switch i {
+            case 0:
+                // "shelf": raises or lowers everything below ~45 Hz evenly, down to the very bottom
+                band.filterType = .lowShelf
+                band.frequency = 45
+            case last:
+                // everything above ~12 kHz evenly, up to 20 kHz and beyond ("air")
+                band.filterType = .highShelf
+                band.frequency = 12000
+            default:
+                band.filterType = .parametric
+                band.frequency = Self.frequencies[i]
+                band.bandwidth = 1.0 // octaves
+            }
             band.bypass = false
         }
         applyEQ()

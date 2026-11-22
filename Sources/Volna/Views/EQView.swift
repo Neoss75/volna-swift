@@ -45,7 +45,7 @@ struct EQView: View {
                 .opacity(player.eqEnabled ? 1 : 0.4)
                 .disabled(!player.eqEnabled)
 
-                Text("Двойное касание полосы возвращает её в ноль. Когда полосы подняты, общая громкость сама чуть снижается, чтобы звук не хрипел.")
+                Text("Крайние полосы поднимают весь самый низ и весь верх, до 20 кГц. Двойное касание полосы возвращает её в ноль. Когда полосы подняты, общая громкость сама чуть снижается, чтобы звук не хрипел.")
                     .font(.footnote)
                     .foregroundStyle(Theme.muted)
                     .frame(maxWidth: .infinity, alignment: .leading)
