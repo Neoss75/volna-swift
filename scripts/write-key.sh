@@ -9,7 +9,7 @@ fail() { echo "::error::$1"; exit 1; }
 
 if printf '%s' "$ASC_KEY_P8" | grep -q 'BEGIN'; then begin=yes; else begin=no; fi
 if printf '%s' "$ASC_KEY_P8" | grep -q 'END'; then end=yes; else end=no; fi
-body=$(printf '%s' "$ASC_KEY_P8" | sed -E -e 's/\[nr]//g' -e 's/(BEGIN|END) PRIVATE KEY//g' | tr -cd 'A-Za-z0-9+/=')
+body=$(printf '%s' "$ASC_KEY_P8" | sed -E -e 's/[\][nr]//g' -e 's/(BEGIN|END) PRIVATE KEY//g' | tr -cd 'A-Za-z0-9+/=')
 echo "ASC_KEY_P8: BEGIN line: $begin, END line: $end, key characters: ${#body} (about 200 expected)"
 
 umask 077
