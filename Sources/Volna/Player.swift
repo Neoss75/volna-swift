@@ -2,393 +2,499 @@ import AVFoundation
 import MediaPlayer
 import UIKit
 
-/// Playback position, published separately so that the song list does not redraw four times a second.
+/// Playback position, published separately so that the whole screen does not redraw four times a second.
 @MainActor
 final class PlaybackClock: ObservableObject {
     @Published var time: Double = 0
 }
 
-struct EQPreset: Identifiable {
-    let name: String
-    let gains: [Float]
-    var id: String { name }
+enum RepeatMode: String { case off, all, one }
 
-    static let all: [EQPreset] = [
-        EQPreset(name: "Ровно", gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-        EQPreset(name: "Басы", gains: [6, 5, 4, 2, 0, 0, 0, 0, 0, 0]),
-        EQPreset(name: "Громкость", gains: [5, 4, 2, 0, -1, -1, 0, 2, 4, 5]),
-        EQPreset(name: "Вокал", gains: [-2, -1, 0, 2, 4, 4, 3, 1, 0, -1]),
-        EQPreset(name: "Высокие", gains: [0, 0, 0, 0, 0, 1, 2, 4, 5, 6]),
-        EQPreset(name: "Рок", gains: [4, 3, 1, -1, -2, -1, 1, 3, 4, 4]),
-        EQPreset(name: "Электроника", gains: [5, 4, 1, 0, -2, 1, 0, 1, 4, 5]),
-    ]
-}
-
-/// Plays one file at a time through AVAudioEngine: player → 10-band EQ → mixer → output.
+/// Queue, transport, crossfade, sleep timer and the lock screen. The sound itself is in AudioGraph.
 @MainActor
 final class Player: ObservableObject {
-    static let frequencies: [Float] = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
-    static let bandLabels = ["31", "62", "125", "250", "500", "1к", "2к", "4к", "8к", "16к+"]
-    static let gainRange: ClosedRange<Float> = -12...12
-
-    @Published private(set) var currentID: UUID?
+    @Published private(set) var queue: [UUID] = []
+    @Published private(set) var qi = -1
     @Published private(set) var isPlaying = false
     @Published private(set) var duration: Double = 0
-    @Published var errorMessage: String?
-    @Published var eqEnabled: Bool { didSet { applyEQ(); saveEQ() } }
-    @Published var eqGains: [Float] { didSet { applyEQ(); saveEQ() } }
+    @Published private(set) var shuffle = false
+    @Published private(set) var repeatMode = RepeatMode.off
+    @Published private(set) var sleepAt: Date?
+    @Published private(set) var sleepAfterTrack = false
 
     let clock = PlaybackClock()
-    private(set) var currentTime: Double = 0 { didSet { clock.time = currentTime } }
+    let graph = AudioGraph()
+    let analyzer: Analyzer
 
     private let library: Library
-    private let engine = AVAudioEngine()
-    private let node = AVAudioPlayerNode()
-    private let eq = AVAudioUnitEQ(numberOfBands: 10)
+    private let settings: Settings
+    private let stats: Stats
+    private let covers: CoverFinder
     private let nowPlaying = NowPlaying()
 
-    private var file: AVAudioFile?
-    private var scopedURL: URL?
-    private var connectedFormat: AVAudioFormat?
-    private var startFrame: AVAudioFramePosition = 0
-    private var scheduled = false
-    private var generation = 0
+    private var orig: [UUID] = []
+    private var active = 0
+    private var savedTime: Double = 0
     private var timer: Timer?
     private var resumeAfterInterruption = false
+    private var failures = 0
+    private var fadeTask: Task<Void, Never>?
+    private var sleepFade: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
+    private var lastSave = Date.distantPast
 
-    private enum Keys {
-        static let eqOn = "eq.enabled"
-        static let eqGains = "eq.gains"
-        static let lastTrack = "player.lastTrack"
-        static let lastTime = "player.lastTime"
-    }
+    private var deck: Deck { graph.decks[active] }
+    private var spare: Deck { graph.decks[1 - active] }
 
-    init(library: Library) {
+    init(library: Library, settings: Settings, stats: Stats, covers: CoverFinder) {
         self.library = library
-        let defaults = UserDefaults.standard
-        eqEnabled = defaults.object(forKey: Keys.eqOn) as? Bool ?? true
-        if let saved = defaults.array(forKey: Keys.eqGains) as? [Double], saved.count == 10 {
-            eqGains = saved.map { Float($0) }
+        self.settings = settings
+        self.stats = stats
+        self.covers = covers
+        analyzer = Analyzer(library: library)
+        graph.apply(settings.v)
+        settings.onChange = { [weak self] in self?.settingsChanged() }
+        library.onRemove = { [weak self] in self?.removed($0) }
+        analyzer.onDone = { [weak self] in self?.analyzed($0) }
+        covers.onChange = { [weak self] in self?.publish() }
+        for d in graph.decks {
+            d.onEnd = { [weak self, weak d] in
+                guard let self, let d, d === self.deck else { return }
+                self.ended()
+            }
+        }
+        observe()
+        restore()
+    }
+
+    var current: Track? { qi >= 0 && qi < queue.count ? library.track(queue[qi]) : nil }
+
+    /// Exact position, for the waveform that moves every frame.
+    var position: Double { deck.file == nil ? savedTime : deck.position }
+
+    // MARK: - Queue
+
+    func play(_ id: UUID, from list: [UUID]) {
+        orig = list
+        if shuffle {
+            queue = [id] + list.filter { $0 != id }.shuffled()
+            qi = 0
         } else {
-            eqGains = Array(repeating: 0, count: 10)
+            queue = list
+            qi = list.firstIndex(of: id) ?? 0
         }
-        setUpEngine()
-        observeSystem()
-        restoreState()
+        failures = 0
+        load(play: true)
     }
 
-    var currentTrack: Track? {
-        guard let id = currentID else { return nil }
-        return library.tracks.first { $0.id == id }
+    func jump(to index: Int) {
+        guard queue.indices.contains(index) else { return }
+        qi = index
+        failures = 0
+        load(play: true)
     }
 
-    private var currentIndex: Int? {
-        guard let id = currentID else { return nil }
-        return library.tracks.firstIndex { $0.id == id }
+    func playNext(_ id: UUID) {
+        guard qi >= 0, !queue.isEmpty else { play(id, from: [id]); return }
+        let after = queue[qi]
+        queue.insert(id, at: qi + 1)
+        orig.insert(id, at: (orig.firstIndex(of: after) ?? orig.count - 1) + 1)
+        toast("Сыграет следующей")
+        save()
     }
 
-    // MARK: - Controls
+    func enqueue(_ id: UUID) {
+        queue.append(id)
+        orig.append(id)
+        toast("Добавлено в очередь")
+        save()
+    }
 
-    func play(_ track: Track) {
-        if track.id == currentID, file != nil {
-            if !isPlaying { resume() }
-            return
+    func move(from: IndexSet, to: Int) {
+        let playing = qi >= 0 ? qi : nil
+        var marked = queue.enumerated().map { ($0.offset, $0.element) }
+        marked.move(fromOffsets: from, toOffset: to)
+        queue = marked.map(\.1)
+        if let playing { qi = marked.firstIndex { $0.0 == playing } ?? -1 }
+        if !shuffle { orig = queue }
+        save()
+    }
+
+    func removeFromQueue(at index: Int) {
+        guard queue.indices.contains(index), index != qi else { return }
+        let id = queue.remove(at: index)
+        if let i = orig.firstIndex(of: id) { orig.remove(at: i) }
+        if index < qi { qi -= 1 }
+        save()
+    }
+
+    func toggleShuffle() {
+        shuffle.toggle()
+        let now = qi >= 0 && qi < queue.count ? queue[qi] : nil
+        if shuffle {
+            orig = queue
+            if let now {
+                queue = [now] + queue.filter { $0 != now }.shuffled()
+                qi = 0
+            } else {
+                queue.shuffle()
+            }
+        } else if !orig.isEmpty {
+            queue = orig
+            qi = now.flatMap { orig.firstIndex(of: $0) } ?? -1
         }
-        start(track, at: 0, autoplay: true)
+        toast(shuffle ? "Перемешивание включено" : "Перемешивание выключено")
+        save()
     }
 
-    func togglePlayPause() {
-        isPlaying ? pause() : resume()
+    func cycleRepeat() {
+        repeatMode = repeatMode == .off ? .all : repeatMode == .all ? .one : .off
+        toast("Повтор: " + (repeatMode == .off ? "выключен" : repeatMode == .all ? "вся очередь" : "один трек"))
+        save()
     }
+
+    private func removed(_ ids: Set<UUID>) {
+        let now = qi >= 0 && qi < queue.count ? queue[qi] : nil
+        queue.removeAll { ids.contains($0) }
+        orig.removeAll { ids.contains($0) }
+        if let now, ids.contains(now) {
+            pause()
+            endFade()
+            deck.unload()
+            qi = -1
+            savedTime = 0
+            duration = 0
+            clock.time = 0
+            publish()
+        } else {
+            qi = now.flatMap { queue.firstIndex(of: $0) } ?? -1
+        }
+        save()
+    }
+
+    // MARK: - Transport
+
+    func toggle() { isPlaying ? pause() : resume() }
 
     func resume() {
-        guard file != nil else {
-            // nothing loaded yet (fresh launch): open the last song, or the first one
-            if let track = currentTrack {
-                start(track, at: currentTime, autoplay: true)
-            } else if let first = library.tracks.first {
-                start(first, at: 0, autoplay: true)
-            }
+        guard !isPlaying else { return }
+        guard current != nil else {
+            if let first = library.tracks.first { play(first.id, from: library.tracks.map(\.id)) }
             return
         }
-        guard !isPlaying else { return }
-        activateSession()
-        if !engine.isRunning {
-            do {
-                try engine.start()
-            } catch {
-                errorMessage = "Не удалось включить звук: \(error.localizedDescription)"
-                return
-            }
+        sleepFade?.cancel()
+        sleepFade = nil
+        graph.master = 1
+        if deck.file == nil {
+            load(play: true, at: savedTime)
+            return
         }
-        if !scheduled { schedule(from: currentTime) }
-        node.play()
+        startDeck(at: deck.position)
+    }
+
+    private func startDeck(at time: Double) {
+        do { try graph.start() } catch {
+            toast("Не удалось включить звук: \(error.localizedDescription)")
+            isPlaying = false
+            publish()
+            return
+        }
+        deck.play(from: time)
         isPlaying = true
         // iOS ignores lock screen buttons registered before any sound plays, so this happens here
         nowPlaying.registerCommands(for: self)
         startTimer()
-        publishNowPlaying()
+        publish()
     }
 
     func pause() {
+        endFade()
         guard isPlaying else { return }
-        currentTime = livePosition()
-        stopNode()
-        engine.pause()
+        deck.halt()
+        graph.engine.pause()
         isPlaying = false
         stopTimer()
-        publishNowPlaying()
-        saveState()
+        clock.time = deck.position
+        publish()
+        save()
     }
 
-    func next() {
-        step(1, autoplay: isPlaying)
+    func next() { advance(auto: false) }
+
+    private func advance(auto: Bool) {
+        guard !queue.isEmpty else { return }
+        if auto, repeatMode == .one {
+            startDeck(at: 0)
+            return
+        }
+        if qi + 1 < queue.count {
+            qi += 1
+        } else if repeatMode == .all || !auto {
+            qi = 0
+        } else {
+            pause()
+            deck.rewind(to: 0)
+            clock.time = 0
+            publish()
+            return
+        }
+        load(play: true)
+    }
+
+    func previousTrack() {
+        guard !queue.isEmpty else { return }
+        qi = qi > 0 ? qi - 1 : (repeatMode == .all ? queue.count - 1 : 0)
+        load(play: true)
     }
 
     func previous() {
-        if livePosition() > 3 {
-            seek(to: 0)
-        } else {
-            step(-1, autoplay: isPlaying)
-        }
+        if position > 3 { seek(to: 0) } else { previousTrack() }
     }
 
     func seek(to time: Double) {
-        let t = max(0, min(time, duration))
-        guard file != nil else { currentTime = t; return }
-        if isPlaying {
-            stopNode()
-            currentTime = t
-            schedule(from: t)
-            node.play()
+        let t = max(0, min(time, max(0, duration)))
+        endFade()
+        if deck.file == nil {
+            savedTime = t
+        } else if isPlaying {
+            deck.play(from: t)
         } else {
-            stopNode()
-            currentTime = t
+            deck.rewind(to: t)
         }
-        publishNowPlaying()
+        clock.time = t
+        publish()
+        save()
     }
 
-    func saveState() {
-        let defaults = UserDefaults.standard
-        defaults.set(currentID?.uuidString, forKey: Keys.lastTrack)
-        defaults.set(livePosition(), forKey: Keys.lastTime)
-    }
-
-    // MARK: - Loading and scheduling
-
-    private func step(_ delta: Int, autoplay: Bool) {
-        let tracks = library.tracks
-        guard !tracks.isEmpty else { return }
-        var i = (currentIndex ?? (delta > 0 ? -1 : 0)) + delta
-        if i >= tracks.count { i = 0 }
-        if i < 0 { i = tracks.count - 1 }
-        start(tracks[i], at: 0, autoplay: autoplay)
-    }
-
-    private func trackEnded() {
-        let tracks = library.tracks
-        if let i = currentIndex, i + 1 < tracks.count {
-            start(tracks[i + 1], at: 0, autoplay: true)
-        } else if let first = tracks.first {
-            start(first, at: 0, autoplay: false) // end of the list: stop on the first song
-        } else {
-            pause()
-        }
-    }
-
-    private func start(_ track: Track, at time: Double, autoplay: Bool) {
-        stopNode()
-        releaseFile()
-        currentID = track.id
-        duration = track.duration
-        currentTime = time
-
-        guard let url = library.resolve(track) else {
-            fail("Файл «\(track.title)» не найден. Возможно, его переместили или удалили в «Файлах». Уберите песню из списка и добавьте заново.")
-            return
-        }
-        let access = url.startAccessingSecurityScopedResource()
+    private func load(play: Bool, at time: Double = 0) {
+        guard let t = current else { return }
+        endFade()
+        deck.unload()
+        duration = t.duration
+        savedTime = time
+        clock.time = time
         do {
-            let f = try AVAudioFile(forReading: url)
-            file = f
-            scopedURL = access ? url : nil
-            duration = Double(f.length) / f.processingFormat.sampleRate
-            connect(f.processingFormat)
+            try graph.load(library.open(t), into: deck)
         } catch {
-            if access { url.stopAccessingSecurityScopedResource() }
-            fail("Не получается открыть «\(track.title)»: \(error.localizedDescription)")
+            markBad(t, error)
             return
         }
-        if currentTime >= duration - 0.5 { currentTime = 0 }
-
-        if autoplay {
-            isPlaying = false
-            resume()
+        prepare(deck, t)
+        duration = deck.duration
+        if abs(t.duration - deck.duration) > 0.5 { library.update(t.id) { $0.duration = self.deck.duration } }
+        failures = 0
+        let start = time >= duration - 0.5 ? 0 : time
+        deck.rewind(to: start)
+        clock.time = start
+        if play {
+            startDeck(at: start)
         } else {
-            if isPlaying {
-                isPlaying = false
-                engine.pause()
-                stopTimer()
-            }
-            publishNowPlaying()
+            publish()
         }
-        saveState()
+        save()
     }
 
-    private func fail(_ message: String) {
-        isPlaying = false
-        stopTimer()
-        if engine.isRunning { engine.pause() }
-        errorMessage = message
-        publishNowPlaying()
+    private func prepare(_ d: Deck, _ t: Track) {
+        d.fade = 1
+        d.gainDb = settings.v.normalize ? (t.gainDb ?? 0) : 0
+        stats.trackStarted()
+        if t.bad == true { library.update(t.id) { $0.bad = false } }
+        analyzer.request(t, first: true)
+        covers.auto(t)
+        if qi + 1 < queue.count, let n = library.track(queue[qi + 1]) { covers.auto(n) }
     }
 
-    private func schedule(from time: Double) {
-        guard let f = file else { return }
-        generation += 1
-        let gen = generation
-        let rate = f.processingFormat.sampleRate
-        let frame = min(max(AVAudioFramePosition(time * rate), 0), f.length)
-        startFrame = frame
-        scheduled = true
-        let count = f.length - frame
-        guard count > 0 else {
-            Task { @MainActor [weak self] in self?.segmentFinished(gen) }
+    private func markBad(_ t: Track, _ error: Error) {
+        deck.halt()
+        library.update(t.id) { $0.bad = true }
+        toast("«\(t.title)»: \(error is OpenError ? error.localizedDescription : "не удалось открыть файл")")
+        failures += 1
+        let wasPlaying = isPlaying
+        if wasPlaying, queue.count > 1, failures < queue.count, qi + 1 < queue.count {
+            let here = qi
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1.2))
+                guard let self, self.qi == here else { return }
+                self.qi += 1
+                self.load(play: true)
+            }
+        } else {
+            isPlaying = false
+            stopTimer()
+        }
+        publish()
+    }
+
+    private func ended() {
+        stats.flush()
+        if sleepAfterTrack {
+            sleepAfterTrack = false
+            pause()
+            deck.rewind(to: 0)
+            clock.time = 0
+            toast("Таймер сна: воспроизведение остановлено")
             return
         }
-        node.scheduleSegment(f, startingFrame: frame, frameCount: AVAudioFrameCount(count), at: nil,
-                             completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in self?.segmentFinished(gen) }
-        }
+        advance(auto: true)
     }
 
-    private func segmentFinished(_ gen: Int) {
-        // stale callbacks (after a seek, pause or track change) carry an older generation
-        guard gen == generation, isPlaying else { return }
-        trackEnded()
-    }
+    // MARK: - Crossfade
 
-    private func stopNode() {
-        generation += 1
-        node.stop()
-        scheduled = false
-    }
+    private func maybeCrossfade() {
+        let xf = settings.v.crossfade
+        guard xf > 0, isPlaying, fadeTask == nil, !sleepAfterTrack, repeatMode != .one, !queue.isEmpty else { return }
+        guard duration >= xf * 2 + 4 else { return }
+        let left = (duration - deck.position) / settings.v.rate
+        guard left <= xf, left > 0.4 else { return }
+        let ni = qi + 1 < queue.count ? qi + 1 : (repeatMode == .all ? 0 : -1)
+        guard ni >= 0, let t = library.track(queue[ni]), t.bad != true else { return }
 
-    private func releaseFile() {
-        file = nil
-        scopedURL?.stopAccessingSecurityScopedResource()
-        scopedURL = nil
-    }
-
-    private func livePosition() -> Double {
-        guard isPlaying, let f = file,
-              let renderTime = node.lastRenderTime,
-              let playerTime = node.playerTime(forNodeTime: renderTime) else { return currentTime }
-        let t = Double(startFrame + playerTime.sampleTime) / f.processingFormat.sampleRate
-        return min(max(t, 0), duration)
-    }
-
-    // MARK: - Engine and EQ
-
-    private func setUpEngine() {
-        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-        engine.attach(node)
-        engine.attach(eq)
-        let last = eq.bands.count - 1
-        for (i, band) in eq.bands.enumerated() {
-            switch i {
-            case 0:
-                // "shelf": raises or lowers everything below ~45 Hz evenly, down to the very bottom
-                band.filterType = .lowShelf
-                band.frequency = 45
-            case last:
-                // everything above ~12 kHz evenly, up to 20 kHz and beyond ("air")
-                band.filterType = .highShelf
-                band.frequency = 12000
-            default:
-                band.filterType = .parametric
-                band.frequency = Self.frequencies[i]
-                band.bandwidth = 1.0 // octaves
+        let old = deck, new = spare
+        do { try graph.load(library.open(t), into: new) } catch { return } // the song just ends normally
+        stats.flush()
+        prepareNext(new, t, index: ni)
+        new.fade = 0
+        new.play(from: 0)
+        publish()
+        let length = max(0.5, left)
+        fadeTask = Task { [weak self] in
+            let t0 = Date()
+            while !Task.isCancelled {
+                let k = min(1, Date().timeIntervalSince(t0) / length)
+                old.fade = Float(1 - k)
+                new.fade = Float(k)
+                if k >= 1 { break }
+                try? await Task.sleep(for: .milliseconds(25))
             }
-            band.bypass = false
+            guard !Task.isCancelled else { return }
+            old.unload()
+            old.fade = 1
+            self?.fadeTask = nil
         }
-        applyEQ()
-        if let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2) {
-            connect(format)
+    }
+
+    private func prepareNext(_ d: Deck, _ t: Track, index: Int) {
+        active = 1 - active
+        qi = index
+        prepare(d, t)
+        duration = d.duration
+        clock.time = 0
+        save()
+    }
+
+    private func endFade() {
+        guard let task = fadeTask else { return }
+        task.cancel()
+        fadeTask = nil
+        spare.unload()
+        spare.fade = 1
+        deck.fade = 1
+    }
+
+    // MARK: - Sleep timer
+
+    func sleep(minutes: Int?) {
+        sleepAfterTrack = false
+        sleepAt = minutes.map { Date().addingTimeInterval(Double($0) * 60) }
+    }
+
+    func sleepAfterThisTrack() {
+        sleepAt = nil
+        sleepAfterTrack = true
+    }
+
+    private func checkSleep() {
+        guard let at = sleepAt, at <= Date(), sleepFade == nil else { return }
+        sleepAt = nil
+        sleepFade = Task { [weak self] in
+            for i in 0..<80 {
+                try? await Task.sleep(for: .milliseconds(50))
+                if Task.isCancelled { return }
+                self?.graph.master = Float(1 - Double(i + 1) / 80)
+            }
+            guard let self else { return }
+            self.sleepFade = nil
+            self.pause()
+            self.graph.master = 1
+            toast("Таймер сна: воспроизведение остановлено")
         }
-        engine.prepare()
     }
 
-    /// The chain is rebuilt with the song's own format, so the file is played as is
-    /// and only the mixer converts it to what the speaker or headphones want.
-    private func connect(_ format: AVAudioFormat) {
-        if let current = connectedFormat, current == format { return }
-        if engine.isRunning { engine.stop() }
-        engine.disconnectNodeOutput(node)
-        engine.disconnectNodeOutput(eq)
-        engine.connect(node, to: eq, format: format)
-        engine.connect(eq, to: engine.mainMixerNode, format: format)
-        connectedFormat = format
+    // MARK: - Settings, analysis, lock screen
+
+    private func settingsChanged() {
+        graph.apply(settings.v)
+        applyLoudness()
     }
 
-    private func applyEQ() {
-        for (i, band) in eq.bands.enumerated() where i < eqGains.count {
-            band.gain = eqGains[i]
+    private func applyLoudness() {
+        deck.gainDb = settings.v.normalize ? (current?.gainDb ?? 0) : 0
+    }
+
+    private func analyzed(_ id: UUID) {
+        if current?.id == id { applyLoudness() }
+    }
+
+    func publish() {
+        let t = current
+        let image = t.flatMap { $0.hasArtwork ? ArtworkStore.image(for: $0.id) : nil }
+        nowPlaying.update(track: t, artwork: image, elapsed: position, duration: duration, rate: isPlaying ? settings.v.rate : 0)
+    }
+
+    // MARK: - Session
+
+    func save() {
+        let d = UserDefaults.standard
+        lastSave = Date()
+        d.set(queue.map(\.uuidString), forKey: "session.queue")
+        d.set(orig.map(\.uuidString), forKey: "session.orig")
+        d.set(qi, forKey: "session.qi")
+        d.set(position, forKey: "session.time")
+        d.set(shuffle, forKey: "session.shuffle")
+        d.set(repeatMode.rawValue, forKey: "session.repeat")
+    }
+
+    private func restore() {
+        let d = UserDefaults.standard
+        func ids(_ key: String) -> [UUID] { (d.stringArray(forKey: key) ?? []).compactMap(UUID.init(uuidString:)).filter { library.track($0) != nil } }
+        let saved = d.stringArray(forKey: "session.queue") ?? []
+        let savedIndex = d.object(forKey: "session.qi") as? Int ?? -1
+        queue = ids("session.queue")
+        orig = ids("session.orig")
+        shuffle = d.bool(forKey: "session.shuffle")
+        repeatMode = RepeatMode(rawValue: d.string(forKey: "session.repeat") ?? "") ?? .off
+        if saved.indices.contains(savedIndex), let id = UUID(uuidString: saved[savedIndex]), let i = queue.firstIndex(of: id) {
+            qi = saved.count == queue.count ? savedIndex : i
+            savedTime = d.double(forKey: "session.time")
+            duration = current?.duration ?? 0
+            clock.time = savedTime
+            if let t = current { analyzer.request(t, first: true) }
         }
-        eq.bypass = !eqEnabled
-        // when bands are raised, the whole sound is lowered by the same amount so it does not distort
-        eq.globalGain = eqEnabled ? -max(0, eqGains.max() ?? 0) : 0
     }
 
-    private func saveEQ() {
-        let defaults = UserDefaults.standard
-        defaults.set(eqEnabled, forKey: Keys.eqOn)
-        defaults.set(eqGains.map { Double($0) }, forKey: Keys.eqGains)
-    }
+    // MARK: - Interruptions and the timer
 
-    private func restoreState() {
-        let defaults = UserDefaults.standard
-        guard let raw = defaults.string(forKey: Keys.lastTrack), let id = UUID(uuidString: raw),
-              let track = library.tracks.first(where: { $0.id == id }) else { return }
-        currentID = id
-        duration = track.duration
-        currentTime = defaults.double(forKey: Keys.lastTime)
-    }
-
-    // MARK: - Audio session, interruptions, timer
-
-    private func activateSession() {
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .default)
-        try? session.setActive(true)
-    }
-
-    private func observeSystem() {
+    private func observe() {
         let center = NotificationCenter.default
-
         observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
             let info = note.userInfo
             let type = (info?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap(AVAudioSession.InterruptionType.init(rawValue:))
             let options = AVAudioSession.InterruptionOptions(rawValue: info?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0)
-            MainActor.assumeIsolated { self?.handleInterruption(type, options) }
+            MainActor.assumeIsolated { self?.interruption(type, options) }
         })
-
         observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] note in
             let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt ?? 0
-            let reason = AVAudioSession.RouteChangeReason(rawValue: raw)
             // headphones unplugged or Bluetooth gone: pause, like every player does
-            if reason == .oldDeviceUnavailable {
+            if AVAudioSession.RouteChangeReason(rawValue: raw) == .oldDeviceUnavailable {
                 MainActor.assumeIsolated { self?.pause() }
             }
         })
-
-        observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.handleEngineReset() }
+        observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: graph.engine, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.outputChanged() }
         })
     }
 
-    private func handleInterruption(_ type: AVAudioSession.InterruptionType?, _ options: AVAudioSession.InterruptionOptions) {
+    private func interruption(_ type: AVAudioSession.InterruptionType?, _ options: AVAudioSession.InterruptionOptions) {
         switch type {
         case .began?:
             if isPlaying {
@@ -403,35 +509,38 @@ final class Player: ObservableObject {
         }
     }
 
-    private func handleEngineReset() {
-        // the output changed (e.g. AirPods connected): the engine stopped, start again from the same place
-        guard isPlaying else { return }
-        currentTime = livePosition()
-        stopNode()
+    /// The output changed (e.g. AirPods connected): the engine stopped, go on from the same place.
+    private func outputChanged() {
+        guard isPlaying, !graph.engine.isRunning else { return }
+        let t = clock.time
+        endFade()
+        deck.halt()
         isPlaying = false
-        stopTimer()
-        resume()
+        deck.rewind(to: t)
+        startDeck(at: t)
     }
 
     private func startTimer() {
         guard timer == nil else { return }
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        let t = Timer(timeInterval: 0.2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
     }
 
     private func stopTimer() {
         timer?.invalidate()
         timer = nil
+        stats.flush()
     }
 
     private func tick() {
-        currentTime = livePosition()
-    }
-
-    private func publishNowPlaying() {
-        let track = currentTrack
-        let image = track.flatMap { $0.hasArtwork ? ArtworkStore.image(for: $0.id) : nil }
-        nowPlaying.update(track: track, artwork: image, elapsed: livePosition(), duration: duration, playing: isPlaying)
+        guard isPlaying else { return }
+        clock.time = position
+        if let t = current { stats.tick(t) }
+        maybeCrossfade()
+        checkSleep()
+        if Date().timeIntervalSince(lastSave) > 5 { save() }
     }
 }

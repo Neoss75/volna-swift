@@ -2,6 +2,7 @@ import Foundation
 
 /// One song in the library. The file itself stays where it is in «Файлы»;
 /// we only keep a bookmark that lets us open it again after the app restarts.
+/// Everything after `hasArtwork` is optional so that libraries saved by build 7 still open.
 struct Track: Identifiable, Codable, Equatable {
     let id: UUID
     var bookmark: Data
@@ -12,8 +13,84 @@ struct Track: Identifiable, Codable, Equatable {
     var duration: Double
     var hasArtwork: Bool
 
+    // songs added as part of a folder: the folder's bookmark plus a path inside it
+    var folderID: UUID?
+    var relPath: String?
+    var folder: String?
+
+    var ext: String?
+    var size: Int?
+    var sampleRate: Double?
+    var bits: Int?
+    var kbps: Double?
+    var vbr: Bool?
+    var tagBytes: Int?
+
+    var wave: [Int]?
+    var gainDb: Double?
+    var artOnline: Bool?
+    var artTried: Int?
+    var metaVersion: Int?
+    var bad: Bool?
+
+    static let currentMeta = 1
+
+    var fileName: String { (path as NSString).lastPathComponent }
+    var baseName: String { (fileName as NSString).deletingPathExtension }
+    var kind: String { (ext ?? (fileName as NSString).pathExtension).uppercased() }
+    var letter: String { title.trimmingCharacters(in: .whitespaces).first.map { String($0).uppercased() } ?? "♪" }
+
     var subtitle: String {
         let parts = [artist, album].filter { !$0.isEmpty }
-        return parts.isEmpty ? "Неизвестный исполнитель" : parts.joined(separator: " · ")
+        return parts.isEmpty ? [kind, sizeText].filter { !$0.isEmpty }.joined(separator: " · ") : parts.joined(separator: " · ")
     }
+
+    var sizeText: String {
+        guard let size, size > 0 else { return "" }
+        return String(format: "%.1f МБ", Double(size) / 1_048_576)
+    }
+
+    private static let standardRates: [Double] = [32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 192, 224, 256, 320]
+
+    /// Exact where the file states it, otherwise the average: size ÷ duration.
+    var bitrateText: String {
+        if let kbps, kbps > 0 { return "\(Int(kbps.rounded())) кбит/с" }
+        guard let size, size > 0, duration > 0 else { return "" }
+        let avg = Double(max(0, size - (tagBytes ?? 0))) * 8 / duration / 1000
+        if vbr == true { return "VBR ≈ \(Int(avg.rounded())) кбит/с" }
+        if ["MP3", "M4A", "AAC"].contains(kind), let s = Self.standardRates.first(where: { abs($0 - avg) / $0 < 0.03 }) {
+            return "\(Int(s)) кбит/с"
+        }
+        return "≈ \(Int(avg.rounded())) кбит/с"
+    }
+
+    /// Compact form for list rows: "MP3 320", "FLAC ≈912".
+    var rowQuality: String {
+        let k = bitrateText.replacingOccurrences(of: " кбит/с", with: "").replacingOccurrences(of: "≈ ", with: "≈")
+        return k.isEmpty ? kind : kind + " " + k
+    }
+
+    var formatLine: String {
+        var p = [kind]
+        if let sr = sampleRate, sr > 0 {
+            let khz = String(format: "%g кГц", (sr / 100).rounded() / 10)
+            if let bits, bits > 0 { p.append("\(bits) бит / \(khz)") } else { p.append(khz) }
+        }
+        p.append(bitrateText)
+        p.append(sizeText)
+        return p.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
+struct FolderRef: Identifiable, Codable {
+    let id: UUID
+    var bookmark: Data
+    var path: String
+    var name: String
+}
+
+struct Playlist: Identifiable, Codable {
+    let id: UUID
+    var name: String
+    var keys: [UUID]
 }

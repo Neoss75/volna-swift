@@ -1,0 +1,255 @@
+import AVFoundation
+import AudioToolbox
+
+/// One player of the two: node → speed → fade → loudness → shared chain. Two decks make the crossfade possible.
+@MainActor
+final class Deck {
+    let node = AVAudioPlayerNode()
+    let pitch = AVAudioUnitTimePitch()
+    let mixer = AVAudioMixerNode()
+    let gain = AVAudioUnitEQ(numberOfBands: 1)
+
+    fileprivate(set) var file: AVAudioFile?
+    fileprivate var access: FileAccess?
+    fileprivate var format: AVAudioFormat?
+    private var startFrame: AVAudioFramePosition = 0
+    private var generation = 0
+    private(set) var scheduled = false
+    private(set) var running = false
+    private var rest: Double = 0
+
+    var onEnd: (() -> Void)?
+
+    var duration: Double {
+        guard let f = file else { return 0 }
+        return Double(f.length) / f.processingFormat.sampleRate
+    }
+
+    var fade: Float = 1 { didSet { mixer.outputVolume = fade } }
+    var gainDb: Double = 0 { didSet { gain.globalGain = Float(gainDb) } }
+
+    var position: Double {
+        guard running, let f = file, let rt = node.lastRenderTime, rt.isSampleTimeValid,
+              let pt = node.playerTime(forNodeTime: rt) else { return rest }
+        return min(max(Double(startFrame + pt.sampleTime) / f.processingFormat.sampleRate, 0), duration)
+    }
+
+    /// Starts from `time`; the engine must be running.
+    func play(from time: Double) {
+        guard let f = file else { return }
+        halt()
+        // a player node crashes the app when started while the engine is stopped (e.g. the output just changed)
+        guard node.engine?.isRunning == true else {
+            rest = time
+            return
+        }
+        generation += 1
+        let gen = generation
+        let frame = min(max(AVAudioFramePosition(time * f.processingFormat.sampleRate), 0), f.length)
+        startFrame = frame
+        rest = time
+        let count = f.length - frame
+        guard count > 0 else {
+            Task { @MainActor [weak self] in self?.finished(gen) }
+            running = true
+            return
+        }
+        node.scheduleSegment(f, startingFrame: frame, frameCount: AVAudioFrameCount(count), at: nil,
+                             completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in self?.finished(gen) }
+        }
+        node.play()
+        running = true
+    }
+
+    /// Stops and remembers the position.
+    func halt() {
+        rest = position
+        generation += 1
+        node.stop()
+        running = false
+    }
+
+    func rewind(to time: Double) { rest = time }
+
+    private func finished(_ gen: Int) {
+        guard gen == generation, running else { return } // stale callbacks carry an older generation
+        onEnd?()
+    }
+
+    func unload() {
+        halt()
+        file = nil
+        access = nil
+        rest = 0
+    }
+}
+
+enum OpenError: LocalizedError {
+    case notFound
+    var errorDescription: String? { "файл не найден: его переместили или удалили в «Файлах»" }
+}
+
+@MainActor
+final class AudioGraph {
+    static let frequencies: [Double] = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+    static let labels = ["31", "62", "125", "250", "500", "1k", "2k", "4k", "8k", "16k+"]
+    static let lowShelf = 45.0, highShelf = 12000.0, bassShelf = 90.0
+
+    let engine = AVAudioEngine()
+    let decks = [Deck(), Deck()]
+    let tap = VizTap()
+    private let bus = AVAudioMixerNode()
+    private let eq = AVAudioUnitEQ(numberOfBands: 11)
+    private let limiter = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
+        componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
+        componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
+    private let out = AVAudioMixerNode()
+    private var busFormat: AVAudioFormat?
+
+    init() {
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+        for d in decks {
+            engine.attach(d.node)
+            engine.attach(d.pitch)
+            engine.attach(d.mixer)
+            engine.attach(d.gain)
+            d.gain.bands[0].bypass = true
+        }
+        engine.attach(bus)
+        engine.attach(eq)
+        engine.attach(limiter)
+        engine.attach(out)
+        for i in 0..<11 {
+            let b = eq.bands[i]
+            switch i {
+            case 0: b.filterType = .lowShelf; b.frequency = Float(Self.lowShelf)
+            case 9: b.filterType = .highShelf; b.frequency = Float(Self.highShelf)
+            case 10: b.filterType = .lowShelf; b.frequency = Float(Self.bassShelf)
+            default: b.filterType = .parametric; b.frequency = Float(Self.frequencies[i]); b.bandwidth = 1
+            }
+            b.bypass = false
+        }
+        rebuild()
+    }
+
+    /// The shared part of the chain runs at the rate of the current output (speaker, headphones, Bluetooth).
+    func rebuild() {
+        let hw = engine.outputNode.outputFormat(forBus: 0).sampleRate
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: hw > 0 ? hw : 44100, channels: 2) else { return }
+        if busFormat == format { return }
+        tap.remove(from: limiter)
+        if engine.isRunning { engine.stop() }
+        for (i, d) in decks.enumerated() {
+            engine.disconnectNodeOutput(d.mixer)
+            engine.disconnectNodeOutput(d.gain)
+            engine.connect(d.mixer, to: d.gain, format: format)
+            engine.connect(d.gain, to: bus, fromBus: 0, toBus: i, format: format)
+            if d.format == nil { connect(d, format) }
+        }
+        for n in [bus, eq, limiter, out] as [AVAudioNode] { engine.disconnectNodeOutput(n) }
+        engine.connect(bus, to: eq, format: format)
+        engine.connect(eq, to: limiter, format: format)
+        engine.connect(limiter, to: out, format: format)
+        engine.connect(out, to: engine.mainMixerNode, format: format)
+        busFormat = format
+        tap.install(on: limiter)
+        engine.prepare()
+    }
+
+    private func connect(_ d: Deck, _ format: AVAudioFormat) {
+        if let f = d.format, f == format { return }
+        engine.disconnectNodeOutput(d.node)
+        engine.disconnectNodeOutput(d.pitch)
+        if format.channelCount <= 2 {
+            engine.connect(d.node, to: d.pitch, format: format)
+            engine.connect(d.pitch, to: d.mixer, format: format)
+        } else {
+            engine.connect(d.node, to: d.mixer, format: format) // the mixer folds surround down to stereo
+        }
+        d.format = format
+    }
+
+    func load(_ access: FileAccess?, into d: Deck) throws {
+        d.unload()
+        guard let access else { throw OpenError.notFound }
+        if !FileManager.default.fileExists(atPath: access.url.path) {
+            // an iCloud file that is not on the phone yet: ask for it, it will open next time
+            try? FileManager.default.startDownloadingUbiquitousItem(at: access.url)
+        }
+        let f = try AVAudioFile(forReading: access.url)
+        d.access = access
+        d.file = f
+        connect(d, f.processingFormat)
+    }
+
+    func start() throws {
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .default)
+        try? session.setActive(true)
+        if !engine.isRunning {
+            rebuild()
+            try engine.start()
+        }
+    }
+
+    /// Volume of everything, used only to fade out when the sleep timer fires.
+    var master: Float {
+        get { out.outputVolume }
+        set { out.outputVolume = newValue }
+    }
+
+    func apply(_ v: Settings.Values) {
+        for i in 0..<10 { eq.bands[i].gain = v.eqOn ? Float(v.bands[i]) : 0 }
+        eq.bands[10].gain = Float(v.bass)
+        eq.globalGain = v.eqOn ? Float(v.preamp) : 0
+        limiter.bypass = !v.limiter
+        out.pan = Float(v.balance / 100)
+        for d in decks {
+            d.pitch.rate = Float(v.rate)
+            d.pitch.pitch = v.keepPitch ? 0 : Float(1200 * log2(v.rate))
+            d.pitch.bypass = v.rate == 1
+        }
+    }
+
+    // MARK: - Response curve for the equaliser screen
+
+    /// Sum of all bands in dB at frequency `f`.
+    static func response(_ v: Settings.Values, at f: Double) -> Double {
+        var db = v.eqOn ? v.preamp : 0
+        if v.eqOn {
+            for i in 0..<10 {
+                switch i {
+                case 0: db += shelf(f, lowShelf, v.bands[i], low: true)
+                case 9: db += shelf(f, highShelf, v.bands[i], low: false)
+                default: db += peak(f, frequencies[i], v.bands[i])
+                }
+            }
+        }
+        return db + shelf(f, bassShelf, v.bass, low: true)
+    }
+
+    private static func magnitude(_ b: [Double], _ a: [Double], _ w: Double) -> Double {
+        func part(_ c: [Double]) -> Double {
+            let re = c[0] + c[1] * cos(w) + c[2] * cos(2 * w), im = c[1] * sin(w) + c[2] * sin(2 * w)
+            return re * re + im * im
+        }
+        return 10 * log10(max(part(b), 1e-12) / max(part(a), 1e-12))
+    }
+
+    private static func peak(_ f: Double, _ f0: Double, _ gain: Double) -> Double {
+        if gain == 0 { return 0 }
+        let sr = 48000.0, w0 = 2 * .pi * f0 / sr, A = pow(10, gain / 40), al = sin(w0) / (2 * 1.414), c = cos(w0)
+        return magnitude([1 + al * A, -2 * c, 1 - al * A], [1 + al / A, -2 * c, 1 - al / A], 2 * .pi * f / sr)
+    }
+
+    private static func shelf(_ f: Double, _ f0: Double, _ gain: Double, low: Bool) -> Double {
+        if gain == 0 { return 0 }
+        let sr = 48000.0, w0 = 2 * .pi * f0 / sr, A = pow(10, gain / 40), c = cos(w0) * (low ? 1 : -1)
+        let s = 2 * A.squareRoot() * sin(w0) / 2 * 2.0.squareRoot()
+        let k: Double = low ? 1 : -1
+        let b = [A * ((A + 1) - (A - 1) * c + s), k * 2 * A * ((A - 1) - (A + 1) * c), A * ((A + 1) - (A - 1) * c - s)]
+        let a = [(A + 1) + (A - 1) * c + s, k * -2 * ((A - 1) + (A + 1) * c), (A + 1) + (A - 1) * c - s]
+        return magnitude(b, a, 2 * .pi * f / sr)
+    }
+}
