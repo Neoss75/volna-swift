@@ -1,6 +1,7 @@
 import AVFoundation
 import MediaPlayer
 import UIKit
+import WidgetKit
 
 /// Playback position, published separately so that the whole screen does not redraw four times a second.
 @MainActor
@@ -72,6 +73,10 @@ final class Player: ObservableObject {
         }
         observe()
         restore()
+        PlayerBridge.toggle = { [weak self] in self?.toggle() }
+        PlayerBridge.next = { [weak self] in self?.next() }
+        PlayerBridge.previous = { [weak self] in self?.previous() }
+        updateWidget(current, current.flatMap { $0.hasArtwork ? ArtworkStore.image(for: $0.id) : nil })
     }
 
     var current: Track? { qi >= 0 && qi < queue.count ? library.track(queue[qi]) : nil }
@@ -522,6 +527,23 @@ final class Player: ObservableObject {
         let t = current
         let image = t.flatMap { $0.hasArtwork ? ArtworkStore.image(for: $0.id) : nil }
         nowPlaying.update(track: t, artwork: image, elapsed: position, duration: duration, rate: isPlaying ? settings.v.effectiveRate : 0)
+        updateWidget(t, image)
+    }
+
+    private var widgetState = WidgetState.load()
+
+    private func updateWidget(_ t: Track?, _ image: UIImage?) {
+        var s = WidgetState()
+        s.title = t?.title ?? ""
+        s.artist = t?.artist ?? ""
+        s.playing = isPlaying
+        s.accent = settings.v.accent
+        if let t, let image { s.coverVersion = "\(t.id) \(ObjectIdentifier(image).hashValue)" }
+        guard s != widgetState else { return }
+        if s.coverVersion != widgetState.coverVersion { WidgetState.saveCover(image) }
+        widgetState = s
+        s.save()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: - Session

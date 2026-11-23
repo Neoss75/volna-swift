@@ -32,6 +32,9 @@ struct PlayerScreen: View {
             PanelView(panel: panel)
         }
         .modifier(Dialogs(active: ui.panel == nil))
+        #if DEBUG
+            .overlay { if ProcessInfo.processInfo.arguments.contains("-widgets") { WidgetGallery(player: player) } }
+        #endif
     }
 
     private var portrait: some View {

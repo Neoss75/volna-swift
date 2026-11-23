@@ -66,5 +66,6 @@ shot 07-lyrics -lyrics
 shot 08-ring -viz ring
 shot 09-vu -viz vu
 shot 10-light -theme light
+shot 11-widgets -widgets -theme dark
 for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done
 exit $RESULT

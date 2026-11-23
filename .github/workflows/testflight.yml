@@ -39,7 +39,7 @@ jobs:
 
       - name: Check line endings (must be LF)
         run: |
-          if grep -rlI $'\r' Sources Config scripts project.yml .github; then
+          if grep -rlI $'\r' Sources Shared Widget Config scripts project.yml .github; then
             echo "::error::the files above have Windows line endings (CRLF)"; exit 1
           fi
 

@@ -97,6 +97,10 @@ enum Demo {
         for t in library.tracks { player.analyzer.request(t, first: false) }
         while library.tracks.contains(where: { $0.wave == nil }), Date().timeIntervalSince(t0) < 60 { await wait(0.5) }
         log(String(format: "waveforms took %.1f s more", Date().timeIntervalSince(t0)))
+        check("widget data", WidgetState.load().title == player.current?.title && WidgetState.load().playing, WidgetState.folder == nil ? "no app group" : "\(WidgetState.load())")
+        PlayerBridge.toggle?()
+        check("widget button", !player.isPlaying && !WidgetState.load().playing, "")
+        PlayerBridge.toggle?()
         check("waveforms", library.tracks.allSatisfy { ($0.wave?.count ?? 0) == 180 && ($0.wave?.max() ?? 0) == 100 }, "\(library.tracks.map { $0.gainDb ?? 99 })")
         player.seek(to: 1)
         player.play(ids[0], from: ids)
@@ -211,6 +215,22 @@ enum Demo {
             for c in 0..<channels { data[c][i] = Float(s * env * 0.3) }
         }
         try? file.write(from: buffer)
+    }
+}
+
+/// The widgets drawn inside the app, only to take a picture of them.
+struct WidgetGallery: View {
+    @ObservedObject var player: Player
+
+    var body: some View {
+        let s = WidgetState.load(), c = WidgetState.cover()
+        VStack(spacing: 30) {
+            SmallWidgetView(state: s, cover: c).padding(16).frame(width: 170, height: 170).background(widgetBackground).clipShape(RoundedRectangle(cornerRadius: 24))
+            MediumWidgetView(state: s, cover: c).padding(16).frame(width: 364, height: 170).background(widgetBackground).clipShape(RoundedRectangle(cornerRadius: 24))
+            LockWidgetView(state: s).foregroundStyle(.white).frame(width: 170, height: 72)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.gray)
     }
 }
 #endif
