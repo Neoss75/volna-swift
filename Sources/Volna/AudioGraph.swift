@@ -1,7 +1,7 @@
 import AVFoundation
 import AudioToolbox
 
-/// One player of the two: node → speed → fade → loudness → shared chain. Two decks make the crossfade possible.
+/// One player of the two: node → fade (and conversion of the song's format) → speed → loudness → shared chain. Two decks make the crossfade possible.
 @MainActor
 final class Deck {
     let node = AVAudioPlayerNode()
@@ -141,9 +141,9 @@ final class AudioGraph {
         tap.remove(from: limiter)
         if engine.isRunning { engine.stop() }
         for (i, d) in decks.enumerated() {
-            engine.disconnectNodeOutput(d.mixer)
-            engine.disconnectNodeOutput(d.gain)
-            engine.connect(d.mixer, to: d.gain, format: format)
+            for n in [d.mixer, d.pitch, d.gain] as [AVAudioNode] { engine.disconnectNodeOutput(n) }
+            engine.connect(d.mixer, to: d.pitch, format: format)
+            engine.connect(d.pitch, to: d.gain, format: format)
             engine.connect(d.gain, to: bus, fromBus: 0, toBus: i, format: format)
             if d.format == nil { connect(d, format) }
         }
@@ -159,14 +159,9 @@ final class AudioGraph {
 
     private func connect(_ d: Deck, _ format: AVAudioFormat) {
         if let f = d.format, f == format { return }
+        // only this link changes from song to song: a mixer takes any sample rate and folds surround down to stereo
         engine.disconnectNodeOutput(d.node)
-        engine.disconnectNodeOutput(d.pitch)
-        if format.channelCount <= 2 {
-            engine.connect(d.node, to: d.pitch, format: format)
-            engine.connect(d.pitch, to: d.mixer, format: format)
-        } else {
-            engine.connect(d.node, to: d.mixer, format: format) // the mixer folds surround down to stereo
-        }
+        engine.connect(d.node, to: d.mixer, format: format)
         d.format = format
     }
 

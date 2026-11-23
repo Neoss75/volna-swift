@@ -45,6 +45,8 @@ shot() { # shot <name> <arguments…>
   t 30 xcrun simctl io "$DEV" screenshot "shots/$name.png" > /dev/null 2>&1
   t 30 xcrun simctl terminate "$DEV" $ID > /dev/null 2>&1 || true
 }
+# the first start after installing is slow: warm up
+t 60 xcrun simctl launch "$DEV" $ID -demo > /dev/null; sleep 25; t 30 xcrun simctl terminate "$DEV" $ID > /dev/null 2>&1
 shot 01-player
 shot 02-list -panel list
 shot 03-queue -panel queue
