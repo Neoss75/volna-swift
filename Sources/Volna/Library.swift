@@ -29,7 +29,7 @@ final class Library: ObservableObject {
 
     var onRemove: ((Set<UUID>) -> Void)?
 
-    static let audioExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "flac", "wav", "aif", "aiff", "alac", "caf", "opus", "ogg"]
+    private nonisolated static let audioExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "flac", "wav", "aif", "aiff", "alac", "caf", "opus", "ogg"]
 
     init() {
         dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

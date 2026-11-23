@@ -1,3 +1,4 @@
+import Accelerate
 import AVFoundation
 
 /// One pass over the file gives both the loudness (for normalisation) and the waveform of the progress bar.
@@ -28,26 +29,32 @@ enum Analysis {
             do { try file.read(into: buffer) } catch { break }
             let n = Int(buffer.frameLength)
             guard n > 0, let data = buffer.floatChannelData else { break }
+            for c in 0..<channels {
+                var m: Float = 0
+                vDSP_maxmgv(data[c], 1, &m, vDSP_Length(n))
+                peak = max(peak, m)
+            }
+            // runs that stay inside one point of the waveform and one loudness block, each summed in one go
             var i = 0
             while i < n {
                 let p = min(points - 1, (pos + i) * points / total)
+                let pointEnd = ((p + 1) * total + points - 1) / points - pos
+                let len = max(1, min(n - i, pointEnd - i, block - inBlock))
                 for c in 0..<channels {
-                    let x = data[c][i]
-                    let e = Double(x * x)
-                    sums[p] += e
-                    counts[p] += 1
-                    blockSum += e
-                    blockCount += 1
-                    let a = abs(x)
-                    if a > peak { peak = a }
+                    var e: Float = 0
+                    vDSP_svesq(data[c] + i, 1, &e, vDSP_Length(len))
+                    sums[p] += Double(e)
+                    blockSum += Double(e)
                 }
-                inBlock += 2
+                counts[p] += len * channels
+                blockCount += len * channels
+                inBlock += len
                 if inBlock >= block {
                     let e = blockSum / Double(max(1, blockCount))
                     if e > 1e-5 { gated += e; gatedBlocks += 1 } // skip near-silent blocks
                     blockSum = 0; blockCount = 0; inBlock = 0
                 }
-                i += 2
+                i += len
             }
             pos += n
         }
@@ -97,7 +104,7 @@ final class Analyzer: ObservableObject {
             if let t = library.track(id), t.wave == nil || t.gainDb == nil {
                 var result: Analysis.Result?
                 if let access = library.open(t) {
-                    result = await Task.detached(priority: .utility) { Analysis.run(access.url) }.value
+                    result = await Task.detached(priority: .userInitiated) { Analysis.run(access.url) }.value
                 }
                 library.update(id) {
                     $0.wave = result?.wave ?? []

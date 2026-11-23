@@ -87,7 +87,10 @@ enum Demo {
         check("shuffle keeps song", player.current?.id == ids[2] && player.qi == 0)
         player.toggleShuffle()
         check("unshuffle", player.queue == ids && player.qi == 2)
-        for _ in 0..<20 where library.tracks.contains(where: { $0.wave == nil }) { await wait(0.5); for t in library.tracks { player.analyzer.request(t, first: false) } }
+        let t0 = Date()
+        for t in library.tracks { player.analyzer.request(t, first: false) }
+        while library.tracks.contains(where: { $0.wave == nil }), Date().timeIntervalSince(t0) < 60 { await wait(0.5) }
+        log(String(format: "waveforms took %.1f s more", Date().timeIntervalSince(t0)))
         check("waveforms", library.tracks.allSatisfy { ($0.wave?.count ?? 0) == 180 && ($0.wave?.max() ?? 0) == 100 }, "\(library.tracks.map { $0.gainDb ?? 99 })")
         player.seek(to: 1)
         player.play(ids[0], from: ids)

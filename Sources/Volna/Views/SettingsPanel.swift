@@ -67,7 +67,7 @@ struct SettingsPanel: View {
 
     private var closeButton: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            Button { ui.panel = nil } label: { Image(systemName: "xmark") }
+            Button { ui.panel = nil } label: { Image(systemName: "xmark").foregroundStyle(Theme.fg) }
                 .accessibilityLabel("Закрыть")
         }
     }
