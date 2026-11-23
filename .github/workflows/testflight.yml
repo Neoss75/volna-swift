@@ -39,7 +39,7 @@ jobs:
 
       - name: Check line endings (must be LF)
         run: |
-          if grep -rlI $'\r' Sources Config project.yml .github; then
+          if grep -rlI $'\r' Sources Config scripts project.yml .github; then
             echo "::error::the files above have Windows line endings (CRLF)"; exit 1
           fi
 
@@ -87,7 +87,7 @@ jobs:
         if: steps.keys.outputs.ok == 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/keys"
-          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+          bash scripts/write-key.sh "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           echo "KEY_PATH=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
 
       - name: Build and sign
