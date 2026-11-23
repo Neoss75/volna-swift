@@ -41,6 +41,7 @@ enum Demo {
         if args.contains("-eqrock") { settings.v.bands = EQPreset.all[2].bands }
         try? await Task.sleep(for: .seconds(1))
         if let p = value("-panel").flatMap(Panel.init(rawValue:)) { ui.panel = p }
+        if let page = value("-page").flatMap(SettingsPage.init(rawValue:)) { ui.settingsPath = [page] }
     }
 
     private static func selfTest(library: Library, player: Player, settings: Settings) async {

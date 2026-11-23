@@ -4,20 +4,25 @@ set -uo pipefail
 APP=build/dd/Build/Products/Debug-iphonesimulator/Volna.app
 ID=com.neoss75.volna.swift
 mkdir -p shots
+# macOS has no "timeout": every simulator command gets a limit, so a stuck simulator cannot hang the job
+t() { local s="$1"; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
+say() { echo "[$(date +%T)] $*"; }
 
 RUNTIME=$(xcrun simctl list runtimes | grep -E '^iOS 26' | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimRuntime\.iOS-[0-9-]+')
 [ -n "$RUNTIME" ] || { echo "::error::no iOS 26 simulator here"; xcrun simctl list runtimes; exit 1; }
 TYPE=$(xcrun simctl list devicetypes | grep -E 'iPhone 1[67] Pro Max' | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimDeviceType\.[A-Za-z0-9-]+')
 echo "$RUNTIME $TYPE"
 DEV=$(xcrun simctl create volna "$TYPE" "$RUNTIME")
+say boot
 xcrun simctl boot "$DEV"
-xcrun simctl bootstatus "$DEV" -b > /dev/null
+t 420 xcrun simctl bootstatus "$DEV" -b | tail -n 3
+say booted
 xcrun simctl ui "$DEV" appearance dark
 xcrun simctl status_bar "$DEV" override --time 9:41 --batteryState charged --batteryLevel 100 || true
-xcrun simctl install "$DEV" "$APP"
+t 120 xcrun simctl install "$DEV" "$APP"
 
-echo "===== self-test ====="
-xcrun simctl launch --stdout="$PWD/shots/out.txt" --stderr="$PWD/shots/selftest.txt" "$DEV" $ID -demo -selftest
+say self-test
+t 120 xcrun simctl launch --stdout="$PWD/shots/out.txt" --stderr="$PWD/shots/selftest.txt" "$DEV" $ID -demo -selftest
 for _ in $(seq 1 100); do
   grep -q 'SELFTEST done' shots/selftest.txt 2>/dev/null && break
   sleep 1
@@ -34,16 +39,22 @@ xcrun simctl install "$DEV" "$APP"
 
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
-  xcrun simctl launch "$DEV" $ID -demo "$@" > /dev/null
+  say "$name"
+  t 60 xcrun simctl launch "$DEV" $ID -demo "$@" > /dev/null
   sleep 7
-  xcrun simctl io "$DEV" screenshot "shots/$name.png" > /dev/null 2>&1
-  xcrun simctl terminate "$DEV" $ID > /dev/null 2>&1 || true
+  t 30 xcrun simctl io "$DEV" screenshot "shots/$name.png" > /dev/null 2>&1
+  t 30 xcrun simctl terminate "$DEV" $ID > /dev/null 2>&1 || true
 }
 shot 01-player
 shot 02-list -panel list
 shot 03-queue -panel queue
 shot 04-eq -panel eq -eqrock
 shot 05-settings -panel fx
+shot 05a-sound -panel fx -page sound
+shot 05b-playback -panel fx -page playback
+shot 05c-theme -panel fx -page theme
+shot 05d-viz -panel fx -page viz
+shot 05e-library -panel fx -page library
 shot 06-stats -panel stats
 shot 07-lyrics -lyrics
 shot 08-ring -viz ring

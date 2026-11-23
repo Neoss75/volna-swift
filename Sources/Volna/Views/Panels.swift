@@ -8,28 +8,34 @@ struct PanelView: View {
     let panel: Panel
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title).font(.display(18, .semibold)).foregroundStyle(Theme.fg)
-                if panel == .list { Text("\(library.tracks.count)").font(.mono(12)).foregroundStyle(Theme.muted) }
-                Spacer()
-                Button { ui.panel = nil } label: {
-                    Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.fg).frame(width: 26, height: 26)
+        Group {
+            if panel == .fx {
+                SettingsPanel()
+            } else {
+                VStack(spacing: 0) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(title).font(.display(18, .semibold)).foregroundStyle(Theme.fg)
+                        if panel == .list { Text("\(library.tracks.count)").font(.mono(12)).foregroundStyle(Theme.muted) }
+                        Spacer()
+                        Button { ui.panel = nil } label: {
+                            Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.fg).frame(width: 26, height: 26)
+                        }
+                        .buttonStyle(.glass)
+                        .buttonBorderShape(.circle)
+                        .accessibilityLabel("Закрыть")
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 18)
+                    .padding(.bottom, 10)
+                    Divider().overlay(Theme.line)
+                    switch panel {
+                    case .list: ListPanel()
+                    case .queue: QueuePanel()
+                    case .eq: EQPanel()
+                    case .fx: EmptyView()
+                    case .stats: StatsPanel()
+                    }
                 }
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .accessibilityLabel("Закрыть")
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 10)
-            Divider().overlay(Theme.line)
-            switch panel {
-            case .list: ListPanel()
-            case .queue: QueuePanel()
-            case .eq: EQPanel()
-            case .fx: FXPanel()
-            case .stats: StatsPanel()
             }
         }
         .background(Theme.surface.ignoresSafeArea())
@@ -568,123 +574,6 @@ struct BandSlider: View {
         .accessibilityElement()
         .accessibilityValue(formatDb(value))
         .accessibilityAdjustableAction { value = min(12, max(-12, value + ($0 == .increment ? 0.5 : -0.5))) }
-    }
-}
-
-// MARK: - Settings
-
-struct FXPanel: View {
-    @EnvironmentObject private var settings: Settings
-    @EnvironmentObject private var library: Library
-    @EnvironmentObject private var player: Player
-    @EnvironmentObject private var covers: CoverFinder
-    @EnvironmentObject private var analyzer: Analyzer
-    @EnvironmentObject private var stats: Stats
-    @EnvironmentObject private var ui: UIState
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                group("Обработка") {
-                    SliderRow(label: "Усиление баса", value: $settings.v.bass, range: 0...12, step: 0.5, format: formatDb)
-                    SliderRow(label: "Баланс", value: $settings.v.balance, range: -100...100, step: 5) {
-                        $0 == 0 ? "центр" : ($0 < 0 ? "Л " : "П ") + "\(Int(abs($0)))%"
-                    }
-                    SwitchRow(label: "Лимитер (убирает хрип при сильном усилении)", on: $settings.v.limiter)
-                    SwitchRow(label: "Выравнивать громкость между песнями", on: $settings.v.normalize)
-                    Hint(normInfo)
-                    Button("Измерить всю библиотеку") { measureAll() }.buttonStyle(.glass)
-                }
-                group("Обложки") {
-                    SwitchRow(label: "Искать обложки альбомов в интернете", on: $settings.v.onlineArt)
-                    Hint(artInfo)
-                    Button("Найти для всей библиотеки") { covers.findAll() }.buttonStyle(.glass)
-                }
-                group("Переход между песнями") {
-                    SliderRow(label: "Кроссфейд", value: $settings.v.crossfade, range: 0...12, step: 1) { $0 == 0 ? "выкл" : "\(Int($0)) с" }
-                    Hint("Конец песни плавно затухает, а следующая песня плавно нарастает поверх него. Работает при автоматическом переходе. Кнопки «вперёд» и «назад» и свайп по обложке переключают сразу.")
-                }
-                group("Скорость") {
-                    SliderRow(label: "Скорость", value: $settings.v.rate, range: 0.5...2, step: 0.05) { String(format: "%.2f×", $0) }
-                    SwitchRow(label: "Сохранять высоту тона", on: $settings.v.keepPitch)
-                }
-                group("Таймер сна") {
-                    Flow {
-                        Chip(text: "Выключен", on: player.sleepAt == nil && !player.sleepAfterTrack) { player.sleep(minutes: nil) }
-                        ForEach([15, 30, 45, 60], id: \.self) { m in
-                            Chip(text: m == 60 ? "1 час" : "\(m) минут", on: false) { player.sleep(minutes: m); toast("Таймер сна: \(m) минут") }
-                        }
-                        Chip(text: "После трека", on: player.sleepAfterTrack) { player.sleepAfterThisTrack() }
-                    }
-                    SleepNote()
-                }
-                group("Оформление") {
-                    Flow {
-                        ForEach([("system", "Как в системе"), ("dark", "Тёмная"), ("light", "Светлая")], id: \.0) { m in
-                            Chip(text: m.1, on: settings.v.themeMode == m.0) { settings.v.themeMode = m.0 }
-                        }
-                    }
-                    Flow {
-                        ForEach(Accent.all) { a in
-                            Chip(text: a.name, dot: a.color, on: settings.v.accent == a.id) { settings.v.accent = a.id }
-                        }
-                    }
-                }
-                group("Визуализация") {
-                    Flow {
-                        ForEach(VizMode.allCases) { m in
-                            Chip(text: m.name, on: settings.v.viz == m) { settings.v.viz = m }
-                        }
-                    }
-                    Hint("Режим также переключается нажатием на визуализацию под обложкой.")
-                }
-                group("Статистика") {
-                    Hint(stats.summary)
-                    Button("Открыть статистику") { ui.panel = .stats }.buttonStyle(.glass)
-                }
-                group("Файлы", last: true) {
-                    Hint("Песни не копируются: плеер играет их там, где они лежат в «Файлах». Удаление из списка сами файлы не трогает. Если переместить или удалить файл, песня перестанет открываться.")
-                }
-            }
-            .padding(16)
-        }
-    }
-
-    private func group<C: View>(_ title: String, last: Bool = false, @ViewBuilder _ content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(title).font(.display(14, .semibold)).foregroundStyle(Theme.fg)
-            content()
-            if !last { Divider().overlay(Theme.line) }
-        }
-    }
-
-    private var normInfo: String {
-        guard settings.v.normalize else {
-            return "Плеер один раз измеряет громкость каждой песни и подстраивает её, чтобы тихие и громкие треки звучали одинаково."
-        }
-        let done = library.tracks.filter { $0.gainDb != nil }.count
-        var s = "Измерено \(done) из \(library.tracks.count)"
-        if analyzer.left > 0 { s += " · идёт измерение…" }
-        if let g = player.current?.gainDb { s += " · текущая песня: " + formatDb(g) }
-        return s
-    }
-
-    private var artInfo: String {
-        var s = settings.v.onlineArt
-            ? "Для песен без своей обложки плеер ищет её в каталоге iTunes по исполнителю и альбому. Туда отправляются только эти названия."
-            : "Поиск выключен."
-        let found = library.tracks.filter { $0.artOnline == true && $0.hasArtwork }.count, no = library.tracks.filter { !$0.hasArtwork }.count
-        if found > 0 { s += " Найдено обложек: \(found)." }
-        if no > 0 { s += " Без обложки: " + plural(no, "песня", "песни", "песен") + "." }
-        if covers.left > 0 { s += " Идёт поиск, осталось \(covers.left). iTunes отвечает не чаще раза в 3 секунды, так что это займёт несколько минут." }
-        return s
-    }
-
-    private func measureAll() {
-        let l = library.tracks.filter { ($0.gainDb == nil || $0.wave == nil) && $0.bad != true }
-        if l.isEmpty { toast("Вся библиотека уже измерена"); return }
-        for t in l { analyzer.request(t, first: false) }
-        toast("Измеряю громкость: " + plural(l.count, "песня", "песни", "песен"))
     }
 }
 

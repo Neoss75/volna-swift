@@ -15,7 +15,8 @@ enum Prompt: Equatable {
 /// What is open on the screen right now.
 @MainActor
 final class UIState: ObservableObject {
-    @Published var panel: Panel?
+    @Published var panel: Panel? { didSet { if panel != .fx { settingsPath = [] } } }
+    @Published var settingsPath: [SettingsPage] = []
     @Published var importing: ImportKind?
     @Published var prompt: Prompt?
     @Published var coverFor: UUID?
