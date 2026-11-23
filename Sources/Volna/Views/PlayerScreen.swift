@@ -565,7 +565,7 @@ struct Dialogs: ViewModifier {
                     switch prompt {
                     case .newPlaylist(let id):
                         let p = library.createPlaylist(n, with: id.map { [$0] } ?? [])
-                        if id == nil { ui.collection = p.id.uuidString }
+                        if id == nil { ui.collection = .playlist(p.id) }
                     case .rename(let id, _):
                         library.rename(id, to: n)
                     }
@@ -580,6 +580,9 @@ struct Dialogs: ViewModifier {
             }
             .sheet(isPresented: Binding(get: { active && ui.coverFor != nil }, set: { if !$0 { ui.coverFor = nil } })) {
                 if let id = ui.coverFor { CoverPicker(id: id) }
+            }
+            .sheet(isPresented: Binding(get: { active && ui.editing != nil }, set: { if !$0 { ui.editing = nil } })) {
+                if let t = library.track(ui.editing) { TrackEditor(track: t) }
             }
     }
 

@@ -20,7 +20,9 @@ final class UIState: ObservableObject {
     @Published var importing: ImportKind?
     @Published var prompt: Prompt?
     @Published var coverFor: UUID?
-    @Published var collection = "all"
+    @Published var editing: UUID?
+    @Published var listTab = ListTab.songs
+    @Published var collection = SongCollection.all
 
     func add(_ kind: ImportKind) {
         importing = kind
@@ -66,6 +68,9 @@ struct VolnaApp: App {
             #endif
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active, settings.v.refreshFolders {
+                Task { await library.refreshFolders(quiet: true) }
+            }
             if phase != .active {
                 player.save()
                 library.saveNow()

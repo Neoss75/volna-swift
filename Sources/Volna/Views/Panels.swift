@@ -168,7 +168,7 @@ struct TrackActions: View {
             ForEach(library.playlists) { p in Button(p.name) { library.add(track.id, to: p.id) } }
             Button("Новый плейлист", systemImage: "plus") { ui.prompt = .newPlaylist(track.id) }
         }
-        if let p = library.playlists.first(where: { $0.id.uuidString == ui.collection }) {
+        if let p = library.playlists.first(where: { ui.collection == .playlist($0.id) }) {
             Button("Убрать из «\(p.name)»", systemImage: "minus.circle") { library.remove(track.id, from: p.id) }
         }
         if !track.hasArtwork || track.artOnline == true {
@@ -177,184 +177,13 @@ struct TrackActions: View {
         if track.hasArtwork, track.artOnline == true {
             Button("Убрать найденную обложку", systemImage: "photo.badge.minus") { library.dropCover(track.id) }
         }
+        Button("Изменить название…", systemImage: "pencil") { ui.editing = track.id }
         Divider()
         Button("Удалить из плеера", systemImage: "trash", role: .destructive) { library.remove([track.id]) }
     }
 }
 
-// MARK: - Song list
-
-struct ListPanel: View {
-    @EnvironmentObject private var library: Library
-    @EnvironmentObject private var player: Player
-    @EnvironmentObject private var settings: Settings
-    @EnvironmentObject private var ui: UIState
-    @State private var query = ""
-    @State private var folder: String?
-    @State private var confirmDelete = false
-    @State private var confirmPlaylist = false
-
-    private var playlist: Playlist? { library.playlists.first { $0.id.uuidString == ui.collection } }
-
-    private var base: [Track] {
-        if ui.collection == "fav" { return library.tracks.filter { library.isFavourite($0.id) } }
-        if let p = playlist { return p.keys.compactMap { library.track($0) } }
-        return library.tracks
-    }
-
-    private var shown: [Track] {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        var l = base.filter { t in
-            (ui.collection != "all" || folder == nil || t.folder == folder)
-                && (q.isEmpty || [t.title, t.artist, t.album, t.folder ?? ""].joined(separator: " ").localizedCaseInsensitiveContains(q))
-        }
-        switch settings.v.sort {
-        case "title": l.sort { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
-        case "artist": l.sort { ($0.artist.isEmpty ? "я" : $0.artist, $0.title) < ($1.artist.isEmpty ? "я" : $1.artist, $1.title) }
-        default: break
-        }
-        return l
-    }
-
-    private var folders: [(String, Int)] {
-        var n: [String: Int] = [:]
-        for t in library.tracks { if let f = t.folder { n[f, default: 0] += 1 } }
-        return n.sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
-    }
-
-    var body: some View {
-        let list = shown, ids = list.map(\.id)
-        VStack(spacing: 0) {
-            tools
-            if list.isEmpty {
-                Spacer()
-                Text(emptyText).foregroundStyle(Theme.muted).multilineTextAlignment(.center).padding(24)
-                Spacer()
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            ForEach(list) { t in
-                                SongRow(track: t, on: t.id == player.current?.id) { player.play(t.id, from: ids) }
-                                    .id(t.id)
-                                Divider().overlay(Theme.line)
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                    }
-                    .scrollDismissesKeyboard(.immediately)
-                    .onAppear { if let id = player.current?.id, ids.contains(id) { proxy.scrollTo(id, anchor: .center) } }
-                }
-            }
-            footer(list)
-        }
-    }
-
-    private var tools: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    TextField("Поиск по названию, артисту…", text: $query)
-                        .font(.system(size: 15))
-                        .autocorrectionDisabled()
-                        .submitLabel(.search)
-                    if !query.isEmpty {
-                        Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted) }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Очистить поиск")
-                    }
-                }
-                .padding(.horizontal, 12)
-                .frame(height: 40)
-                .background(Theme.raise, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                Menu {
-                    Picker("Сортировка", selection: $settings.v.sort) {
-                        Text("По добавлению").tag("added")
-                        Text("По названию").tag("title")
-                        Text("По исполнителю").tag("artist")
-                    }
-                } label: {
-                    HStack(spacing: 5) {
-                        Text(["title": "По названию", "artist": "По исполнителю"][settings.v.sort] ?? "По добавлению")
-                            .font(.system(size: 14))
-                            .lineLimit(1)
-                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
-                    }
-                    .foregroundStyle(Theme.fg)
-                    .padding(.horizontal, 12)
-                    .frame(height: 40)
-                    .background(Theme.raise, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-            }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    Chip(text: "Все", count: library.tracks.count, on: ui.collection == "all") { ui.collection = "all" }
-                    Chip(text: "♥ Избранное", count: library.tracks.filter { library.isFavourite($0.id) }.count, on: ui.collection == "fav") { ui.collection = "fav" }
-                    ForEach(library.playlists) { p in
-                        Chip(text: p.name, count: p.keys.filter { library.track($0) != nil }.count, on: ui.collection == p.id.uuidString) { ui.collection = p.id.uuidString }
-                    }
-                    Chip(text: "+ Плейлист", on: false) { ui.prompt = .newPlaylist(nil) }
-                }
-            }
-            if ui.collection == "all", !folders.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        Chip(text: "Все папки", on: folder == nil) { folder = nil }
-                        ForEach(folders, id: \.0) { f in
-                            Chip(text: f.0.components(separatedBy: " / ").last ?? f.0, count: f.1, on: folder == f.0) { folder = f.0 }
-                        }
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-
-    private func footer(_ list: [Track]) -> some View {
-        HStack {
-            Text(list.count != base.count ? "Показано \(list.count) из \(base.count)" : plural(base.count, "песня", "песни", "песен"))
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.muted)
-            Spacer()
-            if let p = playlist {
-                Button("Переименовать") { ui.prompt = .rename(p.id, p.name) }.buttonStyle(.glass)
-                Button("Удалить") { confirmPlaylist = true }.buttonStyle(.glass).tint(Theme.danger)
-            } else {
-                Menu {
-                    Button("Добавить файлы", systemImage: "doc.badge.plus") { ui.add(.files) }
-                    Button("Добавить папку", systemImage: "folder.badge.plus") { ui.add(.folder) }
-                } label: { Text("Добавить") }
-                .buttonStyle(.glass)
-                Button(list.count == library.tracks.count ? "Удалить все" : "Удалить (\(list.count))") { confirmDelete = true }
-                    .buttonStyle(.glass)
-                    .tint(Theme.danger)
-                    .disabled(list.isEmpty)
-            }
-        }
-        .font(.system(size: 14, weight: .semibold))
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .overlay(alignment: .top) { Divider().overlay(Theme.line) }
-        .confirmationDialog("Убрать из плеера: \(plural(list.count, "песня", "песни", "песен"))? Файлы останутся на месте.", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Убрать из плеера", role: .destructive) { library.remove(Set(list.map(\.id))) }
-        }
-        .confirmationDialog("Удалить плейлист «\(playlist?.name ?? "")»? Песни останутся.", isPresented: $confirmPlaylist, titleVisibility: .visible) {
-            Button("Удалить плейлист", role: .destructive) {
-                if let p = playlist {
-                    ui.collection = "all"
-                    library.deletePlaylist(p.id)
-                }
-            }
-        }
-    }
-
-    private var emptyText: String {
-        if ui.collection == "fav" { return "В избранном пока пусто. Нажмите ♥ у песни, чтобы добавить её сюда." }
-        if playlist != nil { return "Плейлист пуст. Добавьте песни через «⋯» → «Добавить в плейлист»." }
-        return library.tracks.isEmpty ? "Список пуст. Добавьте файлы или папку." : "Ничего не найдено"
-    }
-}
+// MARK: - Song row
 
 struct SongRow: View {
     @EnvironmentObject private var library: Library

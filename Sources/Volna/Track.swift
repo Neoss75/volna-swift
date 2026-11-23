@@ -32,8 +32,12 @@ struct Track: Identifiable, Codable, Equatable {
     var artTried: Int?
     var metaVersion: Int?
     var bad: Bool?
+    var trackNo: Int?
+    var addedAt: Date?
+    /// Title, artist and album were corrected by hand: tags from the file do not replace them.
+    var edited: Bool?
 
-    static let currentMeta = 1
+    static let currentMeta = 2
 
     var fileName: String { (path as NSString).lastPathComponent }
     var baseName: String { (fileName as NSString).deletingPathExtension }

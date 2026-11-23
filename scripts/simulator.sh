@@ -23,7 +23,7 @@ t 120 xcrun simctl install "$DEV" "$APP"
 
 say self-test
 t 120 xcrun simctl launch --stdout="$PWD/shots/out.txt" --stderr="$PWD/shots/selftest.txt" "$DEV" $ID -demo -selftest
-for _ in $(seq 1 100); do
+for _ in $(seq 1 170); do
   grep -q 'SELFTEST done' shots/selftest.txt 2>/dev/null && break
   sleep 1
 done
@@ -49,12 +49,16 @@ shot() { # shot <name> <arguments…>
 t 60 xcrun simctl launch "$DEV" $ID -demo > /dev/null; sleep 25; t 30 xcrun simctl terminate "$DEV" $ID > /dev/null 2>&1
 shot 01-player
 shot 02-list -panel list
+shot 02a-albums -folder -panel list -tab albums
+shot 02b-album -folder -panel list -tab albums -album
+shot 02c-artists -folder -panel list -tab artists
+shot 02d-folders -folder -panel list -tab folders
 shot 03-queue -panel queue
 shot 04-eq -panel eq -eqrock
 shot 05-settings -panel fx
 shot 05a-sound -panel fx -page sound
 shot 05b-playback -panel fx -page playback
-shot 05c-theme -panel fx -page theme
+shot 05c-hires -panel fx -page hires
 shot 05d-viz -panel fx -page viz
 shot 05e-library -panel fx -page library
 shot 06-stats -panel stats

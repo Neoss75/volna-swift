@@ -42,6 +42,9 @@ final class Player: ObservableObject {
     private var sleepFade: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
     private var lastSave = Date.distantPast
+    private var chainIndex: Int?
+    private var chainTried: UUID?
+    private var chainGain: Task<Void, Never>?
 
     private var deck: Deck { graph.decks[active] }
     private var spare: Deck { graph.decks[1 - active] }
@@ -61,6 +64,10 @@ final class Player: ObservableObject {
             d.onEnd = { [weak self, weak d] in
                 guard let self, let d, d === self.deck else { return }
                 self.ended()
+            }
+            d.onChained = { [weak self, weak d] in
+                guard let self, let d, d === self.deck else { return }
+                self.chained()
             }
         }
         observe()
@@ -94,7 +101,14 @@ final class Player: ObservableObject {
         load(play: true)
     }
 
+    func playShuffled(_ list: [UUID]) {
+        guard let first = list.randomElement() else { return }
+        shuffle = true
+        play(first, from: list)
+    }
+
     func playNext(_ id: UUID) {
+        dropChain()
         guard qi >= 0, !queue.isEmpty else { play(id, from: [id]); return }
         let after = queue[qi]
         queue.insert(id, at: qi + 1)
@@ -104,6 +118,7 @@ final class Player: ObservableObject {
     }
 
     func enqueue(_ id: UUID) {
+        dropChain()
         queue.append(id)
         orig.append(id)
         toast("Добавлено в очередь")
@@ -111,6 +126,7 @@ final class Player: ObservableObject {
     }
 
     func move(from: IndexSet, to: Int) {
+        dropChain()
         let playing = qi >= 0 ? qi : nil
         var marked = queue.enumerated().map { ($0.offset, $0.element) }
         marked.move(fromOffsets: from, toOffset: to)
@@ -122,6 +138,7 @@ final class Player: ObservableObject {
 
     func removeFromQueue(at index: Int) {
         guard queue.indices.contains(index), index != qi else { return }
+        dropChain()
         let id = queue.remove(at: index)
         if let i = orig.firstIndex(of: id) { orig.remove(at: i) }
         if index < qi { qi -= 1 }
@@ -129,6 +146,7 @@ final class Player: ObservableObject {
     }
 
     func toggleShuffle() {
+        dropChain()
         shuffle.toggle()
         let now = qi >= 0 && qi < queue.count ? queue[qi] : nil
         if shuffle {
@@ -148,12 +166,14 @@ final class Player: ObservableObject {
     }
 
     func cycleRepeat() {
+        dropChain()
         repeatMode = repeatMode == .off ? .all : repeatMode == .all ? .one : .off
         toast("Повтор: " + (repeatMode == .off ? "выключен" : repeatMode == .all ? "вся очередь" : "один трек"))
         save()
     }
 
     private func removed(_ ids: Set<UUID>) {
+        dropChain()
         let now = qi >= 0 && qi < queue.count ? queue[qi] : nil
         queue.removeAll { ids.contains($0) }
         orig.removeAll { ids.contains($0) }
@@ -193,6 +213,8 @@ final class Player: ObservableObject {
     }
 
     private func startDeck(at time: Double) {
+        forgetChain()
+        if settings.v.matchRate, fadeTask == nil { graph.matchOutput(to: deck) }
         do { try graph.start() } catch {
             toast("Не удалось включить звук: \(error.localizedDescription)")
             isPlaying = false
@@ -209,6 +231,7 @@ final class Player: ObservableObject {
 
     func pause() {
         endFade()
+        forgetChain()
         guard isPlaying else { return }
         deck.halt()
         graph.engine.pause()
@@ -254,6 +277,7 @@ final class Player: ObservableObject {
     func seek(to time: Double) {
         let t = max(0, min(time, max(0, duration)))
         endFade()
+        forgetChain()
         if deck.file == nil {
             savedTime = t
         } else if isPlaying {
@@ -269,6 +293,7 @@ final class Player: ObservableObject {
     private func load(play: Bool, at time: Double = 0) {
         guard let t = current else { return }
         endFade()
+        forgetChain()
         deck.unload()
         duration = t.duration
         savedTime = time
@@ -296,7 +321,7 @@ final class Player: ObservableObject {
 
     private func prepare(_ d: Deck, _ t: Track) {
         d.fade = 1
-        d.gainDb = settings.v.normalize ? (t.gainDb ?? 0) : 0
+        d.gainDb = settings.v.effectiveNormalize ? (t.gainDb ?? 0) : 0
         stats.trackStarted()
         if t.bad == true { library.update(t.id) { $0.bad = false } }
         analyzer.request(t, first: true)
@@ -338,13 +363,68 @@ final class Player: ObservableObject {
         advance(auto: true)
     }
 
+    // MARK: - No gaps
+
+    /// Shortly before the end puts the next song right behind the current one. Skipped when the formats differ
+    /// (then the song is loaded the usual way) and when crossfade is on.
+    private func maybeChain() {
+        guard settings.v.gapless, settings.v.crossfade == 0, isPlaying, chainIndex == nil, !sleepAfterTrack,
+              queue.indices.contains(qi), duration - deck.position < 10, chainTried != queue[qi] else { return }
+        chainTried = queue[qi]
+        let ni = repeatMode == .one ? qi : qi + 1 < queue.count ? qi + 1 : repeatMode == .all ? 0 : -1
+        guard ni >= 0, let t = library.track(queue[ni]), t.bad != true, let access = library.open(t),
+              let file = try? AVAudioFile(forReading: access.url), deck.chain(access, file) else { return }
+        chainIndex = ni
+        guard settings.v.effectiveNormalize, let gain = t.gainDb else { return }
+        // the callback comes when the old song is heard to its end; the loudness has to change when the new one is mixed
+        let wait = (duration - deck.position) / settings.v.effectiveRate
+        chainGain = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(0, wait)))
+            if !Task.isCancelled { self?.deck.gainDb = gain }
+        }
+    }
+
+    private func chained() {
+        guard let ni = chainIndex, queue.indices.contains(ni), let t = library.track(queue[ni]) else {
+            forgetChain()
+            load(play: true)
+            return
+        }
+        forgetChain()
+        stats.flush()
+        qi = ni
+        prepare(deck, t)
+        duration = deck.duration
+        clock.time = deck.position
+        publish()
+        save()
+    }
+
+    private func forgetChain() {
+        chainGain?.cancel()
+        chainGain = nil
+        chainIndex = nil
+        chainTried = nil
+    }
+
+    /// The order has changed while the next song was already scheduled: play the rest of this one anew.
+    private func dropChain() {
+        guard chainIndex != nil else {
+            chainTried = nil
+            return
+        }
+        forgetChain()
+        deck.play(from: deck.position)
+        applyLoudness()
+    }
+
     // MARK: - Crossfade
 
     private func maybeCrossfade() {
         let xf = settings.v.crossfade
         guard xf > 0, isPlaying, fadeTask == nil, !sleepAfterTrack, repeatMode != .one, !queue.isEmpty else { return }
         guard duration >= xf * 2 + 4 else { return }
-        let left = (duration - deck.position) / settings.v.rate
+        let left = (duration - deck.position) / settings.v.effectiveRate
         guard left <= xf, left > 0.4 else { return }
         let ni = qi + 1 < queue.count ? qi + 1 : (repeatMode == .all ? 0 : -1)
         guard ni >= 0, let t = library.track(queue[ni]), t.bad != true else { return }
@@ -399,6 +479,7 @@ final class Player: ObservableObject {
     }
 
     func sleepAfterThisTrack() {
+        dropChain()
         sleepAt = nil
         sleepAfterTrack = true
     }
@@ -424,11 +505,13 @@ final class Player: ObservableObject {
 
     private func settingsChanged() {
         graph.apply(settings.v)
+        if settings.v.crossfade > 0 || !settings.v.gapless { dropChain() }
         applyLoudness()
+        publish()
     }
 
     private func applyLoudness() {
-        deck.gainDb = settings.v.normalize ? (current?.gainDb ?? 0) : 0
+        deck.gainDb = settings.v.effectiveNormalize ? (current?.gainDb ?? 0) : 0
     }
 
     private func analyzed(_ id: UUID) {
@@ -438,7 +521,7 @@ final class Player: ObservableObject {
     func publish() {
         let t = current
         let image = t.flatMap { $0.hasArtwork ? ArtworkStore.image(for: $0.id) : nil }
-        nowPlaying.update(track: t, artwork: image, elapsed: position, duration: duration, rate: isPlaying ? settings.v.rate : 0)
+        nowPlaying.update(track: t, artwork: image, elapsed: position, duration: duration, rate: isPlaying ? settings.v.effectiveRate : 0)
     }
 
     // MARK: - Session
@@ -540,6 +623,7 @@ final class Player: ObservableObject {
         clock.time = position
         if let t = current { stats.tick(t) }
         maybeCrossfade()
+        maybeChain()
         checkSleep()
         if Date().timeIntervalSince(lastSave) > 5 { save() }
     }

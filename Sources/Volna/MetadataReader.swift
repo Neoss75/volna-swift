@@ -18,6 +18,7 @@ struct TrackMeta: Sendable {
     var duration: Double = 0
     var artwork: Data?
     var lyrics: String?
+    var trackNo: Int?
     var header = AudioHeader()
 }
 
@@ -47,6 +48,14 @@ enum MetadataReader {
                 break
             }
         }
+        for item in items where meta.trackNo == nil {
+            if item.identifier == .id3MetadataTrackNumber, let s = try? await item.load(.stringValue) {
+                meta.trackNo = Int(s.prefix { $0.isNumber }) // "3/12"
+            } else if item.identifier == .iTunesMetadataTrackNumber, let d = try? await item.load(.dataValue), d.count >= 4 {
+                meta.trackNo = Int(d[d.startIndex + 2]) << 8 | Int(d[d.startIndex + 3])
+            }
+        }
+        if meta.trackNo == 0 { meta.trackNo = nil }
         if let text = try? await asset.load(.lyrics), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { meta.lyrics = text }
 
         if let file = try? AVAudioFile(forReading: url) {

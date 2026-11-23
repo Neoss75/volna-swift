@@ -22,7 +22,10 @@ final class Library: ObservableObject {
     @Published private(set) var playlists: [Playlist] = []
     @Published private(set) var importing = false
 
-    private var folders: [FolderRef] = []
+    private(set) var folders: [FolderRef] = []
+    /// Songs of a watched folder that the user took out of the player: a refresh must not bring them back.
+    private var hidden: Set<String> = []
+    @Published private(set) var refreshing = false
     private var index: [UUID: Int] = [:]
     private let dir: URL
     private var saveTask: Task<Void, Never>?
@@ -38,6 +41,7 @@ final class Library: ObservableObject {
         favourites = load("favourites.json") ?? []
         playlists = load("playlists.json") ?? []
         folders = load("folders.json") ?? []
+        hidden = load("hidden.json") ?? []
         reindex()
         Task { await refreshOldEntries() }
     }
@@ -73,6 +77,7 @@ final class Library: ObservableObject {
 
             if isDir {
                 guard let folder = remember(folder: url) else { failed += 1; continue }
+                hidden = hidden.filter { !$0.hasPrefix(folder.id.uuidString) } // added again on purpose
                 let files = await Task.detached { Self.scan(url) }.value
                 for f in files {
                     if f.url.pathExtension.lowercased() == "lrc" {
@@ -121,6 +126,7 @@ final class Library: ObservableObject {
         t.folderID = folder?.id
         t.relPath = relPath
         t.folder = label
+        t.addedAt = Date()
         apply(meta, to: &t)
         tracks.append(t)
         index[t.id] = tracks.count - 1
@@ -131,9 +137,12 @@ final class Library: ObservableObject {
 
     private func apply(_ meta: TrackMeta, to t: inout Track) {
         let guess = TagCleaner.split(fileName: t.fileName)
-        t.title = meta.title ?? guess.title
-        t.artist = meta.artist ?? guess.artist
-        t.album = meta.album ?? t.folder?.components(separatedBy: " / ").last ?? ""
+        if t.edited != true {
+            t.title = meta.title ?? guess.title
+            t.artist = meta.artist ?? guess.artist
+            t.album = meta.album ?? t.folder?.components(separatedBy: " / ").last ?? ""
+        }
+        t.trackNo = meta.trackNo
         if meta.duration > 0 { t.duration = meta.duration }
         if let art = meta.artwork { t.hasArtwork = ArtworkStore.save(art, id: t.id); t.artOnline = false }
         t.ext = meta.header.ext
@@ -154,6 +163,63 @@ final class Library: ObservableObject {
             update(t.id) { self.apply(meta, to: &$0) }
             if let text = meta.lyrics, LyricsStore.load(t.id) == nil { LyricsStore.save(Lyrics(text: text, source: "из файла"), id: t.id) }
         }
+    }
+
+    /// Looks for new songs in the folders added earlier.
+    func refreshFolders(quiet: Bool) async {
+        guard !refreshing, !importing, !folders.isEmpty else {
+            if !quiet, folders.isEmpty { toast("Папок пока нет. Добавьте папку целиком") }
+            return
+        }
+        refreshing = true
+        defer { refreshing = false }
+        var added = 0
+        for folder in folders {
+            var stale = false
+            guard let root = try? URL(resolvingBookmarkData: folder.bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else { continue }
+            let access = FileAccess(url: root, scope: root)
+            let files = await Task.detached(priority: .utility) { Self.scan(access.url) }.value
+            let known = Set(tracks.filter { $0.folderID == folder.id }.compactMap(\.relPath))
+            for f in files where f.url.pathExtension.lowercased() != "lrc" {
+                if known.contains(f.rel) || hidden.contains(Self.hiddenKey(folder.id, f.rel)) { continue }
+                let label = ([folder.name] + f.rel.split(separator: "/").dropLast().map(String.init)).joined(separator: " / ")
+                if await addFile(f.url, bookmark: Data(), folder: folder, relPath: f.rel, label: label) == .added { added += 1 }
+            }
+            withExtendedLifetime(access) {}
+        }
+        if added > 0 {
+            saveNow()
+            toast("Новые песни в папках: \(added)")
+        } else if !quiet {
+            toast("Новых песен в папках нет")
+        }
+    }
+
+    private static func hiddenKey(_ folder: UUID, _ rel: String) -> String { folder.uuidString + "/" + rel }
+
+    // MARK: - Corrections by hand (only in the player, the file is not changed)
+
+    func edit(_ id: UUID, title: String, artist: String, album: String) {
+        update(id) {
+            $0.title = title
+            $0.artist = artist
+            $0.album = album
+            $0.edited = true
+        }
+        toast("Сохранено")
+    }
+
+    func restoreTags(_ id: UUID) async {
+        guard let t = track(id), let access = open(t) else {
+            toast("Файл не открывается")
+            return
+        }
+        let meta = await MetadataReader.read(url: access.url)
+        update(id) {
+            $0.edited = false
+            self.apply(meta, to: &$0)
+        }
+        toast("Возвращено из файла")
     }
 
     private func remember(folder url: URL) -> FolderRef? {
@@ -217,6 +283,8 @@ final class Library: ObservableObject {
         let removed = tracks.enumerated().filter { ids.contains($0.element.id) }
         guard !removed.isEmpty else { return }
         tracks.removeAll { ids.contains($0.id) }
+        let hiddenNow = removed.compactMap { r in r.element.folderID.map { Self.hiddenKey($0, r.element.relPath ?? "") } }
+        hidden.formUnion(hiddenNow)
         reindex()
         onRemove?(ids)
         scheduleSave()
@@ -224,6 +292,7 @@ final class Library: ObservableObject {
         Toaster.shared.show(text, action: "Отменить") { [weak self] in
             guard let self else { return }
             for (i, t) in removed { self.tracks.insert(t, at: min(i, self.tracks.count)) }
+            self.hidden.subtract(hiddenNow)
             self.reindex()
             self.scheduleSave()
             toast("Возвращено")
@@ -333,5 +402,6 @@ final class Library: ObservableObject {
         write(favourites, "favourites.json")
         write(playlists, "playlists.json")
         write(folders, "folders.json")
+        write(hidden, "hidden.json")
     }
 }

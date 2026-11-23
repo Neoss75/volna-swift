@@ -33,6 +33,12 @@ enum Demo {
         if let m = value("-viz").flatMap(VizMode.init(rawValue:)) { settings.v.viz = m }
         if let t = value("-theme") { settings.v.themeMode = t }
         settings.v.lyricsOn = args.contains("-lyrics")
+        if args.contains("-folder"), library.folders.isEmpty {
+            await library.add(urls: [makeFolder()])
+            if let t = library.tracks.first { library.edit(t.id, title: t.title, artist: t.artist, album: "Земля") }
+        }
+        if let t = value("-tab") { ui.listTab = ListTab.allCases.first { "\($0)" == t } ?? .songs }
+        if args.contains("-album"), let t = library.tracks.first(where: { !$0.album.isEmpty }) { ui.collection = .album(Library.albumKey(t)) }
         if args.contains("-selftest") {
             await selfTest(library: library, player: player, settings: settings)
             return
@@ -46,7 +52,7 @@ enum Demo {
 
     private static func selfTest(library: Library, player: Player, settings: Settings) async {
         func log(_ s: String) { NSLog("SELFTEST %@", s) }
-        func check(_ name: String, _ ok: Bool, _ info: String = "") { log((ok ? "ok   " : "FAIL ") + name + " " + info) }
+        func check(_ name: String, _ ok: Bool, _ info: String) { log((ok ? "ok   " : "FAIL ") + name + " " + info) }
         func wait(_ s: Double) async { try? await Task.sleep(for: .seconds(s)) }
         let ids = library.tracks.map(\.id)
         check("library", ids.count == 4, "\(ids.count)")
@@ -64,7 +70,7 @@ enum Demo {
         player.pause()
         let p = player.position
         await wait(1)
-        check("pause keeps position", abs(player.position - p) < 0.01 && !player.isPlaying)
+        check("pause keeps position", abs(player.position - p) < 0.01 && !player.isPlaying, "")
         player.resume()
         await wait(1)
         check("resume", abs(player.position - p - 1) < 0.6, String(format: "%.2f after %.2f", player.position, p))
@@ -84,9 +90,9 @@ enum Demo {
         await wait(2.5)
         check("auto next", player.qi == 2 && player.isPlaying, "qi \(player.qi)")
         player.toggleShuffle()
-        check("shuffle keeps song", player.current?.id == ids[2] && player.qi == 0)
+        check("shuffle keeps song", player.current?.id == ids[2] && player.qi == 0, "")
         player.toggleShuffle()
-        check("unshuffle", player.queue == ids && player.qi == 2)
+        check("unshuffle", player.queue == ids && player.qi == 2, "")
         let t0 = Date()
         for t in library.tracks { player.analyzer.request(t, first: false) }
         while library.tracks.contains(where: { $0.wave == nil }), Date().timeIntervalSince(t0) < 60 { await wait(0.5) }
@@ -98,19 +104,93 @@ enum Demo {
         let a = SpectrumAnalyzer()
         for _ in 0..<20 { a.update(player.graph.tap); await wait(0.03) }
         check("visualizer sees sound", (a.bins.max() ?? 0) > 0.2, "\(a.bins.max() ?? 0)")
-        check("lyrics file", LyricsStore.load(ids[0]).map { LyricsParser.lines($0.text)?.count == 4 } ?? false)
+        check("lyrics file", LyricsStore.load(ids[0]).map { LyricsParser.lines($0.text)?.count == 4 } ?? false, "")
         check("title cleaning", TagCleaner.clean("Пелюстки троянд (Sefon.Pro)") == "Пелюстки троянд" && TagCleaner.clean("Muzaf.net") == "Muzaf.net"
             && TagCleaner.clean("Mr. Vain") == "Mr. Vain", TagCleaner.clean("Слава Україні 2022 (Muzaf.net)"))
         check("cover reading", SongReading.all(library.tracks[2]).first?.artist == "The Kolors", "\(SongReading.all(library.tracks[2]))")
         library.toggleFavourite(ids[0])
         library.createPlaylist("Тест", with: [ids[0], ids[1]])
         library.remove([ids[0]])
-        check("remove playing song", player.current == nil && !player.isPlaying && library.tracks.count == 3)
+        check("remove playing song", player.current == nil && !player.isPlaying && library.tracks.count == 3, "")
         await wait(1)
         player.play(ids[1], from: [ids[1], ids[2]])
         await wait(1)
-        check("plays after removal", player.isPlaying && player.position > 0.4)
+        check("plays after removal", player.isPlaying && player.position > 0.4, "")
+        await folderTest(library, player, settings, check, wait)
         log("done")
+    }
+
+    private static func makeFolder() -> URL {
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Концерт", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir.appendingPathComponent("CD 2"), withIntermediateDirectories: true)
+        synth(dir.appendingPathComponent("01 Перша.wav"), rate: 44100, channels: 2, seconds: 7)
+        synth(dir.appendingPathComponent("02 Друга.wav"), rate: 44100, channels: 2, seconds: 7)
+        synth(dir.appendingPathComponent("CD 2/01 Третя.wav"), rate: 44100, channels: 2, seconds: 7)
+        return dir
+    }
+
+    private static func folderTest(_ library: Library, _ player: Player, _ settings: Settings,
+                                   _ check: (String, Bool, String) -> Void, _ wait: (Double) async -> Void) async {
+        let before = library.tracks.count
+        let dir = makeFolder()
+        await library.add(urls: [dir])
+        let ids = library.tracks.filter { $0.folderID != nil }.map(\.id)
+        check("folder added", ids.count == 3 && library.tracks.count == before + 3, "\(ids.count)")
+        check("folder labels", library.track(ids.last)?.folder == "Концерт / CD 2" && library.track(ids.first)?.album == "Концерт", library.track(ids.last)?.folder ?? "")
+
+        settings.v.gapless = true
+        player.play(ids[0], from: ids)
+        await wait(1)
+        player.seek(to: 5)
+        await wait(4)
+        check("gapless", player.qi == 1 && player.isPlaying && abs(player.position - 2) < 0.35, String(format: "qi %d at %.2f", player.qi, player.position))
+        await wait(1)
+        player.toggleShuffle()
+        player.toggleShuffle()
+        check("order change keeps playing", player.isPlaying && player.qi == 1 && abs(player.position - 3) < 0.5, String(format: "%.2f", player.position))
+        await wait(5.5)
+        check("goes on after order change", player.qi == 2 && player.isPlaying, "qi \(player.qi)")
+        player.cycleRepeat()
+        player.cycleRepeat()
+        await wait(7)
+        check("repeat one", player.qi == 2 && player.isPlaying && player.position < 6, String(format: "qi %d at %.2f", player.qi, player.position))
+        player.cycleRepeat()
+
+        settings.v.direct = true
+        let d = player.position
+        player.seek(to: 1)
+        await wait(1)
+        check("direct output plays", player.isPlaying && player.position > 1.5, String(format: "%.2f (was %.2f)", player.position, d))
+        settings.v.direct = false
+        player.pause()
+        player.graph.engine.stop()
+        player.graph.rebuild(rate: 96000)
+        try? player.graph.engine.start()
+        player.resume()
+        await wait(1)
+        check("plays at 96 kHz output", player.isPlaying && player.position > 2, String(format: "%.2f", player.position))
+        player.pause()
+        player.resume()
+        await wait(1)
+        check("plays after the output goes back", player.isPlaying && player.position > 2.7, String(format: "%.2f", player.position))
+
+        library.remove([ids[1]])
+        synth(dir.appendingPathComponent("03 Нова.wav"), rate: 44100, channels: 2, seconds: 3)
+        await library.refreshFolders(quiet: true)
+        let now = library.tracks.filter { $0.folderID != nil }
+        check("folder refresh", now.count == 3 && now.contains { $0.title.contains("Нова") } && !now.contains { $0.title.contains("Друга") }, "\(now.map(\.title))")
+        library.edit(ids[0], title: "Моя назва", artist: "Я", album: "Мій альбом")
+        check("edit", library.track(ids[0])?.title == "Моя назва", "")
+        await library.restoreTags(ids[0])
+        check("restore tags", library.track(ids[0])?.title == "Перша", library.track(ids[0])?.title ?? "")
+        let stats = Stats()
+        check("album list", library.songs(in: .album("концерт"), stats: stats).count == 2, "\(library.songs(in: .album("концерт"), stats: stats).map(\.title))")
+        check("recent", library.songs(in: .recent, stats: stats).first?.title.contains("Нова") == true, "")
+        // a library saved by build 7 has none of the newer fields
+        let old = #"[{"id":"6C9A3A52-1111-4222-8333-944455556666","bookmark":"AAAA","path":"/a/b.mp3","title":"T","artist":"A","album":"","duration":10,"hasArtwork":false}]"#
+        check("old library opens", (try? JSONDecoder().decode([Track].self, from: Data(old.utf8)))?.count == 1, "")
+        let oldStats = #"{"songs":{"x":{"plays":1,"seconds":5,"title":"T","artist":"A"}},"days":{},"total":5}"#
+        check("old statistics open", (try? JSONDecoder().decode(Stats.Data.self, from: Data(oldStats.utf8)))?.songs.count == 1, "")
     }
 
     private static func synth(_ url: URL, rate: Double, channels: Int, seconds: Double) {

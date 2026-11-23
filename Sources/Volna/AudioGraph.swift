@@ -17,8 +17,13 @@ final class Deck {
     private(set) var scheduled = false
     private(set) var running = false
     private var rest: Double = 0
+    private var segment = 0
+    private var framesQueued: AVAudioFramePosition = 0
+    private var following: (file: AVAudioFile, access: FileAccess)?
 
     var onEnd: (() -> Void)?
+    /// The song scheduled with `chain` has begun.
+    var onChained: (() -> Void)?
 
     var duration: Double {
         guard let f = file else { return 0 }
@@ -49,14 +54,16 @@ final class Deck {
         startFrame = frame
         rest = time
         let count = f.length - frame
+        framesQueued = count
+        segment = 0
         guard count > 0 else {
-            Task { @MainActor [weak self] in self?.finished(gen) }
+            Task { @MainActor [weak self] in self?.finished(gen, 0) }
             running = true
             return
         }
         node.scheduleSegment(f, startingFrame: frame, frameCount: AVAudioFrameCount(count), at: nil,
                              completionCallbackType: .dataPlayedBack) { [weak self] _ in
-            Task { @MainActor in self?.finished(gen) }
+            Task { @MainActor in self?.finished(gen, 0) }
         }
         node.play()
         running = true
@@ -68,13 +75,36 @@ final class Deck {
         generation += 1
         node.stop()
         running = false
+        following = nil
     }
 
     func rewind(to time: Double) { rest = time }
 
-    private func finished(_ gen: Int) {
-        guard gen == generation, running else { return } // stale callbacks carry an older generation
-        onEnd?()
+    /// Puts the next song right behind the current one, with no gap. Only possible when both have the same format.
+    func chain(_ access: FileAccess, _ next: AVAudioFile) -> Bool {
+        guard running, following == nil, let f = file, next.length > 0, next.processingFormat == f.processingFormat else { return false }
+        following = (next, access)
+        let gen = generation, seg = segment + 1
+        node.scheduleSegment(next, startingFrame: 0, frameCount: AVAudioFrameCount(next.length), at: nil,
+                             completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in self?.finished(gen, seg) }
+        }
+        return true
+    }
+
+    private func finished(_ gen: Int, _ seg: Int) {
+        guard gen == generation, seg == segment, running else { return } // stale callbacks carry an older generation
+        guard let next = following else {
+            onEnd?()
+            return
+        }
+        following = nil
+        segment += 1
+        startFrame = -framesQueued
+        framesQueued += next.file.length
+        file = next.file
+        access = next.access
+        onChained?()
     }
 
     func unload() {
@@ -134,8 +164,8 @@ final class AudioGraph {
     }
 
     /// The shared part of the chain runs at the rate of the current output (speaker, headphones, Bluetooth).
-    func rebuild() {
-        let hw = engine.outputNode.outputFormat(forBus: 0).sampleRate
+    func rebuild(rate: Double? = nil) {
+        let hw = rate ?? AVAudioSession.sharedInstance().sampleRate
         guard let format = AVAudioFormat(standardFormatWithSampleRate: hw > 0 ? hw : 44100, channels: 2) else { return }
         if busFormat == format { return }
         tap.remove(from: limiter)
@@ -147,11 +177,12 @@ final class AudioGraph {
             engine.connect(d.gain, to: bus, fromBus: 0, toBus: i, format: format)
             if d.format == nil { connect(d, format) }
         }
-        for n in [bus, eq, limiter, out] as [AVAudioNode] { engine.disconnectNodeOutput(n) }
+        for n in [bus, eq, limiter, out, engine.mainMixerNode] as [AVAudioNode] { engine.disconnectNodeOutput(n) }
         engine.connect(bus, to: eq, format: format)
         engine.connect(eq, to: limiter, format: format)
         engine.connect(limiter, to: out, format: format)
         engine.connect(out, to: engine.mainMixerNode, format: format)
+        engine.connect(engine.mainMixerNode, to: engine.outputNode, format: format)
         busFormat = format
         tap.install(on: limiter)
         engine.prepare()
@@ -178,6 +209,26 @@ final class AudioGraph {
         connect(d, f.processingFormat)
     }
 
+    private var askedRate: (rate: Double, port: String)?
+
+    /// Wired digital outputs (USB DAC, HDMI) can run at the song's own rate; the speaker and Bluetooth cannot.
+    static var digitalPort: AVAudioSessionPortDescription? {
+        AVAudioSession.sharedInstance().currentRoute.outputs.first { [.usbAudio, .HDMI, .thunderbolt].contains($0.portType) }
+    }
+
+    /// Asks the DAC for the song's sample rate, so that nothing is resampled on the way.
+    func matchOutput(to d: Deck) {
+        guard let rate = d.file?.processingFormat.sampleRate, let port = Self.digitalPort else { return }
+        let session = AVAudioSession.sharedInstance()
+        guard abs(session.sampleRate - rate) > 1 else { return }
+        if let asked = askedRate, asked.rate == rate, asked.port == port.uid { return } // this DAC cannot do it
+        askedRate = (rate, port.uid)
+        if engine.isRunning { engine.stop() }
+        try? session.setPreferredSampleRate(rate)
+        try? session.setActive(true)
+        rebuild()
+    }
+
     func start() throws {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
@@ -198,12 +249,13 @@ final class AudioGraph {
         for i in 0..<10 { eq.bands[i].gain = v.eqOn ? Float(v.bands[i]) : 0 }
         eq.bands[10].gain = Float(v.bass)
         eq.globalGain = v.eqOn ? Float(v.preamp) : 0
-        limiter.bypass = !v.limiter
-        out.pan = Float(v.balance / 100)
+        eq.bypass = v.direct
+        limiter.bypass = !v.limiter || v.direct
+        out.pan = v.direct ? 0 : Float(v.balance / 100)
         for d in decks {
             d.pitch.rate = Float(v.rate)
             d.pitch.pitch = v.keepPitch ? 0 : Float(1200 * log2(v.rate))
-            d.pitch.bypass = v.rate == 1
+            d.pitch.bypass = v.effectiveRate == 1
         }
     }
 

@@ -8,6 +8,7 @@ final class Stats: ObservableObject {
         var seconds: Double = 0
         var title = ""
         var artist = ""
+        var last: Date? // optional: entries saved by older builds do not have it
     }
 
     struct Data: Codable {
@@ -48,6 +49,7 @@ final class Stats: ObservableObject {
         e.title = t.title
         e.artist = t.artist
         e.seconds += dt
+        e.last = now
         pending.total += dt
         pending.days[Self.dayKey(), default: 0] += dt
         listened += dt
@@ -72,6 +74,8 @@ final class Stats: ObservableObject {
         flush()
         toast("Статистика сброшена")
     }
+
+    func entry(_ id: UUID) -> Entry? { data.songs[id.uuidString] }
 
     var plays: Int { data.songs.values.reduce(0) { $0 + $1.plays } }
     var today: Double { data.days[Self.dayKey()] ?? 0 }

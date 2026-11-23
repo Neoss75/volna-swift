@@ -1,8 +1,9 @@
+import AVFoundation
 import SwiftUI
 
 /// Pages of the settings, grouped on the first screen by what they are about.
 enum SettingsPage: String, Hashable, CaseIterable {
-    case sound, eq, loudness, playback
+    case sound, eq, loudness, playback, hires
     case theme, viz
     case library, covers, lyrics
     case stats, about
@@ -13,6 +14,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .eq: "Эквалайзер"
         case .loudness: "Выравнивание громкости"
         case .playback: "Воспроизведение"
+        case .hires: "Hi-res и вывод"
         case .theme: "Оформление"
         case .viz: "Визуализация"
         case .library: "Библиотека и файлы"
@@ -29,6 +31,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .eq: "slider.vertical.3"
         case .loudness: "speaker.wave.2"
         case .playback: "play.circle"
+        case .hires: "hifispeaker"
         case .theme: "paintpalette"
         case .viz: "chart.bar.fill"
         case .library: "folder"
@@ -40,7 +43,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
     }
 
     static let groups: [(title: String, pages: [SettingsPage])] = [
-        ("Аудио", [.eq, .sound, .loudness, .playback]),
+        ("Аудио", [.eq, .sound, .loudness, .playback, .hires]),
         ("Графика", [.theme, .viz]),
         ("Музыка", [.library, .covers, .lyrics]),
         ("Прочее", [.stats, .about]),
@@ -135,10 +138,12 @@ private struct SettingsRoot: View {
         case .loudness:
             return v.normalize ? "Включено" : "Выключено"
         case .playback:
-            var p = [v.crossfade > 0 ? "кроссфейд \(Int(v.crossfade)) с" : "без кроссфейда"]
+            var p = [v.crossfade > 0 ? "кроссфейд \(Int(v.crossfade)) с" : v.gapless ? "без пауз" : "без кроссфейда"]
             if v.rate != 1 { p.append(FXFormat.rate(v.rate)) }
             if player.sleepAt != nil || player.sleepAfterTrack { p.append("таймер сна") }
             return p.joined(separator: " · ")
+        case .hires:
+            return v.direct ? "Прямой вывод" : OutputInfo.now().rateText
         case .theme:
             let mode = ["dark": "Тёмная", "light": "Светлая"][v.themeMode] ?? "Как в системе"
             return mode + " · " + (Accent.all.first { $0.id == v.accent }?.name ?? "")
@@ -206,6 +211,7 @@ private struct SettingsPageView: View {
                         case .sound: SoundPage()
                         case .loudness: LoudnessPage()
                         case .playback: PlaybackPage()
+                        case .hires: HiResPage()
                         case .theme: ThemePage()
                         case .viz: VizPage()
                         case .library: LibraryPage()
@@ -287,6 +293,10 @@ private struct PlaybackPage: View {
             SliderRow(label: "Кроссфейд", value: $settings.v.crossfade, range: 0...12, step: 1) { $0 == 0 ? "выкл" : "\(Int($0)) с" }
             Hint("Конец песни плавно затухает, а следующая нарастает поверх него. Работает при автоматическом переходе. Кнопки «вперёд» и «назад» и свайп по обложке переключают сразу.")
         }
+        Block("Без пауз") {
+            SwitchRow(label: "Песни без пауз между собой", on: $settings.v.gapless)
+            Hint("Следующая песня начинается ровно в конце предыдущей: важно для концертов и альбомов, где музыка не прерывается. Работает, когда кроссфейд выключен и у обеих песен одинаковая частота и число каналов.")
+        }
         Block("Скорость") {
             SliderRow(label: "Скорость", value: $settings.v.rate, range: 0.5...2, step: 0.05, format: FXFormat.rate)
             SwitchRow(label: "Сохранять высоту тона", on: $settings.v.keepPitch)
@@ -306,6 +316,58 @@ private struct PlaybackPage: View {
                 Chip(text: "После трека", on: player.sleepAfterTrack) { player.sleepAfterThisTrack() }
             }
             SleepNote()
+        }
+    }
+}
+
+/// Where the sound goes right now and at what rate.
+struct OutputInfo: Equatable {
+    let device: String
+    let rate: Double
+    let digital: Bool
+
+    @MainActor
+    static func now() -> OutputInfo {
+        let s = AVAudioSession.sharedInstance()
+        return OutputInfo(device: s.currentRoute.outputs.first?.portName ?? "—", rate: s.sampleRate, digital: AudioGraph.digitalPort != nil)
+    }
+
+    var rateText: String { Self.khz(rate) }
+
+    static func khz(_ r: Double) -> String { String(format: "%g кГц", (r / 100).rounded() / 10) }
+}
+
+private struct HiResPage: View {
+    @EnvironmentObject private var settings: Settings
+    @EnvironmentObject private var player: Player
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            let o = OutputInfo.now()
+            Block("Сейчас") {
+                line("Вывод", o.device)
+                line("Частота вывода", o.rateText)
+                if let t = player.current, let sr = t.sampleRate {
+                    line("Файл", (t.bits.map { "\($0) бит / " } ?? "") + OutputInfo.khz(sr))
+                    line("Пересчёт частоты", abs(sr - o.rate) < 1 ? "нет" : "есть")
+                }
+            }
+        }
+        Block("Частота") {
+            SwitchRow(label: "Подстраивать вывод под файл", on: $settings.v.matchRate)
+            Hint("Работает с внешним ЦАП по USB-C или HDMI: он переключается на частоту песни, и она идёт без пересчёта. Динамик и Bluetooth работают на своей частоте, её поменять нельзя, а Bluetooth к тому же сжимает звук.")
+        }
+        Block("Обработка") {
+            SwitchRow(label: "Прямой вывод", on: $settings.v.direct)
+            Hint("Выключает всё, что меняет звук: эквалайзер, бас, баланс, лимитер, выравнивание и скорость. Ваши настройки сохраняются и вернутся, когда вы выключите этот режим.")
+        }
+    }
+
+    private func line(_ name: String, _ value: String) -> some View {
+        HStack {
+            Text(name).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.fg)
+            Spacer()
+            Text(value).font(.mono(13)).foregroundStyle(Theme.muted).lineLimit(1)
         }
     }
 }
@@ -370,12 +432,25 @@ private struct LibraryPage: View {
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var ui: UIState
 
+    @EnvironmentObject private var settings: Settings
+
     var body: some View {
         Block("Сейчас в плеере") {
             line("Песни", "\(library.tracks.count)")
             line("В избранном", "\(library.tracks.filter { library.isFavourite($0.id) }.count)")
             line("Плейлисты", "\(library.playlists.count)")
             line("Общий размер файлов", String(format: "%.0f МБ", Double(library.tracks.reduce(0) { $0 + ($1.size ?? 0) }) / 1_048_576))
+        }
+        Block("Папки") {
+            SwitchRow(label: "Искать новые песни при запуске", on: $settings.v.refreshFolders)
+            if library.folders.isEmpty {
+                Hint("Папок пока нет. Добавьте папку целиком, и новые песни из неё будут появляться сами.")
+            } else {
+                Hint("Папок: \(library.folders.count). Песни, которые вы убрали из плеера, при обновлении не возвращаются.")
+                Button(library.refreshing ? "Ищу…" : "Обновить сейчас") { Task { await library.refreshFolders(quiet: false) } }
+                    .buttonStyle(.glass)
+                    .disabled(library.refreshing)
+            }
         }
         Block("Добавить") {
             HStack {
