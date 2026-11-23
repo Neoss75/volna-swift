@@ -169,7 +169,7 @@ final class AudioGraph {
         guard let format = AVAudioFormat(standardFormatWithSampleRate: hw > 0 ? hw : 44100, channels: 2) else { return }
         if busFormat == format { return }
         tap.remove(from: limiter)
-        if engine.isRunning { engine.stop() }
+        engine.stop() // also when only paused: a paused engine refuses a chain with another sample rate and the app crashes
         for (i, d) in decks.enumerated() {
             for n in [d.mixer, d.pitch, d.gain] as [AVAudioNode] { engine.disconnectNodeOutput(n) }
             engine.connect(d.mixer, to: d.pitch, format: format)
@@ -223,7 +223,7 @@ final class AudioGraph {
         guard abs(session.sampleRate - rate) > 1 else { return }
         if let asked = askedRate, asked.rate == rate, asked.port == port.uid { return } // this DAC cannot do it
         askedRate = (rate, port.uid)
-        if engine.isRunning { engine.stop() }
+        engine.stop()
         try? session.setPreferredSampleRate(rate)
         try? session.setActive(true)
         rebuild()
