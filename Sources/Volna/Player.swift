@@ -273,14 +273,25 @@ final class Player: ObservableObject {
         load(play: true)
     }
 
-    func previousTrack() {
-        guard !queue.isEmpty else { return }
-        qi = qi > 0 ? qi - 1 : queue.count - 1 // from the first to the last, as next() goes from the last to the first
+    /// Nothing before this song: the first one in the queue, unless the whole queue repeats.
+    private var atStart: Bool { qi <= 0 && (repeatMode != .all || queue.count < 2) }
+
+    /// The swipe. At the start of the queue the song goes on playing; returns false then.
+    @discardableResult
+    func previousTrack() -> Bool {
+        guard !queue.isEmpty else { return false }
+        if atStart {
+            toast("Это начало списка")
+            return false
+        }
+        qi = qi > 0 ? qi - 1 : queue.count - 1
         load(play: true)
+        return true
     }
 
+    /// The button: back to the start of the song first, then to the previous one.
     func previous() {
-        if position > 3 { seek(to: 0) } else { previousTrack() }
+        if position > 3 || atStart { seek(to: 0) } else { previousTrack() }
     }
 
     func seek(to time: Double) {

@@ -192,8 +192,12 @@ struct CoverArea: View {
                     .onEnded { g in
                         let dx = g.translation.width
                         guard abs(dx) > 50, abs(dx) > abs(g.translation.height) * 1.4, !player.queue.isEmpty else { return }
-                        swipe(dx < 0 ? -1 : 1)
-                        if dx < 0 { player.next() } else { player.previousTrack() }
+                        if dx < 0 {
+                            swipe(-1)
+                            player.next()
+                        } else if player.previousTrack() {
+                            swipe(1)
+                        }
                     })
             }
             .accessibilityElement()
