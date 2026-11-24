@@ -13,10 +13,14 @@ struct PanelView: View {
                 SettingsPanel()
             } else {
                 VStack(spacing: 0) {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    HStack(alignment: .center, spacing: 10) {
                         Text(title).font(.display(18, .semibold)).foregroundStyle(Theme.fg)
                         if panel == .list { Text("\(library.tracks.count)").font(.mono(12)).foregroundStyle(Theme.muted) }
                         Spacer()
+                        if panel == .list {
+                            addButton("Добавить папку", "folder.badge.plus") { ui.add(.folder) }
+                            addButton("Добавить файлы", "plus") { ui.add(.files) }
+                        }
                         Button { ui.panel = nil } label: {
                             Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.fg).frame(width: 26, height: 26)
                         }
@@ -45,6 +49,15 @@ struct PanelView: View {
         .preferredColorScheme(settings.colorScheme)
         .tint(settings.accent)
         .modifier(Dialogs(active: true))
+    }
+
+    private func addButton(_ label: String, _ icon: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(settings.accent).frame(width: 26, height: 26)
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .accessibilityLabel(label)
     }
 
     private var title: String {

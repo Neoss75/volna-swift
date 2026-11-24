@@ -67,5 +67,11 @@ shot 08-ring -viz ring
 shot 09-vu -viz vu
 shot 10-light -theme light
 shot 11-widgets -widgets -theme dark
+shot 12-land-bars -landscape -theme dark -viz bars
+shot 13-land-ring -landscape -viz ring
+shot 14-land-vu -landscape -viz vu
+shot 15-land-lyrics -landscape -viz bars -lyrics
+shot 16-land-list -landscape -panel list
+for f in shots/*-land-*.png; do W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}'); [ "$W" -lt "$H" ] && sips -r 270 "$f" > /dev/null; done
 for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done
 exit $RESULT
