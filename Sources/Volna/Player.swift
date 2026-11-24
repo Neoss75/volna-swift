@@ -275,7 +275,7 @@ final class Player: ObservableObject {
 
     func previousTrack() {
         guard !queue.isEmpty else { return }
-        qi = qi > 0 ? qi - 1 : (repeatMode == .all ? queue.count - 1 : 0)
+        qi = qi > 0 ? qi - 1 : queue.count - 1 // from the first to the last, as next() goes from the last to the first
         load(play: true)
     }
 
