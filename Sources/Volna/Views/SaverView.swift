@@ -1,3 +1,4 @@
+import CoreImage
 import SwiftUI
 import UIKit.UIGestureRecognizerSubclass
 
@@ -14,11 +15,10 @@ struct SaverView: View {
             let s = geo.size, wide = s.width > s.height
             ZStack {
                 Color.black
-                CoverView(track: player.current, corner: 0, letter: 0)
+                SaverBackdrop(track: player.current)
                     .frame(width: s.width, height: s.height)
-                    .blur(radius: 70, opaque: true)
-                    .opacity(0.28)
                     .clipped()
+                    .opacity(0.28)
                 if mode.wholeScreen {
                     VizStrip(mode: mode, height: s.height)
                     titles(.center)
@@ -103,6 +103,37 @@ struct SaverView: View {
         }
         .lineLimit(2)
         .multilineTextAlignment(align == .center ? .center : .leading)
+    }
+}
+
+/// The cover as a soft colour spot. Blurred once per song: a live blur would be computed again for every frame.
+private struct SaverBackdrop: View {
+    let track: Track?
+    @State private var soft: UIImage?
+
+    var body: some View {
+        Color.clear
+            .overlay {
+                if let soft {
+                    Image(uiImage: soft).resizable().interpolation(.high).scaledToFill()
+                } else {
+                    let h = hue(track.map { $0.title + $0.artist } ?? "волна")
+                    LinearGradient(colors: [Color(h: h, s: 0.55, l: 0.5), Color(h: h + 55, s: 0.6, l: 0.26)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            }
+            .task(id: track?.id) {
+                guard let t = track, t.hasArtwork, let image = ArtworkStore.thumbnail(for: t.id) else {
+                    soft = nil
+                    return
+                }
+                soft = await Task.detached { Self.blurred(image) }.value
+            }
+    }
+
+    private nonisolated static func blurred(_ image: UIImage) -> UIImage? {
+        guard let input = CIImage(image: image) else { return nil }
+        let out = input.clampedToExtent().applyingGaussianBlur(sigma: 22)
+        return CIContext().createCGImage(out, from: input.extent).map { UIImage(cgImage: $0) }
     }
 }
 

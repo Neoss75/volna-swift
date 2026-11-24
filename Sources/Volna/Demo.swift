@@ -204,6 +204,12 @@ enum Demo {
             ui.saver = false
         }
         settings.v.saverViz = .off
+        settings.v.viz = .ring
+        await wait(0.3)
+        let f = VizState.frames, t1 = Date()
+        await wait(1.5)
+        log(String(format: "frames per second %.0f ring on the main screen", Double(VizState.frames - f) / Date().timeIntervalSince(t1)))
+        settings.v.viz = .bars
         log("done")
     }
 

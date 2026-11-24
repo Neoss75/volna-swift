@@ -323,9 +323,9 @@ struct VizDraw {
     private func stars(_ g: GraphicsContext, _ z: CGSize) {
         let e = state.energy(live: live)
         state.moveStars(live: live, speed: 0.1 + 0.9 * (e.low * 0.6 + e.mid * 0.4))
-        let c = CGPoint(x: z.width / 2, y: z.height / 2), far = max(z.width, z.height) / 2
+        let c = CGPoint(x: z.width / 2, y: z.height / 2)
         for s in state.stars {
-            let k = CGFloat(0.55 / s.z), x = c.x + CGFloat(s.x) * far * k, y = c.y + CGFloat(s.y) * far * k
+            let k = CGFloat(0.6 / s.z), x = c.x + CGFloat(s.x) * c.x * k, y = c.y + CGFloat(s.y) * c.y * k
             guard x > -4, x < z.width + 4, y > -4, y < z.height + 4 else { continue }
             let near = 1 - s.z, r = CGFloat(0.6 + 2.4 * near * near) * (big ? 1.6 : 0.8)
             let place = (atan2(s.y, s.x) / (2 * .pi)) + 0.5
