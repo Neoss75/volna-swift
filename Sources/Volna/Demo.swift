@@ -194,6 +194,16 @@ enum Demo {
         settings.v.saver = 10
         await wait(1)
         check("screensaver can be switched off", !ui.saver, "")
+        for m in VizMode.allCases where m != .off {
+            settings.v.saverViz = m
+            ui.saver = true
+            await wait(0.3)
+            let f = VizState.frames, t = Date()
+            await wait(1.2)
+            log(String(format: "frames per second %.0f ", Double(VizState.frames - f) / Date().timeIntervalSince(t)) + m.rawValue)
+            ui.saver = false
+        }
+        settings.v.saverViz = .off
         log("done")
     }
 

@@ -158,7 +158,7 @@ struct VizDraw {
 
     /// Three bands that sway: low, middle and high notes.
     private func ribbons(_ g: GraphicsContext, _ z: CGSize) {
-        let e = state.energy(live: live), mid = z.height / 2, n = 48
+        let e = state.energy(live: live), mid = z.height / 2, n = 120
         let parts: [(v: Double, waves: Double, speed: Double)] = [(e.low, 1.5, 0.9), (e.mid, 2.5, -1.3), (e.high * 1.4, 4, 1.9)]
         for (k, part) in parts.enumerated() {
             let amp = CGFloat(min(1, 0.06 + part.v)) * mid * 0.95
@@ -220,9 +220,11 @@ struct VizDraw {
         g.stroke(cross, with: .color(Theme.line.opacity(0.7)), lineWidth: 1)
         let L = state.spectrum.left, R = state.spectrum.right
         guard live, L.count == R.count, L.count > 800 else { return }
+        // quiet music is enlarged, so that the figure is always readable
+        let zoom = CGFloat(state.scopeZoom())
         var p = Path()
         for (k, i) in stride(from: L.count - 800, to: L.count, by: 1).enumerated() {
-            let x = CGFloat(R[i] - L[i]) * r * 0.9, y = CGFloat(R[i] + L[i]) * r * 0.62
+            let x = CGFloat(R[i] - L[i]) * r * 0.7 * zoom, y = CGFloat(R[i] + L[i]) * r * 0.48 * zoom
             let pt = CGPoint(x: c.x + max(-r, min(r, x)), y: c.y - max(-r, min(r, y)))
             if k == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
         }
@@ -269,10 +271,11 @@ struct VizDraw {
         let cw = z.width / CGFloat(cols), rows = VizState.historyBands, ch = z.height / CGFloat(rows)
         var lit = [Path](repeating: Path(), count: 12)
         for (i, row) in hist.enumerated() {
-            let x = z.width - CGFloat(hist.count - i) * cw
+            let x = (z.width - CGFloat(hist.count - i) * cw).rounded(), next = (z.width - CGFloat(hist.count - i - 1) * cw).rounded()
             for (k, v) in row.enumerated() where v > 0.12 {
                 let q = min(11, Int((v - 0.12) / 0.88 * 12))
-                lit[q].addRect(CGRect(x: x, y: z.height - CGFloat(k + 1) * ch, width: cw + 0.3, height: ch + 0.3))
+                let top = (z.height - CGFloat(k + 1) * ch).rounded(), bottom = (z.height - CGFloat(k) * ch).rounded()
+                lit[q].addRect(CGRect(x: x, y: top, width: next - x, height: bottom - top))
             }
         }
         for (q, p) in lit.enumerated() where !p.isEmpty {
@@ -284,12 +287,12 @@ struct VizDraw {
     // MARK: Moving things
 
     private func sparks(_ g: GraphicsContext, _ z: CGSize) {
-        state.moveSparks(live: live, many: big ? 240 : 110)
+        state.moveSparks(live: live, many: big ? 260 : 120)
         for p in state.sparks {
             let a = 1 - p.age / p.life
-            let r = CGFloat(p.size) * (big ? 1.6 : 1) * CGFloat(0.4 + 0.6 * a)
+            let r = CGFloat(p.size) * (big ? 2.1 : 1) * CGFloat(0.4 + 0.6 * a)
             let c = CGPoint(x: CGFloat(p.x) * z.width, y: z.height * (1 - CGFloat(p.y)))
-            let level = min(1, max(0, p.y))
+            let level = min(1, 0.3 + max(0, p.y))
             fill(g, Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)), .color(paint.color(level, p.x)), a)
         }
         let e = state.energy(live: live)
@@ -304,10 +307,11 @@ struct VizDraw {
         state.movePulses(live: live, low: e.low)
         let c = CGPoint(x: z.width / 2, y: z.height / 2), far = hypot(z.width, z.height) / 2
         for p in state.pulses {
-            let t = p.age / 2.2, r = CGFloat(t) * far, a = (1 - t) * (0.35 + 0.65 * p.power)
+            let t = p.age / VizState.pulseLife, r = CGFloat(t) * far, a = (1 - t) * (0.35 + 0.65 * p.power)
+            guard r > 1, a > 0.02 else { continue }
             let box = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
             var ctx = g
-            ctx.opacity = max(0, a)
+            ctx.opacity = a
             ctx.stroke(Path(ellipseIn: box), with: .color(paint.color(1 - t, t)), lineWidth: line * (1 + 2.5 * CGFloat(p.power * (1 - t))))
         }
         let r0 = min(z.width, z.height) * (0.12 + 0.2 * CGFloat(e.low))
@@ -321,9 +325,9 @@ struct VizDraw {
         state.moveStars(live: live, speed: 0.1 + 0.9 * (e.low * 0.6 + e.mid * 0.4))
         let c = CGPoint(x: z.width / 2, y: z.height / 2), far = max(z.width, z.height) / 2
         for s in state.stars {
-            let k = CGFloat(0.35 / s.z), x = c.x + CGFloat(s.x) * far * k, y = c.y + CGFloat(s.y) * far * k
+            let k = CGFloat(0.55 / s.z), x = c.x + CGFloat(s.x) * far * k, y = c.y + CGFloat(s.y) * far * k
             guard x > -4, x < z.width + 4, y > -4, y < z.height + 4 else { continue }
-            let near = 1 - s.z, r = CGFloat(0.5 + 2.2 * near * near) * (big ? 1.3 : 0.8)
+            let near = 1 - s.z, r = CGFloat(0.6 + 2.4 * near * near) * (big ? 1.6 : 0.8)
             let place = (atan2(s.y, s.x) / (2 * .pi)) + 0.5
             let col = paint.many ? paint.color(near, place) : s.tinted ? paint.accent : Theme.fg
             fill(g, Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)), .color(col), min(1, 0.15 + near))

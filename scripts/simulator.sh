@@ -23,7 +23,7 @@ t 120 xcrun simctl install "$DEV" "$APP"
 
 say self-test
 t 120 xcrun simctl launch --stdout="$PWD/shots/out.txt" --stderr="$PWD/shots/selftest.txt" "$DEV" $ID -demo -selftest
-for _ in $(seq 1 220); do
+for _ in $(seq 1 290); do
   grep -q 'SELFTEST done' shots/selftest.txt 2>/dev/null && break
   sleep 1
 done

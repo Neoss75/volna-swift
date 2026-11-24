@@ -55,8 +55,12 @@ final class VizState {
         let tinted: Bool
     }
 
-    static let historySize = 90
-    static let historyBands = 44
+    #if DEBUG
+        static var frames = 0
+    #endif
+    static let historySize = 110
+    static let historyBands = 60
+    static let pulseLife = 1.8
 
     let spectrum = SpectrumAnalyzer()
     private(set) var vuL = 0.0
@@ -73,6 +77,7 @@ final class VizState {
     private var owed = 0.0
     private var calm = 0.0
     private var sinceBeat = 1.0
+    private var zoom = 1.0
     private var peakL = Date.distantPast
     private var peakR = Date.distantPast
     private var last: Date?
@@ -82,6 +87,9 @@ final class VizState {
 
     func step(_ now: Date, _ tap: VizTap) {
         spectrum.update(tap)
+        #if DEBUG
+            Self.frames += 1
+        #endif
         func meter(_ x: [Float], _ old: Double, _ peak: inout Date) -> Double {
             let m = SpectrumAnalyzer.level(x)
             if m.peak > 0.89 { peak = Date().addingTimeInterval(0.45) }
@@ -97,6 +105,14 @@ final class VizState {
     }
 
     func rest() { last = nil }
+
+    /// Follows the loudness slowly, at most 5 times.
+    func scopeZoom() -> Double {
+        let p = max(SpectrumAnalyzer.level(spectrum.left).peak, SpectrumAnalyzer.level(spectrum.right).peak)
+        let target = min(5, 0.95 / max(0.05, p))
+        zoom += (target - zoom) * min(1, dt * (target < zoom ? 8 : 0.8))
+        return zoom
+    }
 
     static func vuPos(_ db: Double) -> Double {
         let a = pow(10, db / 20), lo = 0.1, hi = pow(10, 3.0 / 20)
@@ -124,29 +140,29 @@ final class VizState {
     func moveSparks(live: Bool, many: Int) {
         for i in sparks.indices {
             sparks[i].age += dt
-            sparks[i].vy -= 0.35 * dt
+            sparks[i].vy -= 0.3 * dt
             sparks[i].x += sparks[i].vx * dt
             sparks[i].y += sparks[i].vy * dt
         }
         sparks.removeAll { $0.age >= $0.life || $0.y < -0.05 }
         guard live else { return }
         let bands = spectrum.bands(20, live: live).v
-        owed += dt * Double(bands.reduce(0, +)) / 20 * Double(many) * 1.2
+        owed += dt * Double(bands.reduce(0, +)) / 20 * Double(many) * 2.6
         while owed >= 1, sparks.count < many {
             owed -= 1
             let k = Int.random(in: 0..<20), v = Double(bands[k])
             guard Double.random(in: 0...1) < v + 0.1 else { continue }
             sparks.append(Spark(x: (Double(k) + .random(in: 0...1)) / 20, y: 0, vx: .random(in: -0.06...0.06),
-                                vy: 0.2 + 0.75 * v * .random(in: 0.6...1.1), age: 0, life: .random(in: 0.9...1.9), size: .random(in: 1...2.4)))
+                                vy: 0.3 + 0.85 * v * .random(in: 0.6...1.15), age: 0, life: .random(in: 0.9...1.9), size: .random(in: 1...2.4)))
         }
-        owed = min(owed, 4)
+        owed = min(owed, 6)
     }
 
     func movePulses(live: Bool, low: Double) {
         for i in pulses.indices { pulses[i].age += dt }
-        pulses.removeAll { $0.age > 2.2 }
+        pulses.removeAll { $0.age >= Self.pulseLife }
         sinceBeat += dt
-        if live, low > 0.12, low > calm * 1.12, sinceBeat > 0.22, pulses.count < 14 {
+        if live, low > 0.12, low > calm * 1.12, sinceBeat > 0.22, pulses.count < 8 {
             sinceBeat = 0
             pulses.append(Pulse(age: 0, power: min(1, low)))
         }
@@ -155,7 +171,7 @@ final class VizState {
 
     func moveStars(live: Bool, speed: Double) {
         if stars.isEmpty {
-            stars = (0..<160).map { _ in Self.star(.random(in: 0.05...1)) }
+            stars = (0..<260).map { _ in Self.star(.random(in: 0.05...1)) }
         }
         guard live else { return }
         for i in stars.indices {
