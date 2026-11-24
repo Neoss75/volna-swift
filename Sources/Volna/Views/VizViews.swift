@@ -81,6 +81,7 @@ final class VizState {
     private var peakL = Date.distantPast
     private var peakR = Date.distantPast
     private var last: Date?
+    private var lastTurn: Date?
 
     var hotL: Bool { peakL > Date() }
     var hotR: Bool { peakR > Date() }
@@ -99,12 +100,21 @@ final class VizState {
         vuL = meter(spectrum.left, vuL, &peakL)
         vuR = meter(spectrum.right, vuR, &peakR)
         dt = last.map { min(0.1, max(0, now.timeIntervalSince($0))) } ?? 0
-        angle += dt * 12
         clock += dt
         last = now
     }
 
-    func rest() { last = nil }
+    func rest() {
+        last = nil
+        lastTurn = nil
+    }
+
+    /// The cover turns by 12° a second.
+    func turn(_ now: Date) -> Double {
+        if let lastTurn { angle += min(0.1, max(0, now.timeIntervalSince(lastTurn))) * 12 }
+        lastTurn = now
+        return angle
+    }
 
     /// Follows the loudness slowly, at most 5 times.
     func scopeZoom() -> Double {
@@ -197,17 +207,19 @@ struct RingCover: View {
 
     var body: some View {
         let paint = VizPaint(colors: settings.v.vizColors, accent: settings.accent), playing = player.isPlaying
-        TimelineView(.animation(minimumInterval: 1 / 45, paused: covered || !moving)) { line in
-            ZStack {
+        ZStack {
+            TimelineView(.animation(minimumInterval: 1 / 45, paused: covered || !moving)) { line in
                 Canvas { ctx, size in
                     state.step(line.date, player.graph.tap)
                     draw(ctx, size, paint, playing)
                 }
-                CoverView(track: track, corner: side, letter: side * 0.16)
-                    .frame(width: side * 0.58, height: side * 0.58)
-                    .rotationEffect(.degrees(state.angle))
-                    .overlay(Circle().stroke(Theme.line, lineWidth: 1).padding(-4))
             }
+            // a picture of its own that only turns: building the cover again for every frame is slow
+            TimelineView(.animation(minimumInterval: 1 / 45, paused: covered || !moving)) { line in
+                cover.rotationEffect(.degrees(state.turn(line.date)))
+            }
+            .frame(width: side * 0.58, height: side * 0.58)
+            Circle().stroke(Theme.line, lineWidth: 1).frame(width: side * 0.58 + 8, height: side * 0.58 + 8)
         }
         .frame(width: side, height: side)
         .task(id: playing) {
@@ -222,6 +234,12 @@ struct RingCover: View {
         }
     }
 
+    private var cover: some View {
+        CoverView(track: track, corner: side, letter: side * 0.16)
+            .frame(width: side * 0.58, height: side * 0.58)
+            .drawingGroup()
+    }
+
     private func draw(_ g: GraphicsContext, _ size: CGSize, _ paint: VizPaint, _ live: Bool) {
         let c = size.width / 2, R0 = size.width * 0.29 + 7, maxL = c - R0 - 3, n = 64, N = 128
         let s = state.spectrum.bands(n, live: live, fall: 0.88)
@@ -230,16 +248,27 @@ struct RingCover: View {
                  with: .color(paint.color(bass, 0.6).opacity(0.12 + 0.5 * bass)), lineWidth: 2 + 6 * bass)
         let lw = max(1.5, 2 * .pi * R0 / CGFloat(N) * 0.5)
         let shade = paint.shade(center: CGPoint(x: c, y: c), from: R0, to: R0 + maxL)
+        var idle = Path(), rays = [Path](repeating: Path(), count: 8) // rays of about the same brightness are drawn together
         for k in 0..<N {
             let v = CGFloat(s.v[k < n ? k : N - 1 - k]), th = -Double.pi / 2 + (Double(k) + 0.5) / Double(N) * 2 * .pi
             let len = 2 + v * maxL, co = CGFloat(cos(th)), si = CGFloat(sin(th))
-            var p = Path()
-            p.move(to: CGPoint(x: c + co * R0, y: c + si * R0))
-            p.addLine(to: CGPoint(x: c + co * (R0 + len), y: c + si * (R0 + len)))
-            var ctx = g
-            ctx.opacity = v > 0.02 ? paint.alpha(Double(v)) : 0.35
-            ctx.stroke(p, with: v > 0.02 ? shade : .color(Theme.line), style: StrokeStyle(lineWidth: lw, lineCap: .round))
+            let from = CGPoint(x: c + co * R0, y: c + si * R0), to = CGPoint(x: c + co * (R0 + len), y: c + si * (R0 + len))
+            if v > 0.02 {
+                let q = min(7, Int(v * 8))
+                rays[q].move(to: from)
+                rays[q].addLine(to: to)
+            } else {
+                idle.move(to: from)
+                idle.addLine(to: to)
+            }
         }
+        let style = StrokeStyle(lineWidth: lw, lineCap: .round)
+        for (q, p) in rays.enumerated() where !p.isEmpty {
+            var ctx = g
+            ctx.opacity = paint.alpha((Double(q) + 0.5) / 8)
+            ctx.stroke(p, with: shade, style: style)
+        }
+        g.stroke(idle, with: .color(Theme.line.opacity(0.35)), style: style)
     }
 }
 
