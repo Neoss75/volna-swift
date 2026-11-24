@@ -10,7 +10,7 @@ on:
 jobs:
   check:
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +38,7 @@ jobs:
           grep -E "(Sources|Shared|Widget)/.*warning:" build.log | sort -u | head -30 || true
 
       - name: Run and take screenshots
-        timeout-minutes: 25
+        timeout-minutes: 38
         run: bash scripts/simulator.sh
 
       - uses: actions/upload-artifact@v4

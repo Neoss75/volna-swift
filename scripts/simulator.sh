@@ -82,6 +82,20 @@ shot 21-saver-led -saver -viz led
 shot 22-saver-land-bars -landscape -saver -viz bars
 shot 23-saver-land-ring -landscape -saver -viz ring
 shot 24-saver-land-vu -landscape -saver -viz vu
+shot 25-gallery -vizgallery -theme dark
+shot 26-gallery-light -vizgallery -theme light
+shot 27-level-bars -viz bars -colors level -theme dark
+shot 28-level-ring -viz ring -colors level
+shot 29-rainbow-ring -viz ring -colors rainbow
+shot 30-saver-falls -saver -viz falls -colors level
+shot 31-saver-sparks -saver -viz sparks -colors fire
+shot 32-saver-pulse -saver -viz pulse -colors neon
+shot 33-saver-stars -saver -viz stars -colors level
+shot 34-saver-flower -saver -viz flower -colors neon
+shot 35-saver-ridges -saver -viz ridges -colors level
+shot 36-saver-scope -saver -viz scope -colors level
+shot 37-saver-land-ribbons -landscape -saver -viz ribbons -colors neon
+shot 38-saver-land-dots -landscape -saver -viz dots -colors level
 for f in shots/*-land-*.png; do W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}'); [ "$W" -lt "$H" ] && sips -r 270 "$f" > /dev/null; done
 for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done
 exit $RESULT

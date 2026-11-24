@@ -1,20 +1,35 @@
 import SwiftUI
 
 enum VizMode: String, Codable, CaseIterable, Identifiable {
-    case bars, mirror, led, area, wave, ring, vu, off
+    case bars, peaks, mirror, led, dots, area, ribbons, wave, scope, ridges, falls, sparks, pulse, stars, flower, ring, vu, off
     var id: String { rawValue }
     var name: String {
         switch self {
         case .bars: "Столбики"
+        case .peaks: "Пики"
         case .mirror: "Зеркало"
         case .led: "Индикатор"
+        case .dots: "Точки"
         case .area: "Спектр"
+        case .ribbons: "Ленты"
         case .wave: "Осциллограф"
+        case .scope: "Стереофигура"
+        case .ridges: "Горы"
+        case .falls: "Водопад"
+        case .sparks: "Искры"
+        case .pulse: "Пульс"
+        case .stars: "Звёзды"
+        case .flower: "Лепестки"
         case .ring: "Круг"
         case .vu: "Стрелки L/R"
         case .off: "Выключено"
         }
     }
+
+    /// Needs a taller strip on the main screen.
+    var tall: Bool { [.vu, .scope, .ridges, .falls, .pulse, .flower].contains(self) }
+    /// Takes the whole screen as the screensaver.
+    var wholeScreen: Bool { [.falls, .sparks, .pulse, .stars].contains(self) }
 }
 
 struct EQPreset: Identifiable {
@@ -52,13 +67,15 @@ final class Settings: ObservableObject {
         var themeMode = "system"
         var accent = "amber"
         var viz = VizMode.bars
+        var vizColors = VizColors.accent
         var lyricsOn = false
         var sort = "added"
         var gapless = true
         var matchRate = true
         var direct = false
         var refreshFolders = true
-        /// Seconds without touches before the screensaver, 0 = never.
+        var saverOn = true
+        /// Seconds without touches before the screensaver.
         var saver = 10
         /// `.off` = the same as on the main screen.
         var saverViz = VizMode.off

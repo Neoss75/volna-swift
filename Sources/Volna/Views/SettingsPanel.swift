@@ -432,14 +432,34 @@ private struct VizPage: View {
             }
             Hint("Режим также переключается нажатием на визуализацию под обложкой.")
         }
-        Block("Заставка") {
+        Block("Цвета") {
             Flow {
-                ForEach([(0, "Выключена"), (10, "10 секунд"), (20, "20 секунд"), (30, "30 секунд"), (60, "1 минута")], id: \.0) { s in
-                    Chip(text: s.1, on: settings.v.saver == s.0) { settings.v.saver = s.0 }
+                ForEach(VizColors.allCases) { c in
+                    Chip(text: c.name, on: settings.v.vizColors == c) { settings.v.vizColors = c }
                 }
             }
+            if settings.v.vizColors != .accent {
+                LinearGradient(gradient: settings.v.vizColors.gradient, startPoint: .leading, endPoint: .trailing)
+                    .frame(height: 8)
+                    .clipShape(Capsule())
+                HStack {
+                    Text(settings.v.vizColors == .rainbow ? "низкие" : "тихо")
+                    Spacer()
+                    Text(settings.v.vizColors == .rainbow ? "высокие" : "громко")
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.muted)
+            }
+        }
+        Block("Заставка") {
+            SwitchRow(label: "Включать заставку", on: $settings.v.saverOn)
             Hint("Если играет музыка и вы столько не касаетесь экрана, визуализация открывается на весь экран. Нажатие возвращает плеер. Поверх списков, настроек и текста песни заставка не появляется.")
-            if settings.v.saver > 0 {
+            if settings.v.saverOn {
+                Flow {
+                    ForEach([(10, "10 секунд"), (20, "20 секунд"), (30, "30 секунд"), (60, "1 минута")], id: \.0) { s in
+                        Chip(text: s.1, on: settings.v.saver == s.0) { settings.v.saver = s.0 }
+                    }
+                }
                 Flow {
                     ForEach([VizMode.off] + VizMode.allCases.filter { $0 != .off }) { m in
                         Chip(text: m == .off ? "Как на главном экране" : m.name, on: settings.v.saverViz == m) { settings.v.saverViz = m }

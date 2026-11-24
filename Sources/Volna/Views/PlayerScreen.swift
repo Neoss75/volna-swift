@@ -37,6 +37,7 @@ struct PlayerScreen: View {
         .modifier(SaverControl())
         #if DEBUG
             .overlay { if ProcessInfo.processInfo.arguments.contains("-widgets") { WidgetGallery(player: player) } }
+            .overlay { if ProcessInfo.processInfo.arguments.contains("-vizgallery") { VizGallery() } }
         #endif
     }
 

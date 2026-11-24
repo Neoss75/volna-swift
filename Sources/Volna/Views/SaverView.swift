@@ -19,10 +19,20 @@ struct SaverView: View {
                     .blur(radius: 70, opaque: true)
                     .opacity(0.28)
                     .clipped()
-                Group {
-                    if wide { landscape(s) } else { portrait(s) }
+                if mode.wholeScreen {
+                    VizStrip(mode: mode, height: s.height)
+                    titles(.center)
+                        .shadow(color: .black, radius: 8)
+                        .padding(.horizontal, 30)
+                        .padding(.bottom, wide ? 34 : 90)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .offset(drift)
+                } else {
+                    Group {
+                        if wide { landscape(s) } else { portrait(s) }
+                    }
+                    .offset(drift)
                 }
-                .offset(drift)
             }
             .frame(width: s.width, height: s.height)
         }
@@ -59,7 +69,7 @@ struct SaverView: View {
             if mode == .ring {
                 RingCover(track: player.current, side: s.width - 20)
             } else {
-                VizStrip(mode: mode, height: s.height * (mode == .vu ? 0.5 : 0.4)).padding(.horizontal, 20)
+                VizStrip(mode: mode, height: s.height * (mode.tall ? 0.5 : 0.4)).padding(.horizontal, 20)
             }
             titles(.center).padding(.horizontal, 30)
         }
@@ -109,7 +119,7 @@ struct SaverControl: ViewModifier {
     }
 
     private var ready: Bool {
-        settings.v.saver > 0 && player.isPlaying && !ui.saver && ui.nothingOpen && !settings.v.lyricsOn
+        settings.v.saverOn && player.isPlaying && !ui.saver && ui.nothingOpen && !settings.v.lyricsOn
             && scenePhase == .active && !UIAccessibility.isVoiceOverRunning
     }
 

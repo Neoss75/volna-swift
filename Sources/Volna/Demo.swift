@@ -14,7 +14,8 @@ enum Demo {
             return args[i + 1]
         }
         settings.v.onlineArt = false
-        settings.v.saver = 0
+        settings.v.saverOn = false
+        settings.v.vizColors = value("-colors").flatMap(VizColors.init(rawValue:)) ?? .accent
         if library.tracks.isEmpty {
             let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let specs: [(String, Double, Int, Double)] = [
@@ -172,6 +173,7 @@ enum Demo {
             check("play " + t.kind, player.isPlaying && player.position > 1 && player.position < 3, String(format: "%.2f of %.2f", player.position, player.duration))
         }
         if let long = library.tracks.max(by: { $0.duration < $1.duration }) { player.play(long.id, from: [long.id]) }
+        settings.v.saverOn = true
         settings.v.saver = 2
         await wait(1.5)
         ui.touch(true)
@@ -188,7 +190,10 @@ enum Demo {
         await wait(3)
         check("no screensaver over a panel", !ui.saver && player.isPlaying, "")
         ui.panel = nil
-        settings.v.saver = 0
+        settings.v.saverOn = false
+        settings.v.saver = 10
+        await wait(1)
+        check("screensaver can be switched off", !ui.saver, "")
         log("done")
     }
 
@@ -316,7 +321,9 @@ enum Demo {
             let env = exp(-3 * (t * 4).truncatingRemainder(dividingBy: 1)) * (0.5 + 0.5 * abs(sin(t / 2)))
             var s = 0.0
             for h in 1...6 { s += sin(2 * .pi * note * Double(h * h) * t) / Double(h) }
-            for c in 0..<channels { data[c][i] = Float(s * env * 0.3) }
+            let beat = (t * 2).truncatingRemainder(dividingBy: 1)
+            let kick = 0.24 * sin(2 * .pi * 58 * t) * exp(-7 * beat)
+            for c in 0..<channels { data[c][i] = Float(s * env * 0.3 * (c == 0 ? 1 : 0.7) + kick) }
         }
         try? file.write(from: buffer)
     }

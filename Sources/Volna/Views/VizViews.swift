@@ -10,18 +10,19 @@ struct VizStrip: View {
     var compact = false
     var mode: VizMode?
     var height: CGFloat?
+    var colors: VizColors?
 
     var body: some View {
         let mode = mode ?? settings.v.viz
         if mode != .off && mode != .ring {
-            let accent = settings.accent, playing = player.isPlaying
+            let paint = VizPaint(colors: colors ?? settings.v.vizColors, accent: settings.accent), playing = player.isPlaying
             TimelineView(.animation(minimumInterval: 1 / 45, paused: covered || !moving)) { line in
                 Canvas { ctx, size in
                     state.step(line.date, player.graph.tap)
-                    draw(mode, ctx, size, accent, playing)
+                    VizDraw(state: state, paint: paint, live: playing, big: height != nil).draw(mode, ctx, size)
                 }
             }
-            .frame(height: height ?? (compact ? (mode == .vu ? 84 : 58) : mode == .vu ? 120 : 64))
+            .frame(height: height ?? (mode.tall ? (compact ? 84 : 120) : compact ? 58 : 64))
             .contentShape(Rectangle())
             .onTapGesture { settings.cycleViz() }
             .allowsHitTesting(height == nil)
@@ -36,139 +37,42 @@ struct VizStrip: View {
             .id(mode)
         }
     }
-
-    private func draw(_ mode: VizMode, _ g: GraphicsContext, _ size: CGSize, _ A: Color, _ live: Bool) {
-        let W = size.width, H = size.height, L = Theme.line
-        func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ c: Color, _ a: Double) {
-            g.fill(Path(CGRect(x: x, y: y, width: w, height: h)), with: .color(c.opacity(a)))
-        }
-        switch mode {
-        case .bars:
-            let n = 40, s = state.spectrum.bands(n, live: live), gap: CGFloat = 3, bw = (W - gap * CGFloat(n - 1)) / CGFloat(n)
-            for i in 0..<n {
-                let v = CGFloat(s.v[i]), h = max(2, v * H)
-                rect(CGFloat(i) * (bw + gap), H - h, bw, h, v > 0.02 ? A : L, 0.35 + 0.65 * Double(v))
-            }
-        case .mirror:
-            let n = 48, s = state.spectrum.bands(n, live: live), gap: CGFloat = 2, bw = (W - gap * CGFloat(n - 1)) / CGFloat(n), mid = H / 2
-            for i in 0..<n {
-                let j = i < n / 2 ? n / 2 - 1 - i : i - n / 2
-                let v = CGFloat(s.v[min(n - 1, j * 2)]), h = max(1.5, v * (mid - 1)), x = CGFloat(i) * (bw + gap), a = 0.3 + 0.7 * Double(v)
-                rect(x, mid - h, bw, h, v > 0.02 ? A : L, a)
-                rect(x, mid, bw, h, v > 0.02 ? A : L, a * 0.45)
-            }
-        case .led:
-            let n = 24, rows = height == nil ? 10 : 22, s = state.spectrum.bands(n, live: live, fall: 0.86)
-            let gx: CGFloat = 4, gy: CGFloat = 2, bw = (W - gx * CGFloat(n - 1)) / CGFloat(n), bh = (H - gy * CGFloat(rows - 1)) / CGFloat(rows)
-            for i in 0..<n {
-                let lit = Int((s.v[i] * Float(rows)).rounded()), pk = min(rows - 1, Int((s.peak[i] * Float(rows)).rounded()))
-                for r in 0..<rows {
-                    let y = H - CGFloat(r + 1) * bh - CGFloat(r) * gy, x = CGFloat(i) * (bw + gx)
-                    if r < lit {
-                        rect(x, y, bw, bh, r >= rows - 2 ? Theme.fg : A, 0.55 + 0.45 * Double(r) / Double(rows))
-                    } else if live, r == pk, pk > 0 {
-                        rect(x, y, bw, bh, Theme.fg, 0.8)
-                    } else {
-                        rect(x, y, bw, bh, L, 0.5)
-                    }
-                }
-            }
-        case .area:
-            let n = 96, s = state.spectrum.bands(n, live: live, fall: 0.88)
-            let pts = (0..<n).map { CGPoint(x: CGFloat($0) / CGFloat(n - 1) * W, y: H - max(1, CGFloat(s.v[$0]) * (H - 3))) }
-            var line = Path()
-            line.move(to: pts[0])
-            for i in 1..<n {
-                line.addQuadCurve(to: CGPoint(x: (pts[i - 1].x + pts[i].x) / 2, y: (pts[i - 1].y + pts[i].y) / 2), control: pts[i - 1])
-            }
-            line.addLine(to: pts[n - 1])
-            var fill = line
-            fill.addLine(to: CGPoint(x: W, y: H))
-            fill.addLine(to: CGPoint(x: 0, y: H))
-            fill.closeSubpath()
-            g.fill(fill, with: .linearGradient(Gradient(colors: [A.opacity(0.45), A.opacity(0)]), startPoint: .zero, endPoint: CGPoint(x: 0, y: H)))
-            g.stroke(line, with: .color(A), style: StrokeStyle(lineWidth: height == nil ? 2 : 3, lineJoin: .round))
-        case .wave:
-            let mid = H / 2
-            rect(0, mid - 0.5, W, 1, L, 1)
-            let x = state.spectrum.samples
-            guard live, x.count > 1100 else { return }
-            // start at a rising zero crossing so the trace holds still
-            var st = 0
-            for i in 1..<(x.count / 2) where x[i - 1] < 0 && x[i] >= 0 {
-                st = i
-                break
-            }
-            let n = min(1024, x.count - st)
-            var p = Path()
-            for i in stride(from: 0, to: n, by: 2) {
-                let pt = CGPoint(x: CGFloat(i) / CGFloat(n - 1) * W, y: mid - CGFloat(max(-1, min(1, x[st + i]))) * (mid - 2))
-                if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
-            }
-            g.stroke(p, with: .color(A), style: StrokeStyle(lineWidth: height == nil ? 2 : 3, lineJoin: .round))
-        case .vu:
-            let gap: CGFloat = 10, w = (W - gap) / 2
-            if H > W * 0.8 { // a tall picture: one above the other
-                let h = min((H - gap * 2) / 2, W * 0.58), top = (H - h * 2 - gap * 2) / 2
-                meter(g, CGRect(x: 0, y: top, width: W, height: h), state.vuL, "L", state.hotL, A)
-                meter(g, CGRect(x: 0, y: top + h + gap * 2, width: W, height: h), state.vuR, "R", state.hotR, A)
-                return
-            }
-            meter(g, CGRect(x: 0, y: 0, width: w, height: H), state.vuL, "L", state.hotL, A)
-            meter(g, CGRect(x: w + gap, y: 0, width: w, height: H), state.vuR, "R", state.hotR, A)
-        case .ring, .off:
-            break
-        }
-    }
-
-    private func meter(_ base: GraphicsContext, _ r: CGRect, _ pos: Double, _ label: String, _ hot: Bool, _ A: Color) {
-        var g = base
-        let box = Path(roundedRect: r, cornerRadius: 10)
-        g.clip(to: box)
-        g.fill(box, with: .color(Theme.raise))
-        g.fill(box, with: .radialGradient(Gradient(colors: [A.opacity(0.22), A.opacity(0)]), center: CGPoint(x: r.midX, y: r.maxY), startRadius: 0, endRadius: r.height * 1.1))
-        let px = r.midX, py = r.minY + r.height * 1.16, rs = r.height * 0.86, k = max(1, r.height / 130)
-        let sweep = min(0.9, asin(min(1, Double(r.width * 0.42 / rs))))
-        func ang(_ p: Double) -> Double { -sweep + 2 * sweep * p }
-        func pt(_ th: Double, _ rad: CGFloat) -> CGPoint { CGPoint(x: px + rad * CGFloat(sin(th)), y: py - rad * CGFloat(cos(th))) }
-        func arc(_ a: Double, _ b: Double, _ rad: CGFloat) -> Path {
-            var p = Path()
-            p.addArc(center: CGPoint(x: px, y: py), radius: rad, startAngle: .radians(a - .pi / 2), endAngle: .radians(b - .pi / 2), clockwise: false)
-            return p
-        }
-        let zero = VizState.vuPos(0)
-        g.stroke(arc(ang(0), ang(zero), rs), with: .color(Theme.fg.opacity(0.55)), lineWidth: 1.2 * k)
-        g.stroke(arc(ang(zero), ang(1), rs + 1.2 * k), with: .color(Theme.danger), lineWidth: 3.5 * k)
-        for db in [-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3] {
-            let th = ang(VizState.vuPos(Double(db))), major = [-20, -10, -5, -3, 0, 3].contains(db)
-            let c = db > 0 ? Theme.danger : Theme.fg.opacity(0.7)
-            var tick = Path()
-            tick.move(to: pt(th, rs))
-            tick.addLine(to: pt(th, rs - (major ? 8 : 5) * k))
-            g.stroke(tick, with: .color(c), lineWidth: (major ? 1.4 : 1) * k)
-            if major {
-                g.draw(Text(db > 0 ? "+\(db)" : "\(abs(db))").font(.mono(9 * k, .medium)).foregroundStyle(c), at: pt(th, rs - 17 * k))
-            }
-        }
-        g.draw(Text("VU").font(.display(11 * k, .medium)).foregroundStyle(Theme.muted), at: CGPoint(x: px, y: r.minY + r.height * 0.76))
-        g.draw(Text(label).font(.mono(10 * k, .medium)).foregroundStyle(Theme.muted), at: CGPoint(x: r.minX + 13 * k, y: r.maxY - 12 * k))
-        g.fill(Path(ellipseIn: CGRect(x: r.maxX - 14.5 * k, y: r.minY + 7.5 * k, width: 7 * k, height: 7 * k)), with: .color(hot ? Theme.danger : Theme.line))
-        var needle = Path()
-        needle.move(to: CGPoint(x: px, y: py))
-        needle.addLine(to: pt(ang(pos), rs + 5 * k))
-        g.stroke(needle, with: .color(Theme.fg), style: StrokeStyle(lineWidth: 1.6 * k, lineCap: .round))
-        let hub = r.height * 0.13
-        g.fill(Path(ellipseIn: CGRect(x: px - hub, y: r.maxY - hub, width: hub * 2, height: hub * 2)), with: .color(Theme.line))
-    }
 }
 
 /// Moving parts of the visualisation that live between frames.
 @MainActor
 final class VizState {
+    struct Spark {
+        var x, y, vx, vy, age, life, size: Double
+    }
+
+    struct Pulse {
+        var age, power: Double
+    }
+
+    struct Star {
+        var x, y, z: Double
+        let tinted: Bool
+    }
+
+    static let historySize = 90
+    static let historyBands = 44
+
     let spectrum = SpectrumAnalyzer()
     private(set) var vuL = 0.0
     private(set) var vuR = 0.0
     private(set) var angle = 0.0
+    /// Seconds of movement so far and since the last frame.
+    private(set) var clock = 0.0
+    private(set) var dt = 0.0
+    private(set) var sparks: [Spark] = []
+    private(set) var pulses: [Pulse] = []
+    private(set) var stars: [Star] = []
+    private var rows: [[Float]] = []
+    private var rowTime = 0.0
+    private var owed = 0.0
+    private var calm = 0.0
+    private var sinceBeat = 1.0
     private var peakL = Date.distantPast
     private var peakR = Date.distantPast
     private var last: Date?
@@ -186,7 +90,9 @@ final class VizState {
         }
         vuL = meter(spectrum.left, vuL, &peakL)
         vuR = meter(spectrum.right, vuR, &peakR)
-        if let last { angle += min(0.1, max(0, now.timeIntervalSince(last))) * 12 }
+        dt = last.map { min(0.1, max(0, now.timeIntervalSince($0))) } ?? 0
+        angle += dt * 12
+        clock += dt
         last = now
     }
 
@@ -195,6 +101,71 @@ final class VizState {
     static func vuPos(_ db: Double) -> Double {
         let a = pow(10, db / 20), lo = 0.1, hi = pow(10, 3.0 / 20)
         return min(1, max(0, (a - lo) / (hi - lo)))
+    }
+
+    /// How loud the low, middle and high notes are. Call once per frame: the bands fall on every call.
+    func energy(live: Bool) -> (low: Double, mid: Double, high: Double) {
+        let v = spectrum.bands(30, live: live).v
+        func mean(_ r: Range<Int>) -> Double { Double(v[r].reduce(0, +)) / Double(r.count) }
+        return (mean(0..<7), mean(7..<18), mean(18..<30))
+    }
+
+    /// The last spectra, the newest at the end.
+    func history(live: Bool) -> [[Float]] {
+        rowTime += dt
+        if rowTime >= 1 / 30.0 || rows.isEmpty {
+            rowTime = 0
+            rows.append(spectrum.bands(Self.historyBands, live: live, fall: 0.8).v)
+            if rows.count > Self.historySize { rows.removeFirst(rows.count - Self.historySize) }
+        }
+        return rows
+    }
+
+    func moveSparks(live: Bool, many: Int) {
+        for i in sparks.indices {
+            sparks[i].age += dt
+            sparks[i].vy -= 0.35 * dt
+            sparks[i].x += sparks[i].vx * dt
+            sparks[i].y += sparks[i].vy * dt
+        }
+        sparks.removeAll { $0.age >= $0.life || $0.y < -0.05 }
+        guard live else { return }
+        let bands = spectrum.bands(20, live: live).v
+        owed += dt * Double(bands.reduce(0, +)) / 20 * Double(many) * 1.2
+        while owed >= 1, sparks.count < many {
+            owed -= 1
+            let k = Int.random(in: 0..<20), v = Double(bands[k])
+            guard Double.random(in: 0...1) < v + 0.1 else { continue }
+            sparks.append(Spark(x: (Double(k) + .random(in: 0...1)) / 20, y: 0, vx: .random(in: -0.06...0.06),
+                                vy: 0.2 + 0.75 * v * .random(in: 0.6...1.1), age: 0, life: .random(in: 0.9...1.9), size: .random(in: 1...2.4)))
+        }
+        owed = min(owed, 4)
+    }
+
+    func movePulses(live: Bool, low: Double) {
+        for i in pulses.indices { pulses[i].age += dt }
+        pulses.removeAll { $0.age > 2.2 }
+        sinceBeat += dt
+        if live, low > 0.12, low > calm * 1.12, sinceBeat > 0.22, pulses.count < 14 {
+            sinceBeat = 0
+            pulses.append(Pulse(age: 0, power: min(1, low)))
+        }
+        calm += (low - calm) * min(1, dt * 4)
+    }
+
+    func moveStars(live: Bool, speed: Double) {
+        if stars.isEmpty {
+            stars = (0..<160).map { _ in Self.star(.random(in: 0.05...1)) }
+        }
+        guard live else { return }
+        for i in stars.indices {
+            stars[i].z -= dt * speed * 0.7
+            if stars[i].z < 0.04 { stars[i] = Self.star(1) }
+        }
+    }
+
+    private static func star(_ z: Double) -> Star {
+        Star(x: .random(in: -1...1), y: .random(in: -1...1), z: z, tinted: .random())
     }
 }
 
@@ -209,12 +180,12 @@ struct RingCover: View {
     let side: CGFloat
 
     var body: some View {
-        let accent = settings.accent, playing = player.isPlaying
+        let paint = VizPaint(colors: settings.v.vizColors, accent: settings.accent), playing = player.isPlaying
         TimelineView(.animation(minimumInterval: 1 / 45, paused: covered || !moving)) { line in
             ZStack {
                 Canvas { ctx, size in
                     state.step(line.date, player.graph.tap)
-                    draw(ctx, size, accent, playing)
+                    draw(ctx, size, paint, playing)
                 }
                 CoverView(track: track, corner: side, letter: side * 0.16)
                     .frame(width: side * 0.58, height: side * 0.58)
@@ -235,20 +206,44 @@ struct RingCover: View {
         }
     }
 
-    private func draw(_ g: GraphicsContext, _ size: CGSize, _ A: Color, _ live: Bool) {
+    private func draw(_ g: GraphicsContext, _ size: CGSize, _ paint: VizPaint, _ live: Bool) {
         let c = size.width / 2, R0 = size.width * 0.29 + 7, maxL = c - R0 - 3, n = 64, N = 128
         let s = state.spectrum.bands(n, live: live, fall: 0.88)
         let bass = Double(s.v.prefix(6).reduce(0, +)) / 6
         g.stroke(Path(ellipseIn: CGRect(x: c - R0 + 4, y: c - R0 + 4, width: (R0 - 4) * 2, height: (R0 - 4) * 2)),
-                 with: .color(A.opacity(0.12 + 0.5 * bass)), lineWidth: 2 + 6 * bass)
+                 with: .color(paint.color(bass, 0.6).opacity(0.12 + 0.5 * bass)), lineWidth: 2 + 6 * bass)
         let lw = max(1.5, 2 * .pi * R0 / CGFloat(N) * 0.5)
+        let shade = paint.shade(center: CGPoint(x: c, y: c), from: R0, to: R0 + maxL)
         for k in 0..<N {
             let v = CGFloat(s.v[k < n ? k : N - 1 - k]), th = -Double.pi / 2 + (Double(k) + 0.5) / Double(N) * 2 * .pi
             let len = 2 + v * maxL, co = CGFloat(cos(th)), si = CGFloat(sin(th))
             var p = Path()
             p.move(to: CGPoint(x: c + co * R0, y: c + si * R0))
             p.addLine(to: CGPoint(x: c + co * (R0 + len), y: c + si * (R0 + len)))
-            g.stroke(p, with: .color((v > 0.02 ? A : Theme.line).opacity(0.35 + 0.65 * Double(v))), style: StrokeStyle(lineWidth: lw, lineCap: .round))
+            var ctx = g
+            ctx.opacity = v > 0.02 ? paint.alpha(Double(v)) : 0.35
+            ctx.stroke(p, with: v > 0.02 ? shade : .color(Theme.line), style: StrokeStyle(lineWidth: lw, lineCap: .round))
         }
     }
 }
+
+#if DEBUG
+/// Every visualisation at once, only to take a picture of them.
+struct VizGallery: View {
+    var body: some View {
+        let modes = VizMode.allCases.filter { $0 != .off && $0 != .ring }
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 8) {
+                ForEach(Array(modes.enumerated()), id: \.1) { i, m in
+                    VStack(alignment: .leading, spacing: 2) {
+                        VizStrip(mode: m, colors: VizColors.allCases[i % VizColors.allCases.count])
+                        Text(m.name).font(.mono(9)).foregroundStyle(Theme.muted)
+                    }
+                }
+            }
+            .padding(12)
+        }
+        .background(Theme.bg)
+    }
+}
+#endif
