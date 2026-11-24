@@ -133,10 +133,13 @@ enum Demo {
         let formats = await addFormats(library)
         check("formats added", formats.map(\.kind) == ["FLAC", "ALAC", "M4A"], "\(formats.map(\.formatLine))")
         check("lossless mark", formats.map(\.isLossless) == [true, true, false], "\(formats.map { $0.bits ?? 0 })")
-        // our own reading of the FLAC header against what iOS says (the encoder ignores the 16-bit hint)
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let flags = (try? AVAudioFile(forReading: docs.appendingPathComponent("Формат один.flac")))?.fileFormat.streamDescription.pointee.mFormatFlags ?? 0
-        check("FLAC bit depth", formats.first?.bits == [1: 16, 2: 20, 3: 24, 4: 32][Int(flags)], "flags \(flags)")
+        // iOS does not report the bit depth of a FLAC file, so the header reading is checked on known headers
+        for (bytes, rate, bits) in [([0x0A, 0xC4, 0x42, 0xF0] as [UInt8], 44100.0, 16), ([0x17, 0x70, 0x03, 0x70], 96000, 24)] {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("header.flac")
+            try? Data(Array("fLaC".utf8) + [0x80, 0, 0, 34] + [UInt8](repeating: 0, count: 10) + bytes + [UInt8](repeating: 0, count: 20)).write(to: url)
+            let h = MetadataReader.header(of: url)
+            check("FLAC header \(bits)", h.bits == bits && h.sampleRate == rate, "\(h.bits ?? 0) \(h.sampleRate ?? 0)")
+        }
         check("lossless list", library.songs(in: .lossless, stats: Stats()).count == library.tracks.count - 1, "")
         for t in formats {
             player.play(t.id, from: formats.map(\.id))
