@@ -81,30 +81,46 @@ struct PlayerScreen: View {
         .frame(width: size.width, height: size.height)
     }
 
+    /// With all the marks on there is not enough room for everything: the rate goes first, then the build number.
     private var header: some View {
+        ViewThatFits(in: .horizontal) {
+            headerRow(build: true, rate: true)
+            headerRow(build: true, rate: false)
+            headerRow(build: false, rate: false)
+        }
+    }
+
+    private func headerRow(build: Bool, rate: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text("Волна")
                 .font(.display(18))
                 .foregroundStyle(Theme.fg)
-            Text("СБОРКА \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")")
-                .font(.mono(11))
-                .kerning(0.9)
-                .foregroundStyle(Theme.muted)
-            Spacer()
-            OutputBadges()
+                .fixedSize()
+            if build {
+                Text("СБОРКА \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")")
+                    .font(.mono(11))
+                    .kerning(0.9)
+                    .foregroundStyle(Theme.muted)
+                    .fixedSize()
+            }
+            Spacer(minLength: 0)
+            OutputBadges(rate: rate)
         }
     }
 }
 
+/// «LOSSLESS»: the file itself is lossless, whatever it is heard through.
 /// «HI-RES»: filled when the song really reaches a DAC at its own rate, outlined when the mode is only switched on.
 /// A tap opens the page that explains where the sound goes.
 struct OutputBadges: View {
     @EnvironmentObject private var settings: Settings
     @EnvironmentObject private var player: Player
     @EnvironmentObject private var ui: UIState
+    var rate = true
 
     var body: some View {
-        if settings.v.matchRate || settings.v.direct {
+        let lossless = player.current?.isLossless == true
+        if settings.v.matchRate || settings.v.direct || lossless {
             TimelineView(.periodic(from: .now, by: 2)) { _ in
                 let out = OutputInfo.now()
                 let live = settings.v.matchRate && out.plays(player.current)
@@ -113,14 +129,22 @@ struct OutputBadges: View {
                     ui.panel = .fx
                 } label: {
                     HStack(spacing: 6) {
-                        if out.digital { Text(out.rateText).font(.mono(11)).foregroundStyle(Theme.muted) }
+                        if rate, out.digital, settings.v.matchRate || settings.v.direct {
+                            Text(out.rateText).font(.mono(11)).foregroundStyle(Theme.muted)
+                        }
+                        if lossless { badge("LOSSLESS", true) }
                         if settings.v.direct { badge("ПРЯМОЙ", true) }
                         if settings.v.matchRate { badge("HI-RES", live) }
                     }
+                    .fixedSize()
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(live ? "Hi-Res: песня идёт без пересчёта частоты" : "Режим Hi-Res включён, сейчас не используется")
+                .accessibilityLabel([
+                    lossless ? "Файл без потерь" : nil,
+                    settings.v.direct ? "Прямой вывод" : nil,
+                    settings.v.matchRate ? (live ? "Hi-Res: песня идёт без пересчёта частоты" : "Режим Hi-Res включён, сейчас не используется") : nil,
+                ].compactMap { $0 }.joined(separator: ". "))
             }
         }
     }
@@ -164,7 +188,6 @@ struct CoverArea: View {
                 .opacity(fadeOut ? 0 : 1)
                 .frame(width: geo.size.width, height: geo.size.height)
                 .contentShape(Rectangle())
-                .onTapGesture { settings.v.lyricsOn = true }
                 .gesture(DragGesture(minimumDistance: 20)
                     .onEnded { g in
                         let dx = g.translation.width
@@ -174,7 +197,7 @@ struct CoverArea: View {
                     })
             }
             .accessibilityElement()
-            .accessibilityLabel("Обложка. Нажатие открывает текст песни, смахивание переключает песню")
+            .accessibilityLabel("Обложка. Смахивание переключает песню")
         }
     }
 
@@ -257,7 +280,7 @@ struct TitleBlock: View {
                     .lineLimit(1)
                 if compact {
                     Spacer(minLength: 0)
-                    OutputBadges()
+                    OutputBadges(rate: t?.isLossless != true)
                 }
             }
             if let t {

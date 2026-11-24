@@ -42,6 +42,15 @@ struct Track: Identifiable, Codable, Equatable {
     /// Better than CD: more than 48 kHz or at least 24 bits.
     var isHiRes: Bool { (sampleRate ?? 0) > 48000 || (bits ?? 0) >= 24 }
 
+    /// Nothing was thrown away when the file was made. WAV, AIFF and CAF may also hold compressed sound: then the bit depth is small or unknown.
+    var isLossless: Bool {
+        switch kind {
+        case "FLAC", "ALAC": true
+        case "WAV", "AIF", "AIFF", "CAF": (bits ?? 0) >= 16
+        default: false
+        }
+    }
+
     var fileName: String { (path as NSString).lastPathComponent }
     var baseName: String { (fileName as NSString).deletingPathExtension }
     var kind: String { (ext ?? (fileName as NSString).pathExtension).uppercased() }

@@ -3,7 +3,7 @@ import SwiftUI
 /// What the song list shows.
 enum SongCollection: Hashable {
     case all, favourites
-    case recent, often, forgotten
+    case recent, often, forgotten, lossless
     case playlist(UUID)
     case album(String), artist(String), folder(String)
 
@@ -49,6 +49,7 @@ extension Library {
                 .prefix(50))
         case .forgotten:
             return Array(tracks.sorted { (stats.entry($0.id)?.last ?? .distantPast) < (stats.entry($1.id)?.last ?? .distantPast) }.prefix(50))
+        case .lossless: return tracks.filter(\.isLossless)
         case .playlist(let id):
             return (playlists.first { $0.id == id }?.keys ?? []).compactMap { track($0) }
         case .album(let key):
@@ -90,7 +91,7 @@ struct ListPanel: View {
         var l = search.isEmpty ? base : base.filter {
             [$0.title, $0.artist, $0.album, $0.folder ?? ""].joined(separator: " ").localizedCaseInsensitiveContains(search)
         }
-        if ui.collection == .all || ui.collection == .favourites || ui.listTab != .songs && !ui.collection.isGroup {
+        if [.all, .favourites, .lossless].contains(ui.collection) || ui.listTab != .songs && !ui.collection.isGroup {
             switch settings.v.sort {
             case "title": l.sort { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
             case "artist": l.sort { ($0.artist.isEmpty ? "я" : $0.artist, $0.title) < ($1.artist.isEmpty ? "я" : $1.artist, $1.title) }
@@ -175,6 +176,7 @@ struct ListPanel: View {
                         Chip(text: "Недавние", on: ui.collection == .recent) { ui.collection = .recent }
                         Chip(text: "Часто играют", on: ui.collection == .often) { ui.collection = .often }
                         Chip(text: "Давно не слушали", on: ui.collection == .forgotten) { ui.collection = .forgotten }
+                        Chip(text: "Без потерь", count: library.tracks.filter(\.isLossless).count, on: ui.collection == .lossless) { ui.collection = .lossless }
                         ForEach(library.playlists) { p in
                             Chip(text: p.name, count: p.keys.filter { library.track($0) != nil }.count, on: ui.collection == .playlist(p.id)) { ui.collection = .playlist(p.id) }
                         }
@@ -398,6 +400,7 @@ struct ListPanel: View {
         switch ui.collection {
         case .favourites: return "В избранном пока пусто. Нажмите ♥ у песни, чтобы добавить её сюда."
         case .playlist: return "Плейлист пуст. Добавьте песни через «⋯» → «Добавить в плейлист»."
+        case .lossless: return "Песен без потерь пока нет. Это файлы FLAC, ALAC, WAV и AIFF."
         case .often: return "Здесь появятся песни, которые вы слушаете чаще всего."
         default: return "Список пуст. Добавьте файлы или папку."
         }

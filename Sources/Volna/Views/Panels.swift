@@ -223,6 +223,15 @@ struct SongRow: View {
                     VStack(alignment: .trailing, spacing: 1) {
                         Text(formatTime(track.duration)).font(.mono(12).monospacedDigit())
                         Text(track.rowQuality).font(.mono(10)).opacity(0.85)
+                        if track.isLossless {
+                            Text("LOSSLESS")
+                                .font(.system(size: 8, weight: .heavy))
+                                .kerning(0.4)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1.5)
+                                .overlay(Capsule().stroke(Theme.muted.opacity(0.7), lineWidth: 1))
+                                .accessibilityLabel("без потерь")
+                        }
                     }
                     .foregroundStyle(Theme.muted)
                     .fixedSize()

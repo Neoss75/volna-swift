@@ -37,13 +37,19 @@ enum Demo {
             await library.add(urls: [makeFolder()])
             if let t = library.tracks.first { library.edit(t.id, title: t.title, artist: t.artist, album: "Земля") }
         }
+        if args.contains("-lossless"), let t = await addFormats(library).first {
+            settings.v.direct = true
+            settings.v.matchRate = true
+            ui.collection = .lossless
+            player.play(t.id, from: library.tracks.map(\.id))
+        }
         if let t = value("-tab") { ui.listTab = ListTab.allCases.first { "\($0)" == t } ?? .songs }
         if args.contains("-album"), let t = library.tracks.first(where: { !$0.album.isEmpty }) { ui.collection = .album(Library.albumKey(t)) }
         if args.contains("-selftest") {
             await selfTest(library: library, player: player, settings: settings)
             return
         }
-        if let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
+        if !args.contains("-lossless"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
         if args.contains("-eqrock") { settings.v.bands = EQPreset.all[2].bands }
         if args.contains("-landscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
@@ -124,7 +130,29 @@ enum Demo {
         await wait(1)
         check("plays after removal", player.isPlaying && player.position > 0.4, "")
         await folderTest(library, player, settings, check, wait)
+        let formats = await addFormats(library)
+        check("formats added", formats.map(\.kind) == ["FLAC", "ALAC", "M4A"], "\(formats.map(\.formatLine))")
+        check("lossless mark", formats.map(\.isLossless) == [true, true, false] && formats.first?.bits == 16, "\(formats.map { $0.bits ?? 0 })")
+        check("lossless list", library.songs(in: .lossless, stats: Stats()).count == library.tracks.count - 1, "")
+        for t in formats {
+            player.play(t.id, from: formats.map(\.id))
+            await wait(2)
+            check("play " + t.kind, player.isPlaying && player.position > 1 && player.position < 3, String(format: "%.2f of %.2f", player.position, player.duration))
+        }
         log("done")
+    }
+
+    /// The same sound as FLAC, Apple Lossless and AAC.
+    private static func addFormats(_ library: Library) async -> [Track] {
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let specs = [("Формат один.flac", kAudioFormatFLAC), ("Формат два.m4a", kAudioFormatAppleLossless), ("Формат три.m4a", kAudioFormatMPEG4AAC)]
+        let urls = specs.map { s in
+            let url = dir.appendingPathComponent(s.0)
+            synth(url, rate: 44100, channels: 2, seconds: 8, format: s.1)
+            return url
+        }
+        await library.add(urls: urls)
+        return urls.compactMap { u in library.tracks.first { $0.fileName == u.lastPathComponent } }
     }
 
     private static func makeFolder() -> URL {
@@ -219,10 +247,14 @@ enum Demo {
         check("old statistics open", (try? JSONDecoder().decode(Stats.Data.self, from: Data(oldStats.utf8)))?.songs.count == 1, "")
     }
 
-    private static func synth(_ url: URL, rate: Double, channels: Int, seconds: Double) {
+    private static func synth(_ url: URL, rate: Double, channels: Int, seconds: Double, format kind: AudioFormatID = kAudioFormatLinearPCM) {
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: AVAudioChannelCount(channels)) else { return }
-        let settings: [String: Any] = [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: rate, AVNumberOfChannelsKey: channels,
-                                       AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false]
+        var settings: [String: Any] = [AVFormatIDKey: kind, AVSampleRateKey: rate, AVNumberOfChannelsKey: channels]
+        if kind == kAudioFormatLinearPCM {
+            settings.merge([AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false]) { $1 }
+        } else if kind != kAudioFormatMPEG4AAC {
+            settings[AVEncoderBitDepthHintKey] = 16
+        }
         let n = AVAudioFrameCount(rate * seconds)
         guard let file = try? AVAudioFile(forWriting: url, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false),
               let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: n), let data = buffer.floatChannelData else { return }
