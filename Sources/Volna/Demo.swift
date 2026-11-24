@@ -132,7 +132,11 @@ enum Demo {
         await folderTest(library, player, settings, check, wait)
         let formats = await addFormats(library)
         check("formats added", formats.map(\.kind) == ["FLAC", "ALAC", "M4A"], "\(formats.map(\.formatLine))")
-        check("lossless mark", formats.map(\.isLossless) == [true, true, false] && formats.first?.bits == 16, "\(formats.map { $0.bits ?? 0 })")
+        check("lossless mark", formats.map(\.isLossless) == [true, true, false], "\(formats.map { $0.bits ?? 0 })")
+        // our own reading of the FLAC header against what iOS says (the encoder ignores the 16-bit hint)
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let flags = (try? AVAudioFile(forReading: docs.appendingPathComponent("Формат один.flac")))?.fileFormat.streamDescription.pointee.mFormatFlags ?? 0
+        check("FLAC bit depth", formats.first?.bits == [1: 16, 2: 20, 3: 24, 4: 32][Int(flags)], "flags \(flags)")
         check("lossless list", library.songs(in: .lossless, stats: Stats()).count == library.tracks.count - 1, "")
         for t in formats {
             player.play(t.id, from: formats.map(\.id))

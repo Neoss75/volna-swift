@@ -230,6 +230,7 @@ struct SongRow: View {
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1.5)
                                 .overlay(Capsule().stroke(Theme.muted.opacity(0.7), lineWidth: 1))
+                                .padding(.top, 2)
                                 .accessibilityLabel("без потерь")
                         }
                     }

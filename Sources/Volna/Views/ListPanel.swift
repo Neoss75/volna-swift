@@ -173,10 +173,10 @@ struct ListPanel: View {
                     HStack(spacing: 6) {
                         Chip(text: "Все", count: library.tracks.count, on: ui.collection == .all) { ui.collection = .all }
                         Chip(text: "♥ Избранное", count: library.tracks.filter { library.isFavourite($0.id) }.count, on: ui.collection == .favourites) { ui.collection = .favourites }
+                        Chip(text: "Без потерь", count: library.tracks.filter(\.isLossless).count, on: ui.collection == .lossless) { ui.collection = .lossless }
                         Chip(text: "Недавние", on: ui.collection == .recent) { ui.collection = .recent }
                         Chip(text: "Часто играют", on: ui.collection == .often) { ui.collection = .often }
                         Chip(text: "Давно не слушали", on: ui.collection == .forgotten) { ui.collection = .forgotten }
-                        Chip(text: "Без потерь", count: library.tracks.filter(\.isLossless).count, on: ui.collection == .lossless) { ui.collection = .lossless }
                         ForEach(library.playlists) { p in
                             Chip(text: p.name, count: p.keys.filter { library.track($0) != nil }.count, on: ui.collection == .playlist(p.id)) { ui.collection = .playlist(p.id) }
                         }
