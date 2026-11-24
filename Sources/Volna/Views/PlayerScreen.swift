@@ -284,25 +284,27 @@ struct TitleBlock: View {
                 }
             }
             if let t {
-                // a little smaller rather than a second line; a really long one breaks only between its parts
-                let line = formatLine(t)
-                ViewThatFits(in: .horizontal) {
-                    Text(line).font(.mono(11)).kerning(0.3).lineLimit(1)
-                    Text(line).font(.mono(10)).lineLimit(1)
-                    Text(line).font(.mono(9)).lineLimit(1)
-                    Text(line).font(.mono(11)).kerning(0.3).lineLimit(2)
+                // the file on one line, its place in the queue on the next
+                let place = placeLine(t)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(t.formatLine)
+                    if !place.isEmpty { Text(place) }
                 }
+                .font(.mono(11))
+                .kerning(0.3)
                 .foregroundStyle(Theme.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .padding(.top, 2)
             }
         }
     }
 
-    private func formatLine(_ t: Track) -> String {
-        var p = [t.formatLine]
-        if settings.v.effectiveNormalize, let g = t.gainDb, g != 0 { p.append("выравн. " + formatDb(g)) }
+    private func placeLine(_ t: Track) -> String {
+        var p: [String] = []
         if player.qi >= 0 { p.append("\(player.qi + 1) из \(player.queue.count)") }
-        return p.joined(separator: " · ").replacingOccurrences(of: " ", with: "\u{A0}").replacingOccurrences(of: "·\u{A0}", with: "· ")
+        if settings.v.effectiveNormalize, let g = t.gainDb, g != 0 { p.append("выравн. " + formatDb(g)) }
+        return p.joined(separator: " · ")
     }
 }
 
