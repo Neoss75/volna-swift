@@ -284,12 +284,16 @@ struct TitleBlock: View {
                 }
             }
             if let t {
-                Text(formatLine(t))
-                    .font(.mono(11))
-                    .kerning(0.3)
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(2)
-                    .padding(.top, 2)
+                // a little smaller rather than a second line; a really long one breaks only between its parts
+                let line = formatLine(t)
+                ViewThatFits(in: .horizontal) {
+                    Text(line).font(.mono(11)).kerning(0.3).lineLimit(1)
+                    Text(line).font(.mono(10)).lineLimit(1)
+                    Text(line).font(.mono(9)).lineLimit(1)
+                    Text(line).font(.mono(11)).kerning(0.3).lineLimit(2)
+                }
+                .foregroundStyle(Theme.muted)
+                .padding(.top, 2)
             }
         }
     }
@@ -298,7 +302,7 @@ struct TitleBlock: View {
         var p = [t.formatLine]
         if settings.v.effectiveNormalize, let g = t.gainDb, g != 0 { p.append("выравн. " + formatDb(g)) }
         if player.qi >= 0 { p.append("\(player.qi + 1) из \(player.queue.count)") }
-        return p.joined(separator: " · ")
+        return p.joined(separator: " · ").replacingOccurrences(of: " ", with: "\u{A0}").replacingOccurrences(of: "·\u{A0}", with: "· ")
     }
 }
 
