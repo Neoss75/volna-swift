@@ -53,6 +53,22 @@ struct SongReading: Equatable {
         return (String(s[..<r.lowerBound]), String(s[r.upperBound...]))
     }
 
+    /// What may follow a dash without being the song's name: "Тумани - Remix".
+    private static let versionWords = #"^(.*\s)?(remix|rmx|mix|live|edit|version|remaster(ed)?|instrumental|acoustic|cover|karaoke|radio edit|original|extended|demo|bonus( track)?|ремикс|версия|версія|кавер|минус|мінус|концерт|інструментал|инструментал)(\s+\d{4})?$"#
+
+    /// Tags like title "The Kolors - ITALODISCO" with no real artist: the artist moves to its own field.
+    /// With a real artist the title is touched only when it repeats that artist.
+    static func separate(title: String, artist: String) -> (title: String, artist: String) {
+        let t = TagCleaner.replace(title, #"^\s*\d{1,3}\s*[-–—]\s+(?=.*\s[-–—]\s)"#) // "01 - Artist - Song"
+        guard let (left, right) = splitDash(t) else { return (title, artist) }
+        let a = left.trimmingCharacters(in: .whitespaces), b = right.trimmingCharacters(in: .whitespaces)
+        // "(Original Mix)" in brackets says nothing about what stands before it
+        let bare = TagCleaner.replace(b, #"[\(\[].*?[\)\]]"#, " ").trimmingCharacters(in: .whitespaces)
+        guard !a.isEmpty, !bare.isEmpty, !test(a, #"^\d+$"#), !test(bare, versionWords) else { return (title, artist) }
+        if artist.isEmpty || test(artist, junkArtist) { return (b, a) }
+        return score(a, artist) >= 0.95 ? (b, artist) : (title, artist)
+    }
+
     private static func tidy(_ artist: String, _ title: String, _ album: String) -> SongReading {
         var t = TagCleaner.replace(title, #"^\s*\d{1,3}\s*[.\-_)]\s*"#)
         t = TagCleaner.replace(t, #"[\(\[].*?[\)\]]"#, " ")

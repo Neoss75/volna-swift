@@ -141,6 +141,7 @@ final class Library: ObservableObject {
             t.title = meta.title ?? guess.title
             t.artist = meta.artist ?? guess.artist
             t.album = meta.album ?? t.folder?.components(separatedBy: " / ").last ?? ""
+            (t.title, t.artist) = SongReading.separate(title: t.title, artist: t.artist)
         }
         t.trackNo = meta.trackNo
         if meta.duration > 0 { t.duration = meta.duration }

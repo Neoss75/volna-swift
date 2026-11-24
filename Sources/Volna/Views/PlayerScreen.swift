@@ -273,7 +273,7 @@ struct TitleBlock: View {
 
     private func formatLine(_ t: Track) -> String {
         var p = [t.formatLine]
-        if settings.v.normalize, let g = t.gainDb, g != 0 { p.append("выравн. " + formatDb(g)) }
+        if settings.v.effectiveNormalize, let g = t.gainDb, g != 0 { p.append("выравн. " + formatDb(g)) }
         if player.qi >= 0 { p.append("\(player.qi + 1) из \(player.queue.count)") }
         return p.joined(separator: " · ")
     }

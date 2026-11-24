@@ -196,6 +196,24 @@ enum Demo {
         // a library saved by build 7 has none of the newer fields
         let old = #"[{"id":"6C9A3A52-1111-4222-8333-944455556666","bookmark":"AAAA","path":"/a/b.mp3","title":"T","artist":"A","album":"","duration":10,"hasArtwork":false}]"#
         check("hi-res mark", library.tracks.contains { $0.isHiRes && $0.sampleRate == 96000 } && library.tracks.filter(\.isHiRes).count == 1, "")
+        let pairs: [(String, String, String, String)] = [
+            ("The Kolors - ITALODISCO", "", "ITALODISCO", "The Kolors"),
+            ("Bakhtin - Целовала", "Хиты 2025", "Целовала", "Bakhtin"),
+            ("SAMCHUK - ЯКА ШИКАРНА ЛЕДІ", "SAMCHUK", "ЯКА ШИКАРНА ЛЕДІ", "SAMCHUK"),
+            ("01 - Колін - Змія", "", "Змія", "Колін"),
+            ("Тумани - Remix", "", "Тумани - Remix", ""),
+            ("Тумани - DJ Kolin Remix 2024", "", "Тумани - DJ Kolin Remix 2024", ""),
+            ("Meduza - Lose Control (Original Mix)", "", "Lose Control (Original Mix)", "Meduza"),
+            ("Opus - Live is Life", "", "Live is Life", "Opus"),
+            ("Обійми - Live", "Океан Ельзи", "Обійми - Live", "Океан Ельзи"),
+            ("Love - Hate", "Колін", "Love - Hate", "Колін"),
+            ("Тумани", "Марина і компанія", "Тумани", "Марина і компанія"),
+            ("Не-беси", "", "Не-беси", ""),
+        ]
+        for p in pairs {
+            let r = SongReading.separate(title: p.0, artist: p.1)
+            check("title «\(p.0)»", r.title == p.2 && r.artist == p.3, "\(r.artist) | \(r.title)")
+        }
         check("old library opens", (try? JSONDecoder().decode([Track].self, from: Data(old.utf8)))?.count == 1, "")
         let oldStats = #"{"songs":{"x":{"plays":1,"seconds":5,"title":"T","artist":"A"}},"days":{},"total":5}"#
         check("old statistics open", (try? JSONDecoder().decode(Stats.Data.self, from: Data(oldStats.utf8)))?.songs.count == 1, "")
