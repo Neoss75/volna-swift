@@ -37,7 +37,10 @@ struct Track: Identifiable, Codable, Equatable {
     /// Title, artist and album were corrected by hand: tags from the file do not replace them.
     var edited: Bool?
 
-    static let currentMeta = 2
+    static let currentMeta = 3
+
+    /// Better than CD: more than 48 kHz or at least 24 bits.
+    var isHiRes: Bool { (sampleRate ?? 0) > 48000 || (bits ?? 0) >= 24 }
 
     var fileName: String { (path as NSString).lastPathComponent }
     var baseName: String { (fileName as NSString).deletingPathExtension }

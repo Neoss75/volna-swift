@@ -334,6 +334,12 @@ struct OutputInfo: Equatable {
 
     var rateText: String { Self.khz(rate) }
 
+    /// The song is better than CD quality and goes to a wired DAC at its own rate.
+    func plays(_ t: Track?) -> Bool {
+        guard digital, let t, t.isHiRes, let sr = t.sampleRate else { return false }
+        return abs(sr - rate) < 1
+    }
+
     static func khz(_ r: Double) -> String { String(format: "%g кГц", (r / 100).rounded() / 10) }
 }
 
@@ -355,6 +361,7 @@ private struct HiResPage: View {
         }
         Block("Частота") {
             SwitchRow(label: "Подстраивать вывод под файл", on: $settings.v.matchRate)
+            Hint("Значок HI-RES на главном экране: контур означает, что режим включён, закрашенный — что песня выше качества CD и идёт на ЦАП без пересчёта.")
             Hint("Работает с внешним ЦАП по USB-C или HDMI: он переключается на частоту песни, и она идёт без пересчёта. Динамик и Bluetooth работают на своей частоте, её поменять нельзя, а Bluetooth к тому же сжимает звук.")
         }
         Block("Обработка") {

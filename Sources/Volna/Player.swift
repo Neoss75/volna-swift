@@ -199,7 +199,11 @@ final class Player: ObservableObject {
     func resume() {
         guard !isPlaying else { return }
         guard current != nil else {
-            if let first = library.tracks.first { play(first.id, from: library.tracks.map(\.id)) }
+            if let first = library.tracks.first {
+                play(first.id, from: library.tracks.map(\.id))
+            } else {
+                toast("Сначала добавьте музыку: «Песни» → «+»")
+            }
             return
         }
         sleepFade?.cancel()

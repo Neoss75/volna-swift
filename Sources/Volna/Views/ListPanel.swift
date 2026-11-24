@@ -110,6 +110,7 @@ struct ListPanel: View {
                 if ui.collection.isGroup { header(base) }
                 Spacer()
                 Text(emptyText).foregroundStyle(Theme.muted).multilineTextAlignment(.center).padding(24)
+                if library.tracks.isEmpty { addButtons }
                 Spacer()
             } else {
                 ScrollViewReader { proxy in
@@ -248,10 +249,11 @@ struct ListPanel: View {
         let list = allGroups
         if list.isEmpty {
             Spacer()
-            Text(ui.listTab == .folders ? "Папок пока нет. Нажмите значок папки на главном экране и выберите папку целиком." : "Список пуст. Добавьте файлы или папку.")
+            Text(ui.listTab == .folders ? "Папок пока нет. Добавьте папку целиком, и новые песни из неё будут появляться сами." : "Список пуст. Добавьте файлы или папку.")
                 .foregroundStyle(Theme.muted)
                 .multilineTextAlignment(.center)
                 .padding(24)
+            addButtons
             Spacer()
         } else if ui.listTab == .albums {
             ScrollView {
@@ -300,6 +302,15 @@ struct ListPanel: View {
                 .padding(.horizontal, 16)
             }
         }
+    }
+
+    private var addButtons: some View {
+        HStack(spacing: 10) {
+            Button("Файлы", systemImage: "plus") { ui.add(.files) }
+            Button("Папку", systemImage: "folder.badge.plus") { ui.add(.folder) }
+        }
+        .font(.system(size: 15, weight: .semibold))
+        .buttonStyle(.glass)
     }
 
     private func header(_ list: [Track]) -> some View {
@@ -359,14 +370,6 @@ struct ListPanel: View {
                 Button("Переименовать") { ui.prompt = .rename(p.id, p.name) }.buttonStyle(.glass)
                 Button("Удалить") { confirmPlaylist = true }.buttonStyle(.glass).tint(Theme.danger)
             } else {
-                Menu {
-                    Button("Добавить файлы", systemImage: "doc.badge.plus") { ui.add(.files) }
-                    Button("Добавить папку", systemImage: "folder.badge.plus") { ui.add(.folder) }
-                    if !library.folders.isEmpty {
-                        Button("Обновить папки", systemImage: "arrow.clockwise") { Task { await library.refreshFolders(quiet: false) } }
-                    }
-                } label: { Text("Добавить") }
-                .buttonStyle(.glass)
                 Button(list.count == library.tracks.count ? "Удалить все" : "Удалить (\(list.count))") { confirmDelete = true }
                     .buttonStyle(.glass)
                     .tint(Theme.danger)

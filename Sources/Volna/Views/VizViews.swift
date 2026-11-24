@@ -18,7 +18,7 @@ struct VizStrip: View {
                     draw(mode, ctx, size, accent, playing)
                 }
             }
-            .frame(height: compact ? 44 : mode == .vu ? 120 : 64)
+            .frame(height: compact ? (mode == .vu ? 84 : 58) : mode == .vu ? 120 : 64)
             .contentShape(Rectangle())
             .onTapGesture { settings.cycleViz() }
             .accessibilityHidden(true)

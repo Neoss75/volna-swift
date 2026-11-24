@@ -12,7 +12,9 @@ struct PlayerScreen: View {
     var body: some View {
         GeometryReader { geo in
             if geo.size.width > geo.size.height {
-                landscape(geo.size)
+                let i = geo.safeAreaInsets
+                landscape(CGSize(width: geo.size.width + i.leading + i.trailing, height: geo.size.height + i.top + i.bottom))
+                    .ignoresSafeArea()
             } else {
                 portrait
             }
@@ -51,23 +53,29 @@ struct PlayerScreen: View {
         .padding(.bottom, 2)
     }
 
+    /// The cover takes the whole height, the rest stretches along it. Laid out in the full screen: the system margins
+    /// are much larger than needed, only the camera cut-out (on either side) has to stay clear.
     private func landscape(_ size: CGSize) -> some View {
-        HStack(spacing: 28) {
+        let side = min(size.height - 28, size.width * 0.45)
+        return HStack(spacing: 30) {
             CoverArea()
-                .frame(width: min(size.height - 16, size.width * 0.44))
-            VStack(spacing: 6) {
-                Spacer(minLength: 0)
+                .frame(width: side, height: side)
+            VStack(spacing: 0) {
                 TitleBlock(compact: true)
+                Spacer(minLength: 4)
                 VizStrip(compact: true)
+                Spacer(minLength: 4)
                 SeekBlock()
+                Spacer(minLength: 2)
                 Transport(compact: true)
                 SleepNote()
+                Spacer(minLength: 4)
                 MenuBar()
-                Spacer(minLength: 0)
             }
+            .frame(height: size.height - 44)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 60)
+        .frame(width: size.width, height: size.height)
     }
 
     private var header: some View {
@@ -80,7 +88,49 @@ struct PlayerScreen: View {
                 .kerning(0.9)
                 .foregroundStyle(Theme.muted)
             Spacer()
+            OutputBadges()
         }
+    }
+}
+
+/// «HI-RES»: filled when the song really reaches a DAC at its own rate, outlined when the mode is only switched on.
+/// A tap opens the page that explains where the sound goes.
+struct OutputBadges: View {
+    @EnvironmentObject private var settings: Settings
+    @EnvironmentObject private var player: Player
+    @EnvironmentObject private var ui: UIState
+
+    var body: some View {
+        if settings.v.matchRate || settings.v.direct {
+            TimelineView(.periodic(from: .now, by: 2)) { _ in
+                let out = OutputInfo.now()
+                let live = settings.v.matchRate && out.plays(player.current)
+                Button {
+                    ui.settingsPath = [.hires]
+                    ui.panel = .fx
+                } label: {
+                    HStack(spacing: 6) {
+                        if out.digital { Text(out.rateText).font(.mono(11)).foregroundStyle(Theme.muted) }
+                        if settings.v.direct { badge("ПРЯМОЙ", true) }
+                        if settings.v.matchRate { badge("HI-RES", live) }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(live ? "Hi-Res: песня идёт без пересчёта частоты" : "Режим Hi-Res включён, сейчас не используется")
+            }
+        }
+    }
+
+    private func badge(_ text: String, _ on: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .heavy))
+            .kerning(0.5)
+            .foregroundStyle(on ? Theme.accentInk : Theme.muted)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(on ? settings.accent : .clear))
+            .overlay(Capsule().stroke(on ? .clear : Theme.muted.opacity(0.7), lineWidth: 1))
     }
 }
 
@@ -196,16 +246,23 @@ struct TitleBlock: View {
                     .accessibilityLabel(on ? "Убрать из избранного" : "Добавить в избранное")
                 }
             }
-            Text(t.map { $0.artist.isEmpty ? "Неизвестный исполнитель" : $0.artist } ?? "Откройте «Песни» и выберите трек")
-                .font(.system(size: 16))
-                .foregroundStyle(Theme.muted)
-                .lineLimit(1)
+            HStack(spacing: 10) {
+                Text(t.map { $0.artist.isEmpty ? "Неизвестный исполнитель" : $0.artist }
+                    ?? (library.tracks.isEmpty ? "Откройте «Песни» и добавьте музыку" : "Откройте «Песни» и выберите трек"))
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.muted)
+                    .lineLimit(1)
+                if compact {
+                    Spacer(minLength: 0)
+                    OutputBadges()
+                }
+            }
             if let t {
                 Text(formatLine(t))
                     .font(.mono(11))
                     .kerning(0.3)
                     .foregroundStyle(Theme.muted)
-                    .lineLimit(compact ? 1 : 2)
+                    .lineLimit(2)
                     .padding(.top, 2)
             }
         }
@@ -413,46 +470,33 @@ struct MenuBar: View {
     @State private var hideTask: Task<Void, Never>?
 
     var body: some View {
-        HStack(spacing: 8) {
-            ZStack {
-                HStack(spacing: 0) {
-                    item("Песни", "music.note", count: library.tracks.count) { ui.panel = .list }
-                    item("Очередь", "list.bullet", count: player.queue.count) { ui.panel = .queue }
-                    item("Текст песни", "text.bubble", on: settings.v.lyricsOn) { settings.v.lyricsOn.toggle() }
-                    item("Эквалайзер", "slider.vertical.3", dot: settings.eqActive) { ui.panel = .eq }
-                    item("Настройки", "gearshape", dot: settings.fxActive) { ui.panel = .fx }
-                    item("Громкость", "speaker.wave.2") { showVolume() }
-                    item("Выбрать папку", "folder") { ui.add(.folder) }
-                }
-                .opacity(volume ? 0 : 1)
-                .allowsHitTesting(!volume)
-                if volume {
-                    HStack(spacing: 12) {
-                        Image(systemName: "speaker.wave.2").foregroundStyle(settings.accent)
-                        SystemVolume(tint: UIColor(settings.accent)).frame(height: 30)
-                        Button { hideVolume() } label: {
-                            Image(systemName: "xmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted).frame(width: 30, height: 40)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Скрыть громкость")
+        ZStack {
+            HStack(spacing: 0) {
+                item("Песни", "music.note", count: library.tracks.count) { ui.panel = .list }
+                item("Очередь", "list.bullet", count: player.queue.count) { ui.panel = .queue }
+                item("Текст песни", "text.bubble", on: settings.v.lyricsOn) { settings.v.lyricsOn.toggle() }
+                item("Эквалайзер", "slider.vertical.3", dot: settings.eqActive) { ui.panel = .eq }
+                item("Настройки", "gearshape", dot: settings.fxActive) { ui.panel = .fx }
+                item("Громкость", "speaker.wave.2") { showVolume() }
+            }
+            .opacity(volume ? 0 : 1)
+            .allowsHitTesting(!volume)
+            if volume {
+                HStack(spacing: 12) {
+                    Image(systemName: "speaker.wave.2").foregroundStyle(settings.accent)
+                    SystemVolume(tint: UIColor(settings.accent)).frame(height: 30)
+                    Button { hideVolume() } label: {
+                        Image(systemName: "xmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted).frame(width: 30, height: 40)
                     }
-                    .padding(.horizontal, 14)
-                    .transition(.opacity)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Скрыть громкость")
                 }
+                .padding(.horizontal, 14)
+                .transition(.opacity)
             }
-            .frame(height: 52)
-            .glassEffect(.regular, in: .capsule)
-
-            Button { ui.add(.files) } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.accentInk)
-                    .frame(width: 52, height: 52)
-                    .glassEffect(.regular.tint(settings.accent).interactive(), in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Добавить файлы")
         }
+        .frame(height: 52)
+        .glassEffect(.regular, in: .capsule)
     }
 
     private func showVolume() {

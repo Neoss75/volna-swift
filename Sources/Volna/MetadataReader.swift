@@ -62,8 +62,12 @@ enum MetadataReader {
             let f = file.fileFormat
             if meta.duration == 0, f.sampleRate > 0 { meta.duration = Double(file.length) / file.processingFormat.sampleRate }
             if meta.header.sampleRate == nil { meta.header.sampleRate = f.sampleRate }
-            if f.streamDescription.pointee.mFormatID == kAudioFormatAppleLossless {
+            let d = f.streamDescription.pointee
+            if d.mFormatID == kAudioFormatAppleLossless {
                 meta.header.ext = "ALAC"
+                meta.header.bits = [1: 16, 2: 20, 3: 24, 4: 32][Int(d.mFormatFlags)]
+            } else if d.mFormatID == kAudioFormatLinearPCM, meta.header.bits == nil, d.mBitsPerChannel > 0 {
+                meta.header.bits = Int(d.mBitsPerChannel) // AIFF, CAF
             }
         }
         return meta

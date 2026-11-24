@@ -45,6 +45,9 @@ enum Demo {
         }
         if let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
         if args.contains("-eqrock") { settings.v.bands = EQPreset.all[2].bands }
+        if args.contains("-landscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
+        }
         try? await Task.sleep(for: .seconds(1))
         if let p = value("-panel").flatMap(Panel.init(rawValue:)) { ui.panel = p }
         if let page = value("-page").flatMap(SettingsPage.init(rawValue:)) { ui.settingsPath = [page] }
@@ -188,6 +191,7 @@ enum Demo {
         check("recent", library.songs(in: .recent, stats: stats).first?.title.contains("Нова") == true, "")
         // a library saved by build 7 has none of the newer fields
         let old = #"[{"id":"6C9A3A52-1111-4222-8333-944455556666","bookmark":"AAAA","path":"/a/b.mp3","title":"T","artist":"A","album":"","duration":10,"hasArtwork":false}]"#
+        check("hi-res mark", library.tracks.contains { $0.isHiRes && $0.sampleRate == 96000 } && library.tracks.filter(\.isHiRes).count == 1, "")
         check("old library opens", (try? JSONDecoder().decode([Track].self, from: Data(old.utf8)))?.count == 1, "")
         let oldStats = #"{"songs":{"x":{"plays":1,"seconds":5,"title":"T","artist":"A"}},"days":{},"total":5}"#
         check("old statistics open", (try? JSONDecoder().decode(Stats.Data.self, from: Data(oldStats.utf8)))?.songs.count == 1, "")
