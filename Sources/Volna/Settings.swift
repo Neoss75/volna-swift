@@ -58,6 +58,11 @@ final class Settings: ObservableObject {
         var matchRate = true
         var direct = false
         var refreshFolders = true
+        /// Seconds without touches before the screensaver, 0 = never.
+        var saver = 10
+        /// `.off` = the same as on the main screen.
+        var saverViz = VizMode.off
+        var saverAwake = false
 
         /// With direct output the song goes out untouched, whatever the other options say.
         var effectiveRate: Double { direct ? 1 : rate }

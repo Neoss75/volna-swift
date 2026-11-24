@@ -14,6 +14,7 @@ enum Demo {
             return args[i + 1]
         }
         settings.v.onlineArt = false
+        settings.v.saver = 0
         if library.tracks.isEmpty {
             let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let specs: [(String, Double, Int, Double)] = [
@@ -46,7 +47,7 @@ enum Demo {
         if let t = value("-tab") { ui.listTab = ListTab.allCases.first { "\($0)" == t } ?? .songs }
         if args.contains("-album"), let t = library.tracks.first(where: { !$0.album.isEmpty }) { ui.collection = .album(Library.albumKey(t)) }
         if args.contains("-selftest") {
-            await selfTest(library: library, player: player, settings: settings)
+            await selfTest(library: library, player: player, settings: settings, ui: ui)
             return
         }
         if !args.contains("-lossless"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
@@ -56,10 +57,11 @@ enum Demo {
         }
         try? await Task.sleep(for: .seconds(1))
         if let p = value("-panel").flatMap(Panel.init(rawValue:)) { ui.panel = p }
+        if args.contains("-saver") { ui.saver = true }
         if let page = value("-page").flatMap(SettingsPage.init(rawValue:)) { ui.settingsPath = [page] }
     }
 
-    private static func selfTest(library: Library, player: Player, settings: Settings) async {
+    private static func selfTest(library: Library, player: Player, settings: Settings, ui: UIState) async {
         func log(_ s: String) { NSLog("SELFTEST %@", s) }
         func check(_ name: String, _ ok: Bool, _ info: String) { log((ok ? "ok   " : "FAIL ") + name + " " + info) }
         func wait(_ s: Double) async { try? await Task.sleep(for: .seconds(s)) }
@@ -169,6 +171,24 @@ enum Demo {
             await wait(2)
             check("play " + t.kind, player.isPlaying && player.position > 1 && player.position < 3, String(format: "%.2f of %.2f", player.position, player.duration))
         }
+        if let long = library.tracks.max(by: { $0.duration < $1.duration }) { player.play(long.id, from: [long.id]) }
+        settings.v.saver = 2
+        await wait(1.5)
+        ui.touch(true)
+        ui.touch(false)
+        await wait(1.2)
+        check("screensaver waits after a touch", !ui.saver && player.isPlaying, "")
+        await wait(1.5)
+        check("screensaver starts", ui.saver, "")
+        player.pause()
+        await wait(0.5)
+        check("screensaver closes on pause", !ui.saver, "")
+        player.resume()
+        ui.panel = .eq
+        await wait(3)
+        check("no screensaver over a panel", !ui.saver && player.isPlaying, "")
+        ui.panel = nil
+        settings.v.saver = 0
         log("done")
     }
 

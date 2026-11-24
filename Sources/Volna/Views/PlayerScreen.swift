@@ -34,6 +34,7 @@ struct PlayerScreen: View {
             PanelView(panel: panel)
         }
         .modifier(Dialogs(active: ui.panel == nil))
+        .modifier(SaverControl())
         #if DEBUG
             .overlay { if ProcessInfo.processInfo.arguments.contains("-widgets") { WidgetGallery(player: player) } }
         #endif
@@ -318,6 +319,7 @@ struct SeekBlock: View {
     @EnvironmentObject private var player: Player
     @EnvironmentObject private var settings: Settings
     @EnvironmentObject private var clock: PlaybackClock
+    @Environment(\.covered) private var covered
     @State private var dragFrom: Double?
     @State private var dragging: Double?
 
@@ -325,7 +327,7 @@ struct SeekBlock: View {
         let t = player.current
         VStack(spacing: 2) {
             GeometryReader { geo in
-                TimelineView(.animation(minimumInterval: 1 / 60, paused: !player.isPlaying || dragging != nil)) { _ in
+                TimelineView(.animation(minimumInterval: 1 / 60, paused: covered || !player.isPlaying || dragging != nil)) { _ in
                     let p = player.duration > 0 ? min(1, max(0, (dragging ?? player.position) / player.duration)) : 0
                     WaveCanvas(wave: t?.wave, hasTrack: t != nil, progress: p, accent: settings.accent)
                 }

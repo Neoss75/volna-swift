@@ -406,6 +406,7 @@ private struct ThemePage: View {
 private struct VizPage: View {
     @EnvironmentObject private var settings: Settings
     @EnvironmentObject private var player: Player
+    @EnvironmentObject private var ui: UIState
 
     var body: some View {
         Block("Как выглядит") {
@@ -430,6 +431,29 @@ private struct VizPage: View {
                 }
             }
             Hint("Режим также переключается нажатием на визуализацию под обложкой.")
+        }
+        Block("Заставка") {
+            Flow {
+                ForEach([(0, "Выключена"), (10, "10 секунд"), (20, "20 секунд"), (30, "30 секунд"), (60, "1 минута")], id: \.0) { s in
+                    Chip(text: s.1, on: settings.v.saver == s.0) { settings.v.saver = s.0 }
+                }
+            }
+            Hint("Если играет музыка и вы столько не касаетесь экрана, визуализация открывается на весь экран. Нажатие возвращает плеер. Поверх списков, настроек и текста песни заставка не появляется.")
+            if settings.v.saver > 0 {
+                Flow {
+                    ForEach([VizMode.off] + VizMode.allCases.filter { $0 != .off }) { m in
+                        Chip(text: m == .off ? "Как на главном экране" : m.name, on: settings.v.saverViz == m) { settings.v.saverViz = m }
+                    }
+                }
+                SwitchRow(label: "Не гасить экран во время заставки", on: $settings.v.saverAwake)
+                Hint("Если выключено, iPhone погаснет сам через время из своих настроек («Экран и яркость → Автоблокировка»), музыка при этом играет дальше. Если включено, экран не гаснет и батарея садится быстрее.")
+                Button("Показать сейчас") {
+                    ui.panel = nil
+                    ui.saver = true
+                }
+                .buttonStyle(.glass)
+                .disabled(!player.isPlaying)
+            }
         }
     }
 }

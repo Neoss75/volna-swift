@@ -23,7 +23,7 @@ t 120 xcrun simctl install "$DEV" "$APP"
 
 say self-test
 t 120 xcrun simctl launch --stdout="$PWD/shots/out.txt" --stderr="$PWD/shots/selftest.txt" "$DEV" $ID -demo -selftest
-for _ in $(seq 1 205); do
+for _ in $(seq 1 220); do
   grep -q 'SELFTEST done' shots/selftest.txt 2>/dev/null && break
   sleep 1
 done
@@ -75,6 +75,13 @@ shot 14-land-vu -landscape -viz vu
 shot 15-land-lyrics -landscape -viz bars -lyrics
 shot 16-land-list -landscape -panel list
 shot 17-land-lossless -landscape -lossless
+shot 18-saver-bars -saver -viz bars -theme light
+shot 19-saver-ring -saver -viz ring -theme dark
+shot 20-saver-vu -saver -viz vu
+shot 21-saver-led -saver -viz led
+shot 22-saver-land-bars -landscape -saver -viz bars
+shot 23-saver-land-ring -landscape -saver -viz ring
+shot 24-saver-land-vu -landscape -saver -viz vu
 for f in shots/*-land-*.png; do W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}'); [ "$W" -lt "$H" ] && sips -r 270 "$f" > /dev/null; done
 for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done
 exit $RESULT

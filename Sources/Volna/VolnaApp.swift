@@ -23,6 +23,17 @@ final class UIState: ObservableObject {
     @Published var editing: UUID?
     @Published var listTab = ListTab.songs
     @Published var collection = SongCollection.all
+    /// The full-screen visualisation is shown.
+    @Published var saver = false
+    private(set) var lastTouch = Date()
+    private(set) var touching = false
+
+    var nothingOpen: Bool { panel == nil && importing == nil && prompt == nil && coverFor == nil && editing == nil }
+
+    func touch(_ down: Bool) {
+        touching = down
+        lastTouch = Date()
+    }
 
     func add(_ kind: ImportKind) {
         importing = kind

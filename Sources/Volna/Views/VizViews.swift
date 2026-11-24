@@ -1,26 +1,30 @@
 import SwiftUI
 
-/// The strip under the title; a tap switches the visualisation.
+/// The strip under the title; a tap switches the visualisation. With `height` it is the big picture of the screensaver.
 struct VizStrip: View {
     @EnvironmentObject private var player: Player
     @EnvironmentObject private var settings: Settings
+    @Environment(\.covered) private var covered
     @State private var state = VizState()
     @State private var moving = true
     var compact = false
+    var mode: VizMode?
+    var height: CGFloat?
 
     var body: some View {
-        let mode = settings.v.viz
+        let mode = mode ?? settings.v.viz
         if mode != .off && mode != .ring {
             let accent = settings.accent, playing = player.isPlaying
-            TimelineView(.animation(minimumInterval: 1 / 45, paused: !moving)) { line in
+            TimelineView(.animation(minimumInterval: 1 / 45, paused: covered || !moving)) { line in
                 Canvas { ctx, size in
                     state.step(line.date, player.graph.tap)
                     draw(mode, ctx, size, accent, playing)
                 }
             }
-            .frame(height: compact ? (mode == .vu ? 84 : 58) : mode == .vu ? 120 : 64)
+            .frame(height: height ?? (compact ? (mode == .vu ? 84 : 58) : mode == .vu ? 120 : 64))
             .contentShape(Rectangle())
             .onTapGesture { settings.cycleViz() }
+            .allowsHitTesting(height == nil)
             .accessibilityHidden(true)
             .task(id: playing) {
                 moving = true
@@ -54,7 +58,7 @@ struct VizStrip: View {
                 rect(x, mid, bw, h, v > 0.02 ? A : L, a * 0.45)
             }
         case .led:
-            let n = 24, rows = 10, s = state.spectrum.bands(n, live: live, fall: 0.86)
+            let n = 24, rows = height == nil ? 10 : 22, s = state.spectrum.bands(n, live: live, fall: 0.86)
             let gx: CGFloat = 4, gy: CGFloat = 2, bw = (W - gx * CGFloat(n - 1)) / CGFloat(n), bh = (H - gy * CGFloat(rows - 1)) / CGFloat(rows)
             for i in 0..<n {
                 let lit = Int((s.v[i] * Float(rows)).rounded()), pk = min(rows - 1, Int((s.peak[i] * Float(rows)).rounded()))
@@ -83,7 +87,7 @@ struct VizStrip: View {
             fill.addLine(to: CGPoint(x: 0, y: H))
             fill.closeSubpath()
             g.fill(fill, with: .linearGradient(Gradient(colors: [A.opacity(0.45), A.opacity(0)]), startPoint: .zero, endPoint: CGPoint(x: 0, y: H)))
-            g.stroke(line, with: .color(A), style: StrokeStyle(lineWidth: 2, lineJoin: .round))
+            g.stroke(line, with: .color(A), style: StrokeStyle(lineWidth: height == nil ? 2 : 3, lineJoin: .round))
         case .wave:
             let mid = H / 2
             rect(0, mid - 0.5, W, 1, L, 1)
@@ -101,9 +105,15 @@ struct VizStrip: View {
                 let pt = CGPoint(x: CGFloat(i) / CGFloat(n - 1) * W, y: mid - CGFloat(max(-1, min(1, x[st + i]))) * (mid - 2))
                 if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
             }
-            g.stroke(p, with: .color(A), style: StrokeStyle(lineWidth: 2, lineJoin: .round))
+            g.stroke(p, with: .color(A), style: StrokeStyle(lineWidth: height == nil ? 2 : 3, lineJoin: .round))
         case .vu:
             let gap: CGFloat = 10, w = (W - gap) / 2
+            if H > W * 0.8 { // a tall picture: one above the other
+                let h = min((H - gap * 2) / 2, W * 0.58), top = (H - h * 2 - gap * 2) / 2
+                meter(g, CGRect(x: 0, y: top, width: W, height: h), state.vuL, "L", state.hotL, A)
+                meter(g, CGRect(x: 0, y: top + h + gap * 2, width: W, height: h), state.vuR, "R", state.hotR, A)
+                return
+            }
             meter(g, CGRect(x: 0, y: 0, width: w, height: H), state.vuL, "L", state.hotL, A)
             meter(g, CGRect(x: w + gap, y: 0, width: w, height: H), state.vuR, "R", state.hotR, A)
         case .ring, .off:
@@ -117,7 +127,7 @@ struct VizStrip: View {
         g.clip(to: box)
         g.fill(box, with: .color(Theme.raise))
         g.fill(box, with: .radialGradient(Gradient(colors: [A.opacity(0.22), A.opacity(0)]), center: CGPoint(x: r.midX, y: r.maxY), startRadius: 0, endRadius: r.height * 1.1))
-        let px = r.midX, py = r.minY + r.height * 1.16, rs = r.height * 0.86
+        let px = r.midX, py = r.minY + r.height * 1.16, rs = r.height * 0.86, k = max(1, r.height / 130)
         let sweep = min(0.9, asin(min(1, Double(r.width * 0.42 / rs))))
         func ang(_ p: Double) -> Double { -sweep + 2 * sweep * p }
         func pt(_ th: Double, _ rad: CGFloat) -> CGPoint { CGPoint(x: px + rad * CGFloat(sin(th)), y: py - rad * CGFloat(cos(th))) }
@@ -127,26 +137,26 @@ struct VizStrip: View {
             return p
         }
         let zero = VizState.vuPos(0)
-        g.stroke(arc(ang(0), ang(zero), rs), with: .color(Theme.fg.opacity(0.55)), lineWidth: 1.2)
-        g.stroke(arc(ang(zero), ang(1), rs + 1.2), with: .color(Theme.danger), lineWidth: 3.5)
+        g.stroke(arc(ang(0), ang(zero), rs), with: .color(Theme.fg.opacity(0.55)), lineWidth: 1.2 * k)
+        g.stroke(arc(ang(zero), ang(1), rs + 1.2 * k), with: .color(Theme.danger), lineWidth: 3.5 * k)
         for db in [-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3] {
             let th = ang(VizState.vuPos(Double(db))), major = [-20, -10, -5, -3, 0, 3].contains(db)
             let c = db > 0 ? Theme.danger : Theme.fg.opacity(0.7)
             var tick = Path()
             tick.move(to: pt(th, rs))
-            tick.addLine(to: pt(th, rs - (major ? 8 : 5)))
-            g.stroke(tick, with: .color(c), lineWidth: major ? 1.4 : 1)
+            tick.addLine(to: pt(th, rs - (major ? 8 : 5) * k))
+            g.stroke(tick, with: .color(c), lineWidth: (major ? 1.4 : 1) * k)
             if major {
-                g.draw(Text(db > 0 ? "+\(db)" : "\(abs(db))").font(.mono(9, .medium)).foregroundStyle(c), at: pt(th, rs - 17))
+                g.draw(Text(db > 0 ? "+\(db)" : "\(abs(db))").font(.mono(9 * k, .medium)).foregroundStyle(c), at: pt(th, rs - 17 * k))
             }
         }
-        g.draw(Text("VU").font(.display(11, .medium)).foregroundStyle(Theme.muted), at: CGPoint(x: px, y: r.minY + r.height * 0.76))
-        g.draw(Text(label).font(.mono(10, .medium)).foregroundStyle(Theme.muted), at: CGPoint(x: r.minX + 13, y: r.maxY - 12))
-        g.fill(Path(ellipseIn: CGRect(x: r.maxX - 14.5, y: r.minY + 7.5, width: 7, height: 7)), with: .color(hot ? Theme.danger : Theme.line))
+        g.draw(Text("VU").font(.display(11 * k, .medium)).foregroundStyle(Theme.muted), at: CGPoint(x: px, y: r.minY + r.height * 0.76))
+        g.draw(Text(label).font(.mono(10 * k, .medium)).foregroundStyle(Theme.muted), at: CGPoint(x: r.minX + 13 * k, y: r.maxY - 12 * k))
+        g.fill(Path(ellipseIn: CGRect(x: r.maxX - 14.5 * k, y: r.minY + 7.5 * k, width: 7 * k, height: 7 * k)), with: .color(hot ? Theme.danger : Theme.line))
         var needle = Path()
         needle.move(to: CGPoint(x: px, y: py))
-        needle.addLine(to: pt(ang(pos), rs + 5))
-        g.stroke(needle, with: .color(Theme.fg), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+        needle.addLine(to: pt(ang(pos), rs + 5 * k))
+        g.stroke(needle, with: .color(Theme.fg), style: StrokeStyle(lineWidth: 1.6 * k, lineCap: .round))
         let hub = r.height * 0.13
         g.fill(Path(ellipseIn: CGRect(x: px - hub, y: r.maxY - hub, width: hub * 2, height: hub * 2)), with: .color(Theme.line))
     }
@@ -192,6 +202,7 @@ final class VizState {
 struct RingCover: View {
     @EnvironmentObject private var player: Player
     @EnvironmentObject private var settings: Settings
+    @Environment(\.covered) private var covered
     @State private var state = VizState()
     @State private var moving = true
     let track: Track?
@@ -199,7 +210,7 @@ struct RingCover: View {
 
     var body: some View {
         let accent = settings.accent, playing = player.isPlaying
-        TimelineView(.animation(minimumInterval: 1 / 45, paused: !moving)) { line in
+        TimelineView(.animation(minimumInterval: 1 / 45, paused: covered || !moving)) { line in
             ZStack {
                 Canvas { ctx, size in
                     state.step(line.date, player.graph.tap)
