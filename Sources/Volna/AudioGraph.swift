@@ -33,10 +33,13 @@ final class Deck {
     var fade: Float = 1 { didSet { mixer.outputVolume = fade } }
     var gainDb: Double = 0 { didSet { gain.globalGain = Float(gainDb) } }
 
+    /// Every successful reading is remembered: another app (a video, a call) stops the engine before it tells us,
+    /// and a stopped engine does not know the place any more.
     var position: Double {
-        guard running, let f = file, let rt = node.lastRenderTime, rt.isSampleTimeValid,
+        guard running, node.engine?.isRunning == true, let f = file, let rt = node.lastRenderTime, rt.isSampleTimeValid,
               let pt = node.playerTime(forNodeTime: rt) else { return rest }
-        return min(max(Double(startFrame + pt.sampleTime) / f.processingFormat.sampleRate, 0), duration)
+        rest = min(max(Double(startFrame + pt.sampleTime) / f.processingFormat.sampleRate, 0), duration)
+        return rest
     }
 
     /// Starts from `time`; the engine must be running.
@@ -104,6 +107,7 @@ final class Deck {
         framesQueued += next.file.length
         file = next.file
         access = next.access
+        rest = 0
         onChained?()
     }
 

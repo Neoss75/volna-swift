@@ -92,6 +92,22 @@ enum Demo {
         player.resume()
         await wait(1)
         check("resume", abs(player.position - p - 1) < 0.6, String(format: "%.2f after %.2f", player.position, p))
+        player.play(ids[0], from: ids)
+        await wait(2.5)
+        // what a video in another app does: the engine is stopped first, the notice comes later
+        player.graph.engine.stop()
+        await wait(0.5)
+        let note = { (type: AVAudioSession.InterruptionType, options: AVAudioSession.InterruptionOptions) in
+            NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(),
+                                            userInfo: [AVAudioSessionInterruptionTypeKey: type.rawValue, AVAudioSessionInterruptionOptionKey: options.rawValue])
+        }
+        note(.began, [])
+        await wait(0.5)
+        let stopped = player.position
+        check("interruption keeps the place", !player.isPlaying && stopped > 1.8 && stopped < 3, String(format: "%.2f", stopped))
+        note(.ended, .shouldResume)
+        await wait(1)
+        check("goes on after an interruption", player.isPlaying && abs(player.position - stopped - 1) < 0.6, String(format: "%.2f after %.2f", player.position, stopped))
         settings.v.rate = 1.5
         let r = player.position
         await wait(2)
