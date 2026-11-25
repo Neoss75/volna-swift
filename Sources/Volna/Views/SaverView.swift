@@ -1,4 +1,3 @@
-import CoreImage
 import SwiftUI
 import UIKit.UIGestureRecognizerSubclass
 
@@ -15,24 +14,7 @@ struct SaverView: View {
             let s = geo.size, wide = s.width > s.height
             ZStack {
                 Color.black
-                SaverBackdrop(track: player.current)
-                    .frame(width: s.width, height: s.height)
-                    .clipped()
-                    .opacity(0.28)
-                if mode.wholeScreen {
-                    VizStrip(mode: mode, height: s.height)
-                    titles(.center)
-                        .shadow(color: .black, radius: 8)
-                        .padding(.horizontal, 30)
-                        .padding(.bottom, wide ? 34 : 90)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                        .offset(drift)
-                } else {
-                    Group {
-                        if wide { landscape(s) } else { portrait(s) }
-                    }
-                    .offset(drift)
-                }
+                picture(s, wide)
             }
             .frame(width: s.width, height: s.height)
         }
@@ -64,76 +46,16 @@ struct SaverView: View {
         withAnimation(.easeOut(duration: 0.25)) { ui.saver = false }
     }
 
-    private func portrait(_ s: CGSize) -> some View {
-        VStack(spacing: 36) {
-            if mode == .ring {
-                RingCover(track: player.current, side: s.width - 20)
-            } else {
-                VizStrip(mode: mode, height: s.height * (mode.tall ? 0.5 : 0.4)).padding(.horizontal, 20)
-            }
-            titles(.center).padding(.horizontal, 30)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    @ViewBuilder private func landscape(_ s: CGSize) -> some View {
-        if mode == .ring {
-            HStack(spacing: 30) {
-                RingCover(track: player.current, side: s.height - 30)
-                titles(.leading).frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal, 70)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    @ViewBuilder private func picture(_ s: CGSize, _ wide: Bool) -> some View {
+        if mode.wholeScreen {
+            VizStrip(mode: mode, height: s.height)
+        } else if mode == .ring {
+            RingCover(track: player.current, side: min(s.width, s.height) - 20).offset(drift)
         } else {
-            VStack(spacing: 20) {
-                VizStrip(mode: mode, height: s.height * 0.62)
-                titles(.center)
-            }
-            .padding(.horizontal, 80)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VizStrip(mode: mode, height: s.height * (wide ? 0.82 : mode.tall ? 0.62 : 0.5))
+                .padding(.horizontal, wide ? 80 : 18)
+                .offset(drift)
         }
-    }
-
-    private func titles(_ align: HorizontalAlignment) -> some View {
-        VStack(alignment: align, spacing: 6) {
-            Text(player.current?.title ?? "").font(.display(20, .semibold)).foregroundStyle(Theme.fg)
-            if let a = player.current?.artist, !a.isEmpty {
-                Text(a).font(.system(size: 16)).foregroundStyle(Theme.muted)
-            }
-        }
-        .lineLimit(2)
-        .multilineTextAlignment(align == .center ? .center : .leading)
-    }
-}
-
-/// The cover as a soft colour spot. Blurred once per song: a live blur would be computed again for every frame.
-private struct SaverBackdrop: View {
-    let track: Track?
-    @State private var soft: UIImage?
-
-    var body: some View {
-        Color.clear
-            .overlay {
-                if let soft {
-                    Image(uiImage: soft).resizable().interpolation(.high).scaledToFill()
-                } else {
-                    let h = hue(track.map { $0.title + $0.artist } ?? "волна")
-                    LinearGradient(colors: [Color(h: h, s: 0.55, l: 0.5), Color(h: h + 55, s: 0.6, l: 0.26)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                }
-            }
-            .task(id: track?.id) {
-                guard let t = track, t.hasArtwork, let image = ArtworkStore.thumbnail(for: t.id) else {
-                    soft = nil
-                    return
-                }
-                soft = await Task.detached { Self.blurred(image) }.value
-            }
-    }
-
-    private nonisolated static func blurred(_ image: UIImage) -> UIImage? {
-        guard let input = CIImage(image: image) else { return nil }
-        let out = input.clampedToExtent().applyingGaussianBlur(sigma: 22)
-        return CIContext().createCGImage(out, from: input.extent).map { UIImage(cgImage: $0) }
     }
 }
 

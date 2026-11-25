@@ -15,7 +15,7 @@ enum Demo {
         }
         settings.v.onlineArt = false
         settings.v.saverOn = false
-        settings.v.vizColors = value("-colors").flatMap(VizColors.init(rawValue:)) ?? .accent
+        settings.v.vizPalette = value("-colors").flatMap(VizColors.init(rawValue:)) ?? .accent
         if library.tracks.isEmpty {
             let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let specs: [(String, Double, Int, Double)] = [
@@ -194,12 +194,17 @@ enum Demo {
         settings.v.saver = 10
         await wait(1)
         check("screensaver can be switched off", !ui.saver, "")
+        player.cycleRepeat()
+        player.cycleRepeat() // the same song again and again, so that there is always sound
+        player.seek(to: 0)
+        player.resume()
         for m in VizMode.allCases where m != .off {
             settings.v.saverViz = m
             ui.saver = true
             await wait(0.3)
             let f = VizState.frames, t = Date()
             await wait(1.2)
+            if !player.isPlaying { log("silence!") }
             log(String(format: "frames per second %.0f ", Double(VizState.frames - f) / Date().timeIntervalSince(t)) + m.rawValue)
             ui.saver = false
         }
@@ -338,8 +343,9 @@ enum Demo {
             var s = 0.0
             for h in 1...6 { s += sin(2 * .pi * note * Double(h * h) * t) / Double(h) }
             let beat = (t * 2).truncatingRemainder(dividingBy: 1)
+            let hiss = Double.random(in: -0.03...0.03) * (0.4 + 0.6 * exp(-9 * (t * 4).truncatingRemainder(dividingBy: 1)))
             let kick = 0.24 * sin(2 * .pi * 58 * t) * exp(-7 * beat)
-            for c in 0..<channels { data[c][i] = Float(s * env * 0.3 * (c == 0 ? 1 : 0.7) + kick) }
+            for c in 0..<channels { data[c][i] = Float(s * env * 0.3 * (c == 0 ? 1 : 0.7) + kick + hiss) }
         }
         try? file.write(from: buffer)
     }

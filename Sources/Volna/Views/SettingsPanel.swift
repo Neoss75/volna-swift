@@ -148,7 +148,7 @@ private struct SettingsRoot: View {
             let mode = ["dark": "Тёмная", "light": "Светлая"][v.themeMode] ?? "Как в системе"
             return mode + " · " + (Accent.all.first { $0.id == v.accent }?.name ?? "")
         case .viz:
-            return v.viz.name
+            return v.viz == .off ? v.viz.name : v.viz.name + " · " + v.vizPalette.name.lowercased()
         case .library:
             return plural(library.tracks.count, "песня", "песни", "песен") + " · " + plural(library.playlists.count, "плейлист", "плейлиста", "плейлистов")
         case .covers:
@@ -424,32 +424,32 @@ private struct VizPage: View {
             }
             if !player.isPlaying, settings.v.viz != .off { Hint("Включите песню, чтобы увидеть движение.") }
         }
+        Block("Цвета") {
+            Flow {
+                ForEach(VizColors.allCases) { c in
+                    Chip(text: c.name, on: settings.v.vizPalette == c) { settings.v.vizPalette = c }
+                }
+            }
+            if settings.v.vizPalette != .accent {
+                LinearGradient(gradient: settings.v.vizPalette.gradient, startPoint: .leading, endPoint: .trailing)
+                    .frame(height: 8)
+                    .clipShape(Capsule())
+                HStack {
+                    Text(settings.v.vizPalette == .rainbow ? "низкие" : "тихо")
+                    Spacer()
+                    Text(settings.v.vizPalette == .rainbow ? "высокие" : "громко")
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.muted)
+            }
+        }
         Block("Режим") {
             Flow {
                 ForEach(VizMode.allCases) { m in
                     Chip(text: m.name, on: settings.v.viz == m) { settings.v.viz = m }
                 }
             }
-            Hint("Режим также переключается нажатием на визуализацию под обложкой.")
-        }
-        Block("Цвета") {
-            Flow {
-                ForEach(VizColors.allCases) { c in
-                    Chip(text: c.name, on: settings.v.vizColors == c) { settings.v.vizColors = c }
-                }
-            }
-            if settings.v.vizColors != .accent {
-                LinearGradient(gradient: settings.v.vizColors.gradient, startPoint: .leading, endPoint: .trailing)
-                    .frame(height: 8)
-                    .clipShape(Capsule())
-                HStack {
-                    Text(settings.v.vizColors == .rainbow ? "низкие" : "тихо")
-                    Spacer()
-                    Text(settings.v.vizColors == .rainbow ? "высокие" : "громко")
-                }
-                .font(.system(size: 12))
-                .foregroundStyle(Theme.muted)
-            }
+            Hint("На главном экране нажатие на визуализацию меняет режим, долгое нажатие — цвета.")
         }
         Block("Заставка") {
             SwitchRow(label: "Включать заставку", on: $settings.v.saverOn)

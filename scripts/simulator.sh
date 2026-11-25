@@ -37,8 +37,11 @@ if [ $RESULT != 0 ]; then find ~/Library/Logs/DiagnosticReports -name 'Volna*' -
 xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
+# Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
+ONLY='^(01|05d|08|18|19|20|22|23|24|30|35|39|4[0-9])-?'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
+  [[ "$name" =~ $ONLY ]] || return 0
   say "$name"
   t 60 xcrun simctl launch "$DEV" $ID -demo "$@" > /dev/null
   sleep 7
@@ -96,6 +99,10 @@ shot 35-saver-ridges -saver -viz ridges -colors level
 shot 36-saver-scope -saver -viz scope -colors level
 shot 37-saver-land-ribbons -landscape -saver -viz ribbons -colors neon
 shot 38-saver-land-dots -landscape -saver -viz dots -colors level
+shot 39-falls-accent -viz falls -colors accent
+shot 40-falls-level -viz falls -colors level
+shot 41-saver-falls-rainbow -saver -viz falls -colors rainbow
+shot 42-falls-light -viz falls -colors level -theme light
 for f in shots/*-land-*.png; do W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}'); [ "$W" -lt "$H" ] && sips -r 270 "$f" > /dev/null; done
 for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done
 exit $RESULT

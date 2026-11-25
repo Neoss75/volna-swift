@@ -15,7 +15,7 @@ struct VizStrip: View {
     var body: some View {
         let mode = mode ?? settings.v.viz
         if mode != .off && mode != .ring {
-            let paint = VizPaint(colors: colors ?? settings.v.vizColors, accent: settings.accent), playing = player.isPlaying
+            let paint = VizPaint(colors: colors ?? settings.v.vizPalette, accent: settings.accent), playing = player.isPlaying
             TimelineView(.animation(minimumInterval: 1 / 45, paused: covered || !moving)) { line in
                 Canvas { ctx, size in
                     state.step(line.date, player.graph.tap)
@@ -25,6 +25,7 @@ struct VizStrip: View {
             .frame(height: height ?? (mode.tall ? (compact ? 84 : 120) : compact ? 58 : 64))
             .contentShape(Rectangle())
             .onTapGesture { settings.cycleViz() }
+            .onLongPressGesture(minimumDuration: 0.4) { settings.cycleColors() }
             .allowsHitTesting(height == nil)
             .accessibilityHidden(true)
             .task(id: playing) {
@@ -59,7 +60,7 @@ final class VizState {
         static var frames = 0
     #endif
     static let historySize = 110
-    static let historyBands = 60
+    static let historyBands = 96
     static let pulseLife = 1.8
 
     let spectrum = SpectrumAnalyzer()
@@ -140,12 +141,15 @@ final class VizState {
     func history(live: Bool) -> [[Float]] {
         rowTime += dt
         if rowTime >= 1 / 30.0 || rows.isEmpty {
-            rowTime = 0
+            rowTime = min(1 / 30.0, max(0, rowTime - 1 / 30.0))
             rows.append(spectrum.bands(Self.historyBands, live: live, fall: 0.8).v)
             if rows.count > Self.historySize { rows.removeFirst(rows.count - Self.historySize) }
         }
         return rows
     }
+
+    /// How far the newest row of the history has moved in, 0…1.
+    var rowShare: Double { min(1, rowTime * 30) }
 
     func moveSparks(live: Bool, many: Int) {
         for i in sparks.indices {
@@ -206,7 +210,7 @@ struct RingCover: View {
     let side: CGFloat
 
     var body: some View {
-        let paint = VizPaint(colors: settings.v.vizColors, accent: settings.accent), playing = player.isPlaying
+        let paint = VizPaint(colors: settings.v.vizPalette, accent: settings.accent), playing = player.isPlaying
         ZStack {
             TimelineView(.animation(minimumInterval: 1 / 45, paused: covered || !moving)) { line in
                 Canvas { ctx, size in

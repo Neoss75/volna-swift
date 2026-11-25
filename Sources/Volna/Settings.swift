@@ -67,7 +67,7 @@ final class Settings: ObservableObject {
         var themeMode = "system"
         var accent = "amber"
         var viz = VizMode.bars
-        var vizColors = VizColors.accent
+        var vizPalette = VizColors.level
         var lyricsOn = false
         var sort = "added"
         var gapless = true
@@ -134,6 +134,12 @@ final class Settings: ObservableObject {
     /// Anything on the settings screen that changes the sound, for the mark under the icon.
     var fxActive: Bool { v.direct || v.bass != 0 || v.balance != 0 || v.rate != 1 || v.normalize || v.crossfade > 0 }
     var eqActive: Bool { v.eqOn && !v.direct && preset?.id != "flat" }
+
+    func cycleColors() {
+        let all = VizColors.allCases, i = all.firstIndex(of: v.vizPalette) ?? 0
+        v.vizPalette = all[(i + 1) % all.count]
+        toast("Цвета: " + v.vizPalette.name)
+    }
 
     func cycleViz() {
         let modes = VizMode.allCases.filter { $0 != .off }
