@@ -40,7 +40,7 @@ extension VizDraw {
 
     /// Many thin lines that flow, every line has its own notes.
     func flows(_ g: GraphicsContext, _ z: CGSize) {
-        let n = big ? 34 : 18, s = state.spectrum.bands(34, live: live, fall: 0.92), points = 64
+        let n = big ? 26 : 16, s = state.spectrum.bands(34, live: live, fall: 0.92), points = 44
         for i in 0..<n {
             let t = Double(i) / Double(n - 1), v = Double(s.v[min(33, i * 34 / n)])
             let base = Double(z.height) * (0.12 + 0.76 * t)
@@ -89,7 +89,7 @@ extension VizDraw {
         for (i, paths) in lit.enumerated() {
             for (q, p) in paths.enumerated() where !p.isEmpty {
                 let v = (Double(q) + 0.5) / 8
-                fill(g, p, .color(paint.at(i)), 0.08 + 0.85 * v * v)
+                fill(g, p, .color(paint.at(i)), 0.1 + 0.9 * v * v.squareRoot())
             }
         }
     }
@@ -157,7 +157,7 @@ extension VizDraw {
             let y = 0.5 + 0.42 * cos(clock * (0.13 + 0.02 * q) + q * 2.7)
             let r = CGFloat(0.22 + 0.4 * v) * max(z.width, z.height * 0.8)
             let c = CGPoint(x: CGFloat(x) * z.width, y: CGFloat(y) * z.height)
-            let tint = paint.color(place, place), a = 0.08 + 0.62 * v
+            let tint = paint.color(place, place), a = 0.12 + 0.85 * v
             g.fill(Path(CGRect(origin: .zero, size: z)),
                    with: .radialGradient(Gradient(colors: [tint.opacity(a), tint.opacity(a * 0.35), tint.opacity(0)]), center: c, startRadius: 0, endRadius: r))
         }
