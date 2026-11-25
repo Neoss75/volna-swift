@@ -90,24 +90,50 @@ jobs:
           bash scripts/write-key.sh "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
           echo "KEY_PATH=$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
 
-      - name: Build and sign
+      # Signing here would create one more development certificate on every run (each Mac is new), and Apple
+      # limits their number. So the archive is built unsigned, the entitlements are put in with an ad-hoc signature,
+      # and the real signature (cloud-managed Apple Distribution certificate) is made during the export.
+      - name: Build
         if: steps.keys.outputs.ok == 'true'
         run: |
           mkdir -p build
-          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
           if ! xcodebuild -project Volna.xcodeproj -scheme Volna -configuration Release \
                -destination 'generic/platform=iOS' -archivePath build/Volna.xcarchive archive \
-               DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" "${AUTH[@]}" > build.log 2>&1; then
+               DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+               CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > build.log 2>&1; then
             echo "===== errors ====="; grep -E "error:|fatal error" build.log | head -80
             echo "===== end of log ====="; tail -n 120 build.log
             exit 1
           fi
           tail -n 10 build.log
+          APP=build/Volna.xcarchive/Products/Applications/Volna.app
+          codesign --force --sign - --entitlements Config/Volna.entitlements "$APP/PlugIns/VolnaWidget.appex"
+          codesign --force --sign - --entitlements Config/Volna.entitlements "$APP"
+
+      - name: Sign and check
+        if: steps.keys.outputs.ok == 'true'
+        run: |
+          sed -e "s/TEAM_ID_PLACEHOLDER/$TEAM_ID/" Config/ExportOptions.plist > build/ExportOptions.plist
+          sed -e 's#<string>upload</string>#<string>export</string>#' build/ExportOptions.plist > build/LocalOptions.plist
+          if ! xcodebuild -exportArchive -archivePath build/Volna.xcarchive -exportPath build/local \
+               -exportOptionsPlist build/LocalOptions.plist \
+               -allowProvisioningUpdates -authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" > export.log 2>&1; then
+            echo "===== errors ====="; grep -iE "error|failed" export.log | head -60
+            echo "===== end of log ====="; tail -n 120 export.log
+            exit 1
+          fi
+          mkdir -p build/ipa
+          unzip -q build/local/*.ipa -d build/ipa
+          for B in build/ipa/Payload/Volna.app build/ipa/Payload/Volna.app/PlugIns/VolnaWidget.appex; do
+            codesign --verify --strict "$B"
+            codesign -d --entitlements :- "$B" 2>/dev/null | grep -q 'group.com.neoss75.volna' || { echo "::error::$(basename "$B") has lost the app group"; exit 1; }
+            codesign -dvv "$B" 2>&1 | grep -q 'Authority=Apple Distribution' || { echo "::error::$(basename "$B") is not signed for distribution"; exit 1; }
+            echo "$(basename "$B"): signed for distribution, the app group is there"
+          done
 
       - name: Upload to TestFlight
         if: steps.keys.outputs.ok == 'true'
         run: |
-          sed "s/TEAM_ID_PLACEHOLDER/$TEAM_ID/" Config/ExportOptions.plist > build/ExportOptions.plist
           if ! xcodebuild -exportArchive -archivePath build/Volna.xcarchive -exportPath build/export \
                -exportOptionsPlist build/ExportOptions.plist \
                -allowProvisioningUpdates -authenticationKeyPath "$KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" > upload.log 2>&1; then
