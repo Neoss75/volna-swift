@@ -250,11 +250,14 @@ enum StationProbe {
 
     /// The size of one piece is known before it is downloaded.
     private static func weight(_ list: HLSPlaylist, _ base: URL, _ session: URLSession) async -> Double? {
-        guard let s = list.segments.last, s.seconds > 0.5, let u = URL(string: s.uri, relativeTo: base),
-              let (bytes, r) = try? await session.bytes(from: u) else { return nil }
-        bytes.task.cancel()
-        guard (r as? HTTPURLResponse)?.statusCode == 200, r.expectedContentLength > 1000 else { return nil }
-        return (Double(r.expectedContentLength) * 8 / s.seconds / 1000).rounded()
+        // the last piece may be lost, then the one before it tells the same
+        for s in list.segments.suffix(3).reversed() where s.seconds > 0.5 {
+            guard let u = URL(string: s.uri, relativeTo: base), let (bytes, r) = try? await session.bytes(from: u) else { continue }
+            bytes.task.cancel()
+            guard (r as? HTTPURLResponse)?.statusCode == 200, r.expectedContentLength > 1000 else { continue }
+            return (Double(r.expectedContentLength) * 8 / s.seconds / 1000).rounded()
+        }
+        return nil
     }
 }
 
