@@ -281,7 +281,7 @@ struct VizDraw {
         let table = (0..<VizColors.steps).map { paint.at($0).resolve(in: env) }
         var px = [UInt8](repeating: 0, count: w * h * 4)
         for k in 0..<w {
-            let low = mean[k] / Float(hist.count) - 0.05, span = max(top[k] - low, 0.2)
+            let low = mean[k] / Float(hist.count) - 0.02, span = max(top[k] - low, 0.26)
             let place = k * VizColors.steps / w
             for y in 0..<hist.count {
                 let v = hist[hist.count - 1 - y][k]

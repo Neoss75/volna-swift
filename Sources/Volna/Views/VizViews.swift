@@ -59,7 +59,7 @@ final class VizState {
     #if DEBUG
         static var frames = 0
     #endif
-    static let historySize = 110
+    static let historySize = 150
     static let historyBands = 96
     static let pulseLife = 1.8
 
@@ -142,7 +142,7 @@ final class VizState {
         rowTime += dt
         if rowTime >= 1 / 30.0 || rows.isEmpty {
             rowTime = min(1 / 30.0, max(0, rowTime - 1 / 30.0))
-            rows.append(spectrum.bands(Self.historyBands, live: live, fall: 0.8).v)
+            rows.append(spectrum.fine(Self.historyBands, live: live))
             if rows.count > Self.historySize { rows.removeFirst(rows.count - Self.historySize) }
         }
         return rows

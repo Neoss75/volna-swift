@@ -143,6 +143,17 @@ enum Demo {
         let a = SpectrumAnalyzer()
         for _ in 0..<20 { a.update(player.graph.tap); await wait(0.03) }
         check("visualizer sees sound", (a.bins.max() ?? 0) > 0.2, "\(a.bins.max() ?? 0)")
+        // a steady tone must not flicker
+        let steady = VizTap(), sa = SpectrumAnalyzer()
+        steady.feed((0..<8192).map { Float(0.3 * sin(2 * .pi * 440 * Double($0) / 44100)) }, rate: 44100)
+        var seen: [Float] = [], fine: [Float] = []
+        for k in 0..<60 {
+            sa.update(steady)
+            let v = sa.bands(40, live: true, fall: 0.8).v.max() ?? 0, f = sa.fine(96, live: true).max() ?? 0
+            if k > 40 { seen.append(v); fine.append(f) }
+        }
+        let swing = (seen.max() ?? 0) - (seen.min() ?? 0), swing2 = (fine.max() ?? 0) - (fine.min() ?? 0)
+        check("steady tone does not flicker", (seen.min() ?? 0) > 0.3 && swing < 0.05 && swing2 < 0.05, String(format: "%.3f %.3f at %.2f", swing, swing2, seen.max() ?? 0))
         check("lyrics file", LyricsStore.load(ids[0]).map { LyricsParser.lines($0.text)?.count == 4 } ?? false, "")
         check("title cleaning", TagCleaner.clean("Пелюстки троянд (Sefon.Pro)") == "Пелюстки троянд" && TagCleaner.clean("Muzaf.net") == "Muzaf.net"
             && TagCleaner.clean("Mr. Vain") == "Mr. Vain", TagCleaner.clean("Слава Україні 2022 (Muzaf.net)"))

@@ -43,6 +43,22 @@ final class VizTap: @unchecked Sendable {
         lock.unlock()
     }
 
+    #if DEBUG
+        /// Puts a ready sound in, for the self-test.
+        func feed(_ x: [Float], rate r: Double) {
+            lock.lock()
+            for (i, v) in x.enumerated() where i < size {
+                left[i] = v
+                right[i] = v
+            }
+            written = min(size, x.count)
+            lastChunk = 0
+            lastTime = CACurrentMediaTime()
+            rate = r
+            lock.unlock()
+        }
+    #endif
+
     /// The last `n` samples up to "now". Buffers arrive in lumps of about 0.1 s, so the reading
     /// point moves through the latest lump in real time and the picture stays smooth.
     func window(_ n: Int) -> (l: [Float], r: [Float], rate: Double) {
@@ -86,6 +102,7 @@ final class SpectrumAnalyzer {
     }
 
     private var cache: [Int: Bands] = [:]
+    private var fineV: [Float] = []
 
     init() {
         setup = vDSP_create_fftsetup(11, FFTRadix(kFFTRadix2))
@@ -138,10 +155,35 @@ final class SpectrumAnalyzer {
                 let b = max(bin(35 * pow(16000.0 / 35, Double(i + 1) / Double(count))), a + 1)
                 for k in a..<min(b, bins.count) { v = max(v, bins[k]) }
             }
-            c.v[i] = v > c.v[i] ? v : c.v[i] * fall
+            c.v[i] = max(v, c.v[i] * fall) // never below the real level, or it would jump back on the next frame
             c.peak[i] = c.v[i] > c.peak[i] ? c.v[i] : max(0, c.peak[i] - 0.012)
         }
         return c
+    }
+
+    /// Like `bands`, but without steps at the bottom: between two lines of the spectrum the level is interpolated.
+    func fine(_ count: Int, live: Bool) -> [Float] {
+        if fineV.count != count { fineV = [Float](repeating: 0, count: count) }
+        let perHz = Double(bins.count) / (rate / 2), last = bins.count - 2
+        var row = [Float](repeating: 0, count: count)
+        if live {
+            for i in 0..<count {
+                let a = 40 * pow(14000.0 / 40, Double(i) / Double(count)) * perHz
+                let b = 40 * pow(14000.0 / 40, Double(i + 1) / Double(count)) * perHz
+                if b - a < 1.5 {
+                    let x = min(Double(last), (a + b) / 2), k = Int(x), t = Float(x - Double(k))
+                    let s = t * t * (3 - 2 * t)
+                    row[i] = bins[k] * (1 - s) + bins[k + 1] * s
+                } else {
+                    for k in min(last, Int(a))...min(last, Int(b)) { row[i] = max(row[i], bins[k]) }
+                }
+            }
+        }
+        for i in 0..<count {
+            let v = (row[max(0, i - 1)] + 2 * row[i] + row[min(count - 1, i + 1)]) / 4
+            fineV[i] = max(v, fineV[i] * 0.86)
+        }
+        return fineV
     }
 
     static func level(_ x: [Float]) -> (rms: Double, peak: Double) {
