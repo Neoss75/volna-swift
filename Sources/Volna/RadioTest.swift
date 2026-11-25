@@ -180,6 +180,14 @@ final class TestServer: @unchecked Sendable {
     }
 }
 
+private extension Array {
+    func asyncMap<T>(_ body: (Element) async -> T) async -> [T] {
+        var out: [T] = []
+        for e in self { out.append(await body(e)) }
+        return out
+    }
+}
+
 extension Demo {
     static func makeServer() async -> TestServer? {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("radio.aac")
@@ -294,6 +302,12 @@ extension Demo {
         stations.startCheck([a, mp3, list, mute, gone, kept, ogg])
         check("station check", await until(25) { stations.check?.running == false } && stations.check?.alive == 3 && stations.check?.dead == [mute.id, gone.id, kept.id]
             && stations.check?.unsupported == 1 && stations.problems[a.id] == nil, "\(String(describing: stations.check))")
+        let heard = [a, mp3].map { stations.station($0.id)?.facts }
+        let kinds = heard.map { $0?.kind ?? "" }, rates = heard.map { $0?.kbps ?? 0 }, hours = heard.map { Int($0?.perHour ?? 0) }
+        check("format of the stations", kinds == ["AAC", "MP3"] && rates == [128, 128] && hours == [57, 57], heard.map { $0?.text ?? "none" }.joined(separator: ", "))
+        let fresh = await [a, mp3].asyncMap { await StationProbe.ask(Station(name: "", url: $0.url), StationProbe.session()).facts }
+        let guess = fresh.map { $0?.kbps ?? 0 }
+        check("format before playing", fresh.map { $0?.kind ?? "" } == ["AAC", "MP3"] && guess[1] == 128 && guess[0] > 60 && guess[0] < 260, fresh.map { $0?.text ?? "none" }.joined(separator: ", "))
         stations.removeDead()
         check("silent stations removed", stations.station(mute.id) == nil && stations.station(gone.id) == nil && stations.station(kept.id) != nil && stations.station(a.id) != nil, "")
         let icyLine = station("/icy")
@@ -314,6 +328,15 @@ extension Demo {
             await wait(5)
             check("HLS goes on \(path)", live.state == .playing && live.stored > 2 && live.stored < 25 && live.title == "Тартак - Понад хмарами", String(format: "%.1f s, ", live.stored) + live.title)
         }
+        let kyiv = stations.all.first { $0.url.hasSuffix("/kyiv/master.m3u8") }
+        check("traffic of HLS", kyiv?.facts?.kbps == 128 && (kyiv?.facts?.total ?? 0) > 135, kyiv?.facts?.text ?? "none")
+        let silent = Station(name: "x", url: server.url("/kyiv/master.m3u8"))
+        let answer = await StationProbe.ask(silent, StationProbe.session())
+        check("traffic of HLS before playing", answer.error == nil && answer.facts?.kind == "HLS" && (answer.facts?.total ?? 0) > 135, answer.facts?.text ?? "none")
+        var packets = Data([1, 2, 3])
+        for _ in 0..<4 { packets += Data([0xFF, 0xFB, 0xB0, 0x00]) + Data(count: 622) }
+        check("MP3 192", StationFacts.look(packets)?.kbps == 192 && StationFacts.look(Data(count: 5000)) == nil, "")
+        check("traffic text", StationFacts(kind: "MP3", kbps: 128).text.contains("58 МБ") && StationFacts(kind: "HLS", total: 6800).text.contains("3.1 ГБ"), StationFacts(kind: "HLS", total: 6800).text)
         settings.v.radioBuffer = 2
         let tried = server.count("/kyiv/low.m3u8")
         check("HLS takes the better sound", tried == 0, "\(tried)")

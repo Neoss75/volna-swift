@@ -79,6 +79,10 @@ final class Player: ObservableObject {
             }
         }
         live.onInfo = { [weak self] in self?.matchRadio($0) }
+        live.onFacts = { [weak self] f in
+            guard let self, let s = self.radio else { return }
+            self.stations.learn(s.id, f)
+        }
         live.onTitle = { [weak self] in self?.radioTitleChanged() }
         live.onEnd = { [weak self] in self?.radioEnded($0) }
         stations.onChange = { [weak self] in self?.stationsChanged() }

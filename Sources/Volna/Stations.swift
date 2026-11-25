@@ -10,6 +10,7 @@ struct Station: Identifiable, Codable, Equatable {
     var logo: String?
     var group: String?
     var favourite: Bool?
+    var facts: StationFacts?
 
     init(name: String, url: String, logo: String? = nil, group: String? = nil) {
         id = UUID()
@@ -181,9 +182,21 @@ enum StationProbe {
         return URLSession(configuration: c)
     }
 
-    /// nil = it plays.
-    static func ask(_ s: Station, _ session: URLSession) async -> StreamError? {
-        guard let url = URL(string: s.url) else { return .notRadio }
+    struct Answer: Sendable {
+        var id: UUID
+        /// nil = it plays.
+        var error: StreamError?
+        var facts: StationFacts?
+    }
+
+    static func ask(_ s: Station, _ session: URLSession) async -> Answer {
+        var a = Answer(id: s.id)
+        a.error = await ask(s.url, session, &a.facts)
+        return a
+    }
+
+    private static func ask(_ link: String, _ session: URLSession, _ facts: inout StationFacts?) async -> StreamError? {
+        guard let url = URL(string: link) else { return .notRadio }
         var request = URLRequest(url: url)
         request.setValue("1", forHTTPHeaderField: "Icy-MetaData")
         do {
@@ -192,7 +205,20 @@ enum StationProbe {
             let http = response as? HTTPURLResponse
             if let code = http?.statusCode, !(200..<300).contains(code) { return .status(code) }
             switch StreamKind.of(type: (http?.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased(), url: response.url ?? url) {
-            case .audio: return nil
+            case .audio:
+                // the names of songs are mixed into the sound after the first `metaint` bytes
+                let meta = http?.value(forHTTPHeaderField: "icy-metaint").flatMap { Int($0.trimmingCharacters(in: .whitespaces)) } ?? 0
+                let limit = meta > 1000 ? min(meta, 16000) : 16000
+                var data = Data()
+                data.reserveCapacity(limit)
+                do {
+                    for try await b in bytes {
+                        data.append(b)
+                        if data.count >= limit { break }
+                    }
+                } catch {} // what has come is enough
+                facts = StationFacts.look(data)
+                return nil
             case .ogg: return .ogg
             case .video: return .video
             case .page: return .notRadio
@@ -203,12 +229,32 @@ enum StationProbe {
                     if data.count > 50000 { break }
                 }
                 let text = StationList.text(data)
-                if StationList.isStream(text) { return HLSPlaylist(text).unsupported ? .hls : nil }
+                if StationList.isStream(text) {
+                    var list = HLSPlaylist(text), base = response.url ?? url
+                    if list.segments.isEmpty, let u = list.best.flatMap({ URL(string: $0, relativeTo: base) }) {
+                        let (d, r) = try await session.data(from: u)
+                        if let code = (r as? HTTPURLResponse)?.statusCode, !(200..<300).contains(code) { return .status(code) }
+                        list = HLSPlaylist(StationList.text(d))
+                        base = r.url ?? u
+                    }
+                    if list.unsupported { return .hls }
+                    facts = StationFacts(kind: "HLS", kbps: nil, total: await weight(list, base, session), rate: nil)
+                    return nil
+                }
                 return StationList.parse(text).stations.isEmpty ? .notRadio : nil
             }
         } catch {
             return .network(tr("не отвечает"))
         }
+    }
+
+    /// The size of one piece is known before it is downloaded.
+    private static func weight(_ list: HLSPlaylist, _ base: URL, _ session: URLSession) async -> Double? {
+        guard let s = list.segments.last, s.seconds > 0.5, let u = URL(string: s.uri, relativeTo: base),
+              let (bytes, r) = try? await session.bytes(from: u) else { return nil }
+        bytes.task.cancel()
+        guard (r as? HTTPURLResponse)?.statusCode == 200, r.expectedContentLength > 1000 else { return nil }
+        return (Double(r.expectedContentLength) * 8 / s.seconds / 1000).rounded()
     }
 }
 
@@ -341,13 +387,13 @@ final class Stations: ObservableObject {
         UIApplication.shared.isIdleTimerDisabled = true // asleep, the phone would call every station dead
         checking = Task { [weak self] in
             let session = StationProbe.session()
-            await withTaskGroup(of: (UUID, StreamError?).self) { group in
+            await withTaskGroup(of: StationProbe.Answer.self) { group in
                 var rest = list.makeIterator()
                 for _ in 0..<StationProbe.atOnce {
-                    if let s = rest.next() { group.addTask { (s.id, await StationProbe.ask(s, session)) } }
+                    if let s = rest.next() { group.addTask { await StationProbe.ask(s, session) } }
                 }
                 // shown in portions: thousands of redraws would slow the list down
-                var fresh: [(UUID, StreamError?)] = [], shown = Date()
+                var fresh: [StationProbe.Answer] = [], shown = Date()
                 while let answer = await group.next() {
                     if Task.isCancelled { break }
                     fresh.append(answer)
@@ -356,7 +402,7 @@ final class Stations: ObservableObject {
                         fresh = []
                         shown = Date()
                     }
-                    if let s = rest.next() { group.addTask { (s.id, await StationProbe.ask(s, session)) } }
+                    if let s = rest.next() { group.addTask { await StationProbe.ask(s, session) } }
                 }
                 if !Task.isCancelled { self?.take(fresh) }
                 group.cancelAll()
@@ -366,19 +412,28 @@ final class Stations: ObservableObject {
         }
     }
 
-    private func take(_ answers: [(UUID, StreamError?)]) {
+    private func take(_ answers: [StationProbe.Answer]) {
         guard var c = check else { return }
-        var p = problems
-        for (id, error) in answers {
+        var p = problems, learnt: [UUID: StationFacts] = [:]
+        for a in answers {
             c.done += 1
-            p[id] = error?.text
-            switch error {
+            p[a.id] = a.error?.text
+            if let f = a.facts { learnt[a.id] = f }
+            switch a.error {
             case nil: break
             case .hls?, .ogg?, .video?, .format?: c.unsupported += 1
-            default: c.dead.insert(id)
+            default: c.dead.insert(a.id)
             }
         }
         problems = p
+        if !learnt.isEmpty {
+            all = all.map { s in
+                guard let f = learnt[s.id] else { return s }
+                var s = s
+                s.facts = f.over(s.facts, rough: true)
+                return s
+            }
+        }
         check = c
     }
 
@@ -388,7 +443,7 @@ final class Stations: ObservableObject {
         checking = nil
         UIApplication.shared.isIdleTimerDisabled = false
         check?.running = false
-        if check?.done == 0 { check = nil }
+        if check?.done == 0 { check = nil } else { save() }
     }
 
     /// Favourites stay even when they do not answer.
@@ -404,11 +459,20 @@ final class Stations: ObservableObject {
         toast(tr("Убрано станций: {}", "\(gone.count)"))
     }
 
+    /// What was found out while the station plays.
+    func learn(_ id: UUID, _ f: StationFacts) {
+        if problems[id] != nil { problems[id] = nil }
+        guard let s = station(id), !f.kind.isEmpty else { return }
+        let new = f.over(s.facts)
+        if new != s.facts { change(id) { $0.facts = new } }
+    }
+
     func toggleFavourite(_ id: UUID) { change(id) { $0.favourite = $0.favourite == true ? nil : true } }
 
     func edit(_ id: UUID, name: String, url: String) {
         change(id) {
             $0.name = name
+            if $0.url != url { $0.facts = nil }
             $0.url = url
         }
         problems[id] = nil

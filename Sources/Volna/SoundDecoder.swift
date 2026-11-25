@@ -15,6 +15,8 @@ final class SoundDecoder {
 
     var onFormat: ((Format) -> Void)?
     var onSound: ((AVAudioPCMBuffer) -> Void)?
+    /// Called once, after some seconds of sound: kilobits per second.
+    var onMeasured: ((Double) -> Void)?
     private(set) var gotSound = false
     /// The flow cannot be understood.
     private(set) var failed = false
@@ -22,6 +24,9 @@ final class SoundDecoder {
     private var stream: AudioFileStreamID?
     private var input: AVAudioFormat?
     private var converter: AVAudioConverter?
+    private var bytes = 0
+    private var frames = 0
+    private var measured = false
 
     /// `type` is what the server says: "audio/aac", "audio/mpeg"…
     init(type: String) {
@@ -106,6 +111,15 @@ final class SoundDecoder {
         packed.packetCount = AVAudioPacketCount(count)
 
         let perPacket = input.streamDescription.pointee.mFramesPerPacket
+        if !measured, perPacket > 0 {
+            bytes += offset
+            frames += Int(perPacket) * count
+            let seconds = Double(frames) / input.sampleRate
+            if seconds > 4 {
+                measured = true
+                onMeasured?(StationFacts.standard(Double(bytes) * 8 / seconds / 1000))
+            }
+        }
         let capacity = AVAudioFrameCount(max(perPacket, 1152)) * AVAudioFrameCount(count + 2)
         var fed = false
         while let out = AVAudioPCMBuffer(pcmFormat: converter.outputFormat, frameCapacity: capacity) {

@@ -203,6 +203,7 @@ final class HLSReader: SoundSource, @unchecked Sendable {
     private var decoderType = ""
     private var ts = TSDemuxer()
     private var kbps: Double?
+    private var total: Double?
     private var lastTitle = ""
 
     /// How long one reader tries before it reports the loss.
@@ -339,7 +340,10 @@ final class HLSReader: SoundSource, @unchecked Sendable {
             lastTitle = s.title
             send(.title(s.title))
         }
-        if kbps == nil, s.seconds > 0.5 { kbps = Self.standard(Double(sound.count) * 8 / s.seconds / 1000) }
+        if kbps == nil, s.seconds > 0.5 {
+            kbps = StationFacts.standard(Double(sound.count) * 8 / s.seconds / 1000)
+            total = (Double(data.count) * 8 / s.seconds / 1000).rounded()
+        }
         if decoder == nil || s.fresh || type != decoderType { open(type) }
         decoder?.parse(sound)
         if decoder?.failed == true { throw StreamError.format }
@@ -349,7 +353,7 @@ final class HLSReader: SoundSource, @unchecked Sendable {
         let d = SoundDecoder(type: type)
         d.onFormat = { [weak self] f in
             guard let self else { return }
-            self.send(.info(StreamInfo(kind: f.kind, kbps: self.kbps ?? f.kbps, rate: f.rate, channels: f.channels, name: nil)))
+            self.send(.info(StreamInfo(kind: f.kind, kbps: self.kbps ?? f.kbps, rate: f.rate, channels: f.channels, name: nil, total: self.total)))
         }
         d.onSound = { [weak self] b in self?.send(.sound(b)) }
         decoder = d
@@ -364,9 +368,5 @@ final class HLSReader: SoundSource, @unchecked Sendable {
             d = size < d.count ? Data(d.dropFirst(size)) : Data()
         }
         return d
-    }
-
-    private static func standard(_ kbps: Double) -> Double {
-        [32, 48, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320].first { abs($0 - kbps) / $0 < 0.05 } ?? kbps.rounded()
     }
 }

@@ -48,6 +48,10 @@ struct StreamInfo: Equatable {
     var rate: Double = 0
     var channels = 2
     var name: String?
+    /// All that is downloaded, when it is more than the sound.
+    var total: Double?
+
+    var facts: StationFacts { StationFacts(kind: kind, kbps: kbps, total: total, rate: rate > 0 ? rate : nil) }
 }
 
 /// Downloads one broadcast, takes the song names out of it and decodes the sound piece by piece.
@@ -200,6 +204,12 @@ final class StreamReader: NSObject, URLSessionDataDelegate, SoundSource, @unchec
             self.send(.info(self.info))
         }
         d.onSound = { [weak self] b in self?.send(.sound(b)) }
+        // what stations write about themselves is often wrong
+        d.onMeasured = { [weak self] kbps in
+            guard let self, abs((self.info.kbps ?? 0) - kbps) > kbps * 0.08 else { return }
+            self.info.kbps = kbps
+            self.send(.info(self.info))
+        }
         decoder = d
         if d.failed { finish(.format) }
     }

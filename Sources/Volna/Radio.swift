@@ -15,6 +15,7 @@ final class Radio: ObservableObject {
     @Published private(set) var stored: Double = 0
 
     var onInfo: ((Double) -> Void)?
+    var onFacts: ((StationFacts) -> Void)?
     var onTitle: (() -> Void)?
     var onEnd: ((String?) -> Void)?
 
@@ -115,6 +116,7 @@ final class Radio: ObservableObject {
                 graph.openStream(f, into: deck)
                 if state == .playing { state = .buffering }
             }
+            onFacts?(i.facts)
         case .sound(let b):
             lostSince = nil
             tries = 0

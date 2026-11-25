@@ -165,7 +165,7 @@ struct RadioPanel: View {
         .confirmationDialog(tr("Убрать станции из плеера: {}?", "\(ids.count)"), isPresented: $confirm, titleVisibility: .visible) {
             Button(tr("Убрать станции"), role: .destructive) { stations.remove(Set(ids)) }
         }
-        .confirmationDialog(tr("Проверить, какие станции отвечают: {}? Займёт до {} мин и скачает до {} МБ, лучше по Wi-Fi. Не закрывайте плеер.", "\(ids.count)", "\(minutes(ids.count))", "\(max(1, ids.count / 20))"),
+        .confirmationDialog(tr("Проверить, какие станции отвечают, и узнать их формат: {}? Займёт до {} мин и скачает до {} МБ, лучше по Wi-Fi. Не закрывайте плеер.", "\(ids.count)", "\(minutes(ids.count))", "\(max(1, ids.count / 20))"),
                             isPresented: $confirmCheck, titleVisibility: .visible) {
             Button(tr("Проверить станции")) { stations.startCheck(ids.compactMap { stations.station($0) }) }
         }
@@ -194,6 +194,7 @@ private struct StationRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(station.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(on ? settings.accent : Theme.fg)
                         Text(subtitle(on)).font(.system(size: 13)).foregroundStyle(stations.problems[station.id] != nil && !on ? Theme.danger : Theme.muted)
+                        if let f = station.facts { Text(f.text).font(.mono(11)).foregroundStyle(Theme.muted).minimumScaleFactor(0.8) }
                     }
                     .lineLimit(1)
                     Spacer(minLength: 0)
@@ -312,7 +313,7 @@ enum RadioText {
 
     static func format(_ i: StreamInfo) -> String {
         guard i.rate > 0 else { return "" }
-        return [i.kind, OutputInfo.khz(i.rate), i.kbps.map { tr("{} кбит/с", "\(Int($0.rounded()))") } ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
+        return [i.kind, OutputInfo.khz(i.rate), i.kbps.map { tr("{} кбит/с", "\(Int($0.rounded()))") } ?? "", i.facts.perHour.map(StationFacts.traffic) ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 }
 
