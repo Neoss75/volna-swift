@@ -538,6 +538,9 @@ final class Player: ObservableObject {
         if current?.id == id { applyLoudness() }
     }
 
+    /// The decoded song, before anything else happens to it.
+    var sourceFormat: AVAudioFormat? { deck.file?.processingFormat }
+
     func publish() {
         let t = current
         let image = t.flatMap { $0.hasArtwork ? ArtworkStore.image(for: $0.id) : nil }

@@ -3,13 +3,14 @@ import SwiftUI
 
 /// Pages of the settings, grouped on the first screen by what they are about.
 enum SettingsPage: String, Hashable, CaseIterable {
-    case sound, eq, loudness, playback, hires
+    case path, sound, eq, loudness, playback, hires
     case theme, viz
     case library, covers, lyrics
     case language, stats, about
 
     var title: String {
         switch self {
+        case .path: tr("Путь звука")
         case .sound: tr("Обработка звука")
         case .eq: tr("Эквалайзер")
         case .loudness: tr("Выравнивание громкости")
@@ -28,6 +29,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
 
     var icon: String {
         switch self {
+        case .path: "point.topleft.down.to.point.bottomright.curvepath"
         case .sound: "waveform"
         case .eq: "slider.vertical.3"
         case .loudness: "speaker.wave.2"
@@ -45,7 +47,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
     }
 
     static let groups: [(title: String, pages: [SettingsPage])] = [
-        ("Аудио", [.eq, .sound, .loudness, .playback, .hires]),
+        ("Аудио", [.path, .eq, .sound, .loudness, .playback, .hires]),
         ("Графика", [.theme, .viz]),
         ("Музыка", [.library, .covers, .lyrics]),
         ("Прочее", [.language, .stats, .about]),
@@ -144,6 +146,9 @@ private struct SettingsRoot: View {
             if v.rate != 1 { p.append(FXFormat.rate(v.rate)) }
             if player.sleepAt != nil || player.sleepAfterTrack { p.append(tr("таймер сна")) }
             return p.joined(separator: " · ")
+        case .path:
+            let o = SoundPath.Output.now()
+            return o.name + " · " + OutputInfo.khz(o.rate)
         case .hires:
             return v.direct ? tr("Прямой вывод") : OutputInfo.now().rateText
         case .theme:
@@ -180,7 +185,7 @@ enum FXFormat {
 }
 
 /// A titled block inside a settings page.
-private struct Block<Content: View>: View {
+struct Block<Content: View>: View {
     let title: String?
     @ViewBuilder let content: Content
 
@@ -212,6 +217,7 @@ private struct SettingsPageView: View {
                 ScrollView {
                     VStack(spacing: 14) {
                         switch page {
+                        case .path: SoundPathPage()
                         case .sound: SoundPage()
                         case .loudness: LoudnessPage()
                         case .playback: PlaybackPage()
@@ -350,19 +356,11 @@ struct OutputInfo: Equatable {
 
 private struct HiResPage: View {
     @EnvironmentObject private var settings: Settings
-    @EnvironmentObject private var player: Player
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
-            let o = OutputInfo.now()
-            Block(tr("Сейчас")) {
-                line(tr("Вывод"), o.device)
-                line(tr("Частота вывода"), o.rateText)
-                if let t = player.current, let sr = t.sampleRate {
-                    line(tr("Файл"), (t.bits.map { tr("{} бит / ", "\($0)") } ?? "") + OutputInfo.khz(sr))
-                    line(tr("Пересчёт частоты"), abs(sr - o.rate) < 1 ? tr("нет") : tr("есть"))
-                }
-            }
+        Block {
+            NavigationLink(value: SettingsPage.path) { Text(tr("Путь звука")) }.buttonStyle(.glass)
+            Hint(tr("Показывает по шагам, что происходит со звуком от файла до наушников."))
         }
         Block(tr("Частота")) {
             SwitchRow(label: tr("Подстраивать вывод под файл"), on: $settings.v.matchRate)
@@ -373,14 +371,6 @@ private struct HiResPage: View {
         Block(tr("Обработка")) {
             SwitchRow(label: tr("Прямой вывод"), on: $settings.v.direct)
             Hint(tr("Выключает всё, что меняет звук: эквалайзер, бас, баланс, лимитер, выравнивание и скорость. Ваши настройки сохраняются и вернутся, когда вы выключите этот режим."))
-        }
-    }
-
-    private func line(_ name: String, _ value: String) -> some View {
-        HStack {
-            Text(name).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.fg)
-            Spacer()
-            Text(value).font(.mono(13)).foregroundStyle(Theme.muted).lineLimit(1)
         }
     }
 }

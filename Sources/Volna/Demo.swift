@@ -46,6 +46,11 @@ enum Demo {
             ui.collection = .lossless
             player.play(t.id, from: library.tracks.map(\.id))
         }
+        switch value("-port") {
+        case "usb": SoundPath.Output.fake = .init(port: .usbAudio, name: "USB DAC", rate: 44100, channels: 2, latency: 0.012, volume: 1)
+        case "bt": SoundPath.Output.fake = .init(port: .bluetoothA2DP, name: "AirPods Pro", rate: 48000, channels: 2, latency: 0.16, volume: 0.6)
+        default: break
+        }
         if let t = value("-tab") { ui.listTab = ListTab.allCases.first { "\($0)" == t } ?? .songs }
         if args.contains("-album"), let t = library.tracks.first(where: { !$0.album.isEmpty }) { ui.collection = .album(Library.albumKey(t)) }
         if args.contains("-selftest") {
@@ -348,9 +353,31 @@ enum Demo {
         check("Ukrainian", plural(5, tr("раз"), tr("раза"), tr("раз#мн")) == "5 разів" && formatSpan(3700) == "1 год 1 хв", formatDb(-3))
         settings.v.language = "ru"
         check("Russian", plural(5, tr("раз"), tr("раза"), tr("раз#мн")) == "5 раз" && tr("Песни") == "Песни", "")
+        pathTest(check)
         check("old library opens", (try? JSONDecoder().decode([Track].self, from: Data(old.utf8)))?.count == 1, "")
         let oldStats = #"{"songs":{"x":{"plays":1,"seconds":5,"title":"T","artist":"A"}},"days":{},"total":5}"#
         check("old statistics open", (try? JSONDecoder().decode(Stats.Data.self, from: Data(oldStats.utf8)))?.songs.count == 1, "")
+    }
+
+    private static func pathTest(_ check: (String, Bool, String) -> Void) {
+        var t = Track(id: UUID(), bookmark: Data(), path: "/a.flac", title: "T", artist: "A", album: "", duration: 200, hasArtwork: false)
+        t.ext = "FLAC"
+        t.bits = 16
+        t.sampleRate = 44100
+        var v = Settings.Values()
+        v.direct = true
+        func build(_ port: AVAudioSession.Port, _ rate: Double) -> SoundPath {
+            SoundPath.build(t, rate: 44100, channels: 2, graph: rate, v, preset: nil, .init(port: port, name: "X", rate: rate, channels: 2, latency: 0.01, volume: 1))
+        }
+        let usb = build(.usbAudio, 44100), other = build(.usbAudio, 48000), bt = build(.bluetoothA2DP, 44100), speaker = build(.builtInSpeaker, 48000)
+        check("sound path: DAC", usb.clean && usb.steps.count == 7 && !usb.steps.contains { $0.mark == .changed }, usb.verdict)
+        check("sound path: resampled", !other.clean && other.steps[2].mark == .changed, other.steps[2].value)
+        check("sound path: Bluetooth", !bt.clean && bt.verdict.contains("Bluetooth"), bt.steps[5].detail)
+        check("sound path: speaker", !speaker.clean, speaker.verdict)
+        v.direct = false
+        v.bass = 3
+        let bass = build(.usbAudio, 44100)
+        check("sound path: processing", !bass.clean && bass.steps[3].mark == .changed, bass.steps[3].value)
     }
 
     private static func synth(_ url: URL, rate: Double, channels: Int, seconds: Double, format kind: AudioFormatID = kAudioFormatLinearPCM) {

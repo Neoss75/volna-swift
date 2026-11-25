@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(01|05|6[0-9])-'
+ONLY='^(01|05|62-uk|65-en|7[0-9])-'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -106,6 +106,10 @@ shot 54-saver-confetti -saver -viz confetti -colors rainbow
 shot 55-saver-aurora -saver -viz aurora -colors rainbow
 shot 56-saver-land-kaleido -landscape -saver -viz kaleido -colors neon
 shot 57-saver-land-tiles -landscape -saver -viz tiles -colors fire
+shot 70-path -panel fx -page path
+shot 71-path-usb -lossless -port usb -panel fx -page path
+shot 72-path-bt -port bt -panel fx -page path
+shot 73-path-en -lang en -port bt -panel fx -page path
 for l in uk en; do
   shot 60-$l-player -lang $l
   shot 61-$l-list -lang $l -panel list

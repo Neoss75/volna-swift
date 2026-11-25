@@ -128,7 +128,7 @@ struct OutputBadges: View {
                 let out = OutputInfo.now()
                 let live = settings.v.matchRate && out.plays(player.current)
                 Button {
-                    ui.settingsPath = [.hires]
+                    ui.settingsPath = [.path]
                     ui.panel = .fx
                 } label: {
                     HStack(spacing: 6) {

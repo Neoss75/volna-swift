@@ -313,14 +313,8 @@ Hi-res и вывод‖Hi-res і вивід‖Hi-res and output
 {} минут‖{} хвилин‖{} minutes
 Таймер сна: {} минут‖Таймер сну: {} хвилин‖Sleep timer: {} minutes
 После трека‖Після треку‖After this song
-Сейчас‖Зараз‖Now
-Вывод‖Вивід‖Output
-Частота вывода‖Частота виводу‖Output rate
 Файл‖Файл‖File
 {} бит / ‖{} біт / ‖{} bit /
-Пересчёт частоты‖Перерахунок частоти‖Resampling
-нет‖немає‖no
-есть‖є‖yes
 Частота‖Частота‖Sample rate
 Подстраивать вывод под файл‖Підлаштовувати вивід під файл‖Match the output to the file
 Значок LOSSLESS на главном экране: файл без потерь (FLAC, ALAC, WAV, AIFF). Он говорит о файле, а не о наушниках.‖Значок LOSSLESS на головному екрані: файл без втрат (FLAC, ALAC, WAV, AIFF). Він говорить про файл, а не про навушники.‖The LOSSLESS mark on the main screen: a lossless file (FLAC, ALAC, WAV, AIFF). It is about the file, not the headphones.
@@ -408,5 +402,45 @@ lrclib.net · синхронный‖lrclib.net · синхронний‖lrclib
 Язык‖Мова‖Language
 «Как в системе» берёт язык из настроек iPhone.‖«Як у системі» бере мову з налаштувань iPhone.‖“Same as iPhone” takes the language from the iPhone settings.
 Названия песен и исполнителей не переводятся.‖Назви пісень і виконавців не перекладаються.‖Names of songs and artists are not translated.
+Путь звука‖Шлях звуку‖Sound path
+Показывает по шагам, что происходит со звуком от файла до наушников.‖Показує крок за кроком, що відбувається зі звуком від файлу до навушників.‖Shows step by step what happens to the sound from the file to the headphones.
+динамики iPhone‖динаміки iPhone‖iPhone speakers
+разговорный динамик‖розмовний динамік‖earpiece
+наушники по проводу‖навушники по дроту‖wired headphones
+Bluetooth, режим звонка‖Bluetooth, режим дзвінка‖Bluetooth, call mode
+машина (CarPlay)‖автомобіль (CarPlay)‖car (CarPlay)
+линейный выход‖лінійний вихід‖line out
+со сжатием‖зі стисненням‖compressed
+Распаковка‖Розпакування‖Decoding
+внутри плеера звук 32-битный‖усередині плеєра звук 32-бітний‖the player works in 32 bit
+пересчитывается‖перераховується‖resampled
+без пересчёта‖без перерахунку‖not resampled
+ничего не меняет‖нічого не змінює‖changes nothing
+обработка обойдена‖обробку обійдено‖processing bypassed
+Громкость iPhone‖Гучність iPhone‖iPhone volume
+Устройство‖Пристрій‖Device
+На выходе‖На виході‖At the output
+задержка {} мс‖затримка {} мс‖latency {} ms
+моно‖моно‖mono
+стерео‖стерео‖stereo
+каналов: {}‖каналів: {}‖channels: {}
+эквалайзер‖еквалайзер‖equaliser
+баланс‖баланс‖balance
+скорость‖швидкість‖speed
+лимитер‖лімітер‖limiter
+Включите песню, чтобы увидеть весь путь.‖Увімкніть пісню, щоб побачити весь шлях.‖Play a song to see the whole path.
+Сам файл сжат с потерями, лучше него на выходе не станет.‖Сам файл стиснено з втратами, кращим за нього звук на виході не стане.‖The file itself is compressed with losses, the output cannot be better than that.
+По Bluetooth звук сжимается ещё раз перед отправкой, поэтому без потерь он не дойдёт. Каким способом, iPhone приложениям не сообщает (обычно AAC).‖По Bluetooth звук стискається ще раз перед надсиланням, тому без втрат він не дійде. Яким способом, iPhone застосункам не повідомляє (зазвичай AAC).‖Over Bluetooth the sound is compressed once more before it is sent, so it cannot arrive lossless. The iPhone does not tell apps how (usually AAC).
+Наушники в режиме звонка: звук сильно упрощён. Закройте приложение, которое использует микрофон.‖Навушники в режимі дзвінка: звук сильно спрощено. Закрийте застосунок, який використовує мікрофон.‖The headphones are in call mode: the sound is much simpler. Close the app that uses the microphone.
+Динамики iPhone работают на своей частоте. Чтобы услышать файл без потерь, нужны наушники по проводу или ЦАП.‖Динаміки iPhone працюють на своїй частоті. Щоб почути файл без втрат, потрібні навушники по дроту або ЦАП.‖The iPhone speakers have their own rate. To hear a lossless file you need wired headphones or a DAC.
+По AirPlay звук передаётся по Wi-Fi. В каком виде он доходит, iPhone приложениям не сообщает.‖По AirPlay звук передається через Wi-Fi. У якому вигляді він доходить, iPhone застосункам не повідомляє.‖AirPlay sends the sound over Wi-Fi. The iPhone does not tell apps in what form it arrives.
+Звук идёт по проводу, но частота пересчитана.‖Звук іде по дроту, але частоту перераховано.‖The sound goes over a wire, but it is resampled.
+Звук идёт по проводу на частоте песни.‖Звук іде по дроту на частоті пісні.‖The sound goes over a wire at the sample rate of the song.
+ЦАП работает не на частоте песни, она пересчитывается. Включите «Подстраивать вывод под файл»; если уже включено, ЦАП такую частоту не умеет.‖ЦАП працює не на частоті пісні, вона перераховується. Увімкніть «Підлаштовувати вивід під файл»; якщо вже увімкнено, ЦАП такої частоти не вміє.‖The DAC does not run at the rate of the song, so it is resampled. Turn on “Match the output to the file”; if it is on already, the DAC does not support this rate.
+Частота песни сохранена, но плеер меняет звук обработкой. Чтобы убрать её, включите «Прямой вывод».‖Частоту пісні збережено, але плеєр змінює звук обробкою. Щоб прибрати її, увімкніть «Прямий вивід».‖The rate of the song is kept, but the player changes the sound. To avoid that, turn on “Direct output”.
+Песня уходит на ЦАП на своей частоте, плеер ничего не меняет. Разрядность на выходе iPhone не сообщает, громкость лучше держать на 100%.‖Пісня йде на ЦАП на своїй частоті, плеєр нічого не змінює. Розрядність на виході iPhone не повідомляє, гучність краще тримати на 100%.‖The song reaches the DAC at its own rate and the player changes nothing. The iPhone does not report the output bit depth; keep the volume at 100%.
+Что получаем‖Що отримуємо‖What you get
+Выбрать устройство‖Вибрати пристрій‖Choose a device
+Музыка на паузе: ЦАП переключится на частоту песни, когда она заиграет.‖Музика на паузі: ЦАП перемкнеться на частоту пісні, коли вона заграє.‖The music is paused: the DAC switches to the rate of the song when it plays.
 """#
 }

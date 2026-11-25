@@ -136,6 +136,8 @@ final class AudioGraph {
         componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
     private let out = AVAudioMixerNode()
     private var busFormat: AVAudioFormat?
+    /// The rate the shared part of the chain works at.
+    var rate: Double { busFormat?.sampleRate ?? 0 }
 
     init() {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
