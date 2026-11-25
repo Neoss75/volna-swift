@@ -428,7 +428,7 @@ final class Player: ObservableObject {
 
     private func startRadio() {
         guard let s = radio else { return }
-        guard let url = URL(string: s.url), !s.isHLS else { return radioEnded(s.isHLS ? StreamError.hls.text : tr("Это не похоже на ссылку")) }
+        guard let url = URL(string: s.url) else { return radioEnded(tr("Это не похоже на ссылку")) }
         sleepFade?.cancel()
         sleepFade = nil
         graph.master = 1

@@ -482,7 +482,7 @@ Siri и команды‖Siri та команди‖Siri and Shortcuts
 Не удалось открыть ссылку: {}‖Не вдалося відкрити посилання: {}‖Could not open the link: {}
 станции по этой ссылке больше нет‖станції за цим посиланням більше немає‖there is no station at this link any more
 станция отвечает ошибкой {}‖станція відповідає помилкою {}‖the station answers with error {}
-потоки HLS (.m3u8) пока не поддерживаются‖потоки HLS (.m3u8) поки не підтримуються‖HLS streams (.m3u8) are not supported yet
+этот вид HLS не поддерживается‖цей вид HLS не підтримується‖this kind of HLS is not supported
 потоки OGG и Opus пока не поддерживаются‖потоки OGG і Opus поки не підтримуються‖OGG and Opus streams are not supported yet
 это видео, а не радио‖це відео, а не радіо‖this is video, not radio
 по этой ссылке не радиопоток‖за цим посиланням не радіопотік‖there is no radio stream at this link
@@ -501,14 +501,13 @@ Siri и команды‖Siri та команди‖Siri and Shortcuts
 Изменить станцию‖Змінити станцію‖Edit the station
 Ссылка‖Посилання‖Link
 Вставить из буфера‖Вставити з буфера‖Paste
-Подходит ссылка на поток (MP3, AAC) или на целый список .m3u или .pls. Название можно не писать.‖Підійде посилання на потік (MP3, AAC) або на цілий список .m3u чи .pls. Назву можна не писати.‖A link to a stream (MP3, AAC) or to a whole .m3u or .pls list will do. The name may be left empty.
+Подходит ссылка на поток (MP3, AAC, HLS) или на целый список .m3u или .pls. Название можно не писать.‖Підійде посилання на потік (MP3, AAC, HLS) або на цілий список .m3u чи .pls. Назву можна не писати.‖A link to a stream (MP3, AAC, HLS) or to a whole .m3u or .pls list will do. The name may be left empty.
 Открываю ссылку…‖Відкриваю посилання…‖Opening the link…
 Станций пока нет. Добавьте список .m3u или .pls из «Файлов» или вставьте ссылку.‖Станцій поки немає. Додайте список .m3u або .pls із «Файлів» чи вставте посилання.‖No stations yet. Add a .m3u or .pls list from Files, or paste a link.
 Поиск станции…‖Пошук станції…‖Search stations…
 станция‖станція‖station
 станции‖станції‖stations
 станций‖станцій‖stations
-HLS, пока не играет‖HLS, поки не грає‖HLS, not playable yet
 Изменить…‖Змінити…‖Edit…
 Убрать станции из плеера: {}?‖Прибрати станції з плеєра: {}?‖Remove stations from the player: {}?
 Убрать станции‖Прибрати станції‖Remove stations

@@ -11,6 +11,7 @@ final class TestServer: @unchecked Sendable {
     private let aac: Data
     private let perSecond: Int
     private var counts: [String: Int] = [:]
+    private let born = Date()
 
     init(aac: Data, seconds: Double) {
         self.aac = aac
@@ -61,13 +62,79 @@ final class TestServer: @unchecked Sendable {
             whole("audio/x-mpegurl", Data("#EXTM3U\n#EXTINF:-1,Тест\n\(url("/live"))\n".utf8))
         case "/two.pls":
             whole("audio/x-scpls", Data("[playlist]\nFile1=\(url("/live?a"))\nTitle1=Перша\nFile2=\(url("/live?b"))\nTitle2=Друга\nNumberOfEntries=2\n".utf8))
-        case "/hls": whole("application/vnd.apple.mpegurl", Data("#EXTM3U\n#EXT-X-VERSION:3\n#EXTINF:6,\na.ts\n".utf8))
+        case "/hls": whole("application/vnd.apple.mpegurl", Data("#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-MAP:URI=\"i.mp4\"\n#EXTINF:6,\na.m4s\n".utf8))
+        case "/kyiv/master.m3u8":
+            whole("application/vnd.apple.mpegurl", Data("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=64000,CODECS=\"mp4a.40.2\"\nlow.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=140000,CODECS=\"mp4a.40.2\"\nts/live.m3u8\n".utf8))
+        case "/kyiv/ts/live.m3u8", "/aac/live.m3u8", "/plain":
+            // two-second pieces, ten in the list, a new one every two seconds
+            let now = 100 + Int(Date().timeIntervalSince(born) / 2), kind = path.hasPrefix("/kyiv") ? "ts" : "aac"
+            let items = (now - 9...now).map { "#EXTINF:2.0,\($0 % 2 == 0 ? "Тартак - Понад хмарами" : "")\n/piece/\($0).\(kind)" }.joined(separator: "\n")
+            whole("application/vnd.apple.mpegurl", Data("#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:\(now - 9)\n\(items)\n".utf8))
+        case _ where path.hasPrefix("/piece/"):
+            let name = path.dropFirst(7), n = Int(name.prefix { $0.isNumber }) ?? 0
+            if n % 7 == 0 { return whole("text/plain", Data(), "404 Not Found") } // pieces get lost
+            let part = piece(n)
+            if name.hasSuffix("ts") {
+                whole("video/mp2t", Self.transport(part))
+            } else {
+                let tag = Data([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 3, 1, 2, 3])
+                whole("audio/aac", tag + part)
+            }
         case "/mute": break // says nothing at all
         case "/ogg2": whole("audio/ogg", Data(count: 1000))
         case "/ogg": whole("application/ogg", Data(count: 1000))
         case "/page": whole("text/html", Data("<html></html>".utf8))
         default: whole("text/plain", Data("no".utf8), "404 Not Found")
         }
+    }
+
+    /// Two seconds of whole AAC frames.
+    private func piece(_ n: Int) -> Data {
+        var starts: [Int] = [], at = 0
+        let b = [UInt8](aac)
+        while at + 7 < b.count {
+            starts.append(at)
+            at += Int(b[at + 3] & 3) << 11 | Int(b[at + 4]) << 3 | Int(b[at + 5]) >> 5
+        }
+        let per = 86, first = (n % 3) * per
+        guard starts.count > first + per else { return Data() }
+        return Data(b[starts[first]..<starts[first + per]])
+    }
+
+    /// A transport stream: a table of programs, a table of tracks, the sound in 188-byte packets.
+    static func transport(_ sound: Data) -> Data {
+        func packet(_ pid: Int, _ first: Bool, _ body: [UInt8]) -> [UInt8] {
+            var p: [UInt8] = [0x47, (first ? 0x40 : 0) | UInt8(pid >> 8), UInt8(pid & 0xFF)]
+            let room = 184 - body.count
+            if room == 0 {
+                p.append(0x10)
+                return p + body
+            }
+            p.append(0x30) // stuffing
+            p.append(UInt8(room - 1))
+            if room > 1 {
+                p.append(0)
+                p += [UInt8](repeating: 0xFF, count: room - 2)
+            }
+            return p + body
+        }
+        func table(_ pid: Int, _ t: [UInt8]) -> [UInt8] {
+            var body: [UInt8] = [0]
+            body += t
+            body += [UInt8](repeating: 0xFF, count: 184 - body.count)
+            return packet(pid, true, body)
+        }
+        var out = table(0, [0, 0xB0, 13, 0, 1, 0xC1, 0, 0, 0, 1, 0xE1, 0x00])
+        out += table(0x100, [2, 0xB0, 23, 0, 1, 0xC1, 0, 0, 0xE1, 0x01, 0xF0, 0, 0x1B, 0xE1, 0x02, 0xF0, 0, 0x0F, 0xE1, 0x01, 0xF0, 0])
+        var body: [UInt8] = [0, 0, 1, 0xC0, 0, 0, 0x80, 0x80, 5, 0x21, 0, 1, 0, 1]
+        body += [UInt8](sound)
+        var at = 0
+        while at < body.count {
+            out += packet(0x101, at == 0, Array(body[at..<min(body.count, at + 184)]))
+            out += packet(0x102, at == 0, [0, 0, 1, 0xE0, 1, 2, 3]) // the picture, not wanted
+            at += 184
+        }
+        return Data(out)
     }
 
     /// Three seconds at once, then at the speed of listening, the way real stations do.
@@ -125,7 +192,7 @@ extension Demo {
 
     static func showRadio(_ player: Player, _ stations: Stations, _ server: TestServer) {
         var list = [("Тест FM", "/live", "Украина"), ("Старе добре радіо", "/mp3", "Украина"), ("Дуже довга назва станції, яка не поміститься в рядок", "/drop", "Рок"),
-                    ("HLS станция", "/hls.m3u8", "Рок"), ("Jazz Lounge", "/ogg", "Jazz")].map { Station(name: $0.0, url: server.url($0.1), group: $0.2) }
+                    ("Київ HLS", "/kyiv/master.m3u8", "Рок"), ("Jazz Lounge", "/ogg", "Jazz")].map { Station(name: $0.0, url: server.url($0.1), group: $0.2) }
         list[0].favourite = true
         stations.add(list)
         player.play(list[0], from: stations.ordered.map(\.id))
@@ -217,7 +284,7 @@ extension Demo {
         check("radio from a list", await until(10) { live.state == .playing } && live.info.kind == "AAC", "\(live.state)")
         player.next()
         check("stations go round", player.radio?.id == a.id, player.radio?.name ?? "")
-        for (path, error) in [("/hls", StreamError.hls), ("/ogg", .ogg), ("/page", .notRadio), ("/none", .status(404)), ("/x.m3u8", .hls)] {
+        for (path, error) in [("/hls", StreamError.hls), ("/ogg", .ogg), ("/page", .notRadio), ("/none", .status(404)), ("/x.m3u8", .status(404))] {
             let s = station(path)
             player.play(s, from: ids + [s.id])
             check("radio error \(path)", await until(6) { !player.isPlaying } && stations.problems[s.id] == error.text, stations.problems[s.id] ?? "none")
@@ -231,8 +298,26 @@ extension Demo {
         check("silent stations removed", stations.station(mute.id) == nil && stations.station(gone.id) == nil && stations.station(kept.id) != nil && stations.station(a.id) != nil, "")
         let icyLine = station("/icy")
         player.play(icyLine, from: [icyLine.id])
-        _ = await until(5) { live.state == .playing }
-        NSLog("SELFTEST old servers (ICY 200): %@ %@", "\(live.state)", stations.problems[icyLine.id] ?? "")
+        check("old servers (ICY 200)", await until(8) { live.state == .playing && live.title.contains("Обійми") } && live.info.name == "Тест FM", "\(live.state) \(live.title) \(live.info)")
+        let master = HLSPlaylist("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=900000,RESOLUTION=1x1,CODECS=\"avc1,mp4a\"\nv\n#EXT-X-STREAM-INF:PROGRAM-ID=1, BANDWIDTH=281600, CODECS=\"mp4a.40.2\"\na\n#EXT-X-STREAM-INF:BANDWIDTH=112000\nb\n")
+        check("HLS variants", master.best == "a" && master.variants.count == 3, "\(master.best ?? "")")
+        let part = HLSPlaylist("#EXTM3U\n#EXT-X-TARGETDURATION:4\r\n#EXT-X-MEDIA-SEQUENCE:7\r\n#EXTINF:4,\r\na.ts\r\n#EXT-X-DISCONTINUITY\r\n#EXTINF:4.0,X - Y\r\nb.ts\r\n#EXTINF:4,\r\nc.ts\r\n#EXTINF:4,\r\nd.ts\r\n")
+        check("HLS list", part.segments.map(\.number) == [7, 8, 9, 10] && part.segments[1].fresh && part.segments[1].title == "X - Y" && part.start(with: 2) == 8, "\(part.segments.count)")
+        let raw = Data((0..<2000).map { UInt8($0 * 7 % 256) })
+        var demux = TSDemuxer()
+        check("transport stream", demux.sound(TestServer.transport(raw)) == raw && demux.soundPid == 0x101 && demux.type == "audio/aac", "\(demux.soundPid)")
+        settings.v.radioBuffer = 5
+        for path in ["/kyiv/master.m3u8", "/aac/live.m3u8", "/plain"] {
+            let s = station(path)
+            player.play(s, from: ids + [s.id])
+            check("HLS plays \(path)", await until(10) { live.state == .playing } && live.info.kind == "AAC" && live.info.rate == 44100, "\(live.state) \(live.info)")
+            await wait(5)
+            check("HLS goes on \(path)", live.state == .playing && live.stored > 2 && live.stored < 25 && live.title == "Тартак - Понад хмарами", String(format: "%.1f s, ", live.stored) + live.title)
+        }
+        settings.v.radioBuffer = 2
+        let tried = server.count("/kyiv/low.m3u8")
+        check("HLS takes the better sound", tried == 0, "\(tried)")
+        player.play(a, from: ids)
         check("link to a list", await stations.add(link: server.url("/two.pls"), name: "") && stations.all.suffix(2).map(\.name) == ["Перша", "Друга"], "\(stations.all.count)")
         check("link to a page", await stations.add(link: server.url("/page"), name: "") == false, "")
         player.play(a, from: ids)

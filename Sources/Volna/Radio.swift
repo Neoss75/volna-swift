@@ -20,7 +20,9 @@ final class Radio: ObservableObject {
 
     private let graph: AudioGraph
     private var deck: Deck?
-    private var reader: StreamReader?
+    private var reader: SoundSource?
+    /// The link turned out to be a broadcast in pieces.
+    private var pieces = false
     private var link: URL?
     private var format: AVAudioFormat?
     private var hops = 0
@@ -64,6 +66,7 @@ final class Radio: ObservableObject {
         info = StreamInfo()
         title = ""
         hops = 0
+        pieces = false
         tries = 0
         need = reserve
         lostSince = Date()
@@ -89,7 +92,13 @@ final class Radio: ObservableObject {
         retry?.cancel()
         retry = nil
         reader?.stop()
-        let r = StreamReader(url) { [weak self] in self?.handle($0) }
+        let take: @MainActor (StreamReader.Event) -> Void = { [weak self] in self?.handle($0) }
+        let r: SoundSource
+        if pieces || StationList.isHLS(url.absoluteString) {
+            r = HLSReader(url, reserve: reserve, onEvent: take)
+        } else {
+            r = StreamReader(url, onEvent: take)
+        }
         reader = r
         r.start()
     }
@@ -117,6 +126,10 @@ final class Radio: ObservableObject {
             onTitle?()
         case .list(let text):
             hops += 1
+            if StationList.isStream(text), hops < 4, let link {
+                pieces = true
+                return connect(link)
+            }
             guard hops < 4, let s = StationList.parse(text).stations.first, let url = URL(string: s.url) else { return fail(.notRadio) }
             link = url
             connect(url)

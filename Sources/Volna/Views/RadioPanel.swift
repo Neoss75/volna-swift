@@ -215,12 +215,10 @@ private struct StationRow: View {
             .accessibilityLabel(tr("Изменить станцию"))
         }
         .padding(.vertical, 8)
-        .opacity(station.isHLS ? 0.55 : 1)
     }
 
     private func subtitle(_ on: Bool) -> String {
         if on, player.isPlaying { return live.title.isEmpty ? RadioText.state(live, playing: true) : live.title }
-        if station.isHLS { return tr("HLS, пока не играет") }
         return stations.problems[station.id] ?? station.host
     }
 }
@@ -258,7 +256,7 @@ struct StationEditor: View {
                     }
                 } footer: {
                     if station == nil {
-                        Text(tr("Подходит ссылка на поток (MP3, AAC) или на целый список .m3u или .pls. Название можно не писать."))
+                        Text(tr("Подходит ссылка на поток (MP3, AAC, HLS) или на целый список .m3u или .pls. Название можно не писать."))
                     }
                 }
                 if stations.loading {

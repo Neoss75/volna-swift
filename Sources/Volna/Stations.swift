@@ -21,8 +21,6 @@ struct Station: Identifiable, Codable, Equatable {
 
     var letter: String { name.first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "♪" }
     var host: String { URL(string: url)?.host() ?? url }
-    /// Cannot be played yet: needs a player of another kind.
-    var isHLS: Bool { StationList.isHLS(url) }
 }
 
 /// Reads .m3u, .m3u8 and .pls lists.
@@ -185,7 +183,6 @@ enum StationProbe {
 
     /// nil = it plays.
     static func ask(_ s: Station, _ session: URLSession) async -> StreamError? {
-        if s.isHLS { return .hls }
         guard let url = URL(string: s.url) else { return .notRadio }
         var request = URLRequest(url: url)
         request.setValue("1", forHTTPHeaderField: "Icy-MetaData")
@@ -206,7 +203,8 @@ enum StationProbe {
                     if data.count > 50000 { break }
                 }
                 let text = StationList.text(data)
-                return StationList.isStream(text) ? .hls : StationList.parse(text).stations.isEmpty ? .notRadio : nil
+                if StationList.isStream(text) { return HLSPlaylist(text).unsupported ? .hls : nil }
+                return StationList.parse(text).stations.isEmpty ? .notRadio : nil
             }
         } catch {
             return .network(tr("не отвечает"))

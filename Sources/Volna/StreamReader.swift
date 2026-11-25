@@ -1,4 +1,3 @@
-import AudioToolbox
 import AVFoundation
 import Foundation
 
@@ -23,7 +22,7 @@ enum StreamError: Error, Equatable {
         switch self {
         case .status(404): tr("станции по этой ссылке больше нет")
         case .status(let c): tr("станция отвечает ошибкой {}", "\(c)")
-        case .hls: tr("потоки HLS (.m3u8) пока не поддерживаются")
+        case .hls: tr("этот вид HLS не поддерживается")
         case .ogg: tr("потоки OGG и Opus пока не поддерживаются")
         case .video: tr("это видео, а не радио")
         case .notRadio: tr("по этой ссылке не радиопоток")
@@ -53,7 +52,7 @@ struct StreamInfo: Equatable {
 
 /// Downloads one broadcast, takes the song names out of it and decodes the sound piece by piece.
 /// Everything happens on its own queue; the events come on the main thread, in order.
-final class StreamReader: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+final class StreamReader: NSObject, URLSessionDataDelegate, SoundSource, @unchecked Sendable {
     enum Event {
         case info(StreamInfo), sound(AVAudioPCMBuffer), title(String), list(String), end(StreamError?)
     }
@@ -74,13 +73,12 @@ final class StreamReader: NSObject, URLSessionDataDelegate, @unchecked Sendable 
     private var finite = false
     private var ended = false
     private var received = 0
-    private var gotSound = false
 
     private var icy = IcySplitter(interval: 0)
 
-    private var stream: AudioFileStreamID?
-    private var input: AVAudioFormat?
-    private var converter: AVAudioConverter?
+    private var decoder: SoundDecoder?
+    private var sniffing = true
+    private var old = Data()
 
     @MainActor
     init(_ url: URL, onEvent: @escaping @MainActor (Event) -> Void) {
@@ -90,8 +88,6 @@ final class StreamReader: NSObject, URLSessionDataDelegate, @unchecked Sendable 
         queue.maxConcurrentOperationCount = 1
         queue.qualityOfService = .userInitiated
     }
-
-    deinit { if let stream { AudioFileStreamClose(stream) } }
 
     @MainActor
     func start() {
@@ -155,9 +151,7 @@ final class StreamReader: NSObject, URLSessionDataDelegate, @unchecked Sendable 
         case .list: break
         case .audio:
             finite = response.expectedContentLength > 0
-            icy = IcySplitter(interval: header("icy-metaint").flatMap { Int($0.trimmingCharacters(in: .whitespaces)) } ?? 0)
-            info.kbps = header("icy-br")?.split(separator: ",").first.flatMap { Double($0.trimmingCharacters(in: .whitespaces)) }
-            info.name = header("icy-name").map(Self.repair)
+            describe(header)
             open(type)
         }
         completionHandler(ended ? .cancel : .allow)
@@ -167,19 +161,11 @@ final class StreamReader: NSObject, URLSessionDataDelegate, @unchecked Sendable 
         guard !ended else { return }
         if kind == .list {
             listData.append(data)
-            let text = StationList.text(listData)
-            if StationList.isStream(text) { return finish(.hls) }
             if listData.count > 2_000_000 { finish(.notRadio) }
             return
         }
         received += data.count
-        for part in icy.feed(data) {
-            switch part {
-            case .sound(let d): parse(d)
-            case .title(let t): send(.title(t))
-            }
-        }
-        if !gotSound, received > 400_000 { finish(.format) }
+        if sniffing { takeOld(data) } else { take(data) }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
@@ -204,112 +190,59 @@ final class StreamReader: NSObject, URLSessionDataDelegate, @unchecked Sendable 
     // MARK: - Sound
 
     private func open(_ type: String) {
-        let hint: AudioFileTypeID = type.contains("aac") ? kAudioFileAAC_ADTSType : type.contains("mpeg") || type.contains("mp3") ? kAudioFileMP3Type : 0
-        let me = Unmanaged.passUnretained(self).toOpaque()
-        AudioFileStreamOpen(me, { me, _, property, _ in
-            Unmanaged<StreamReader>.fromOpaque(me).takeUnretainedValue().property(property)
-        }, { me, _, count, data, packets in
-            Unmanaged<StreamReader>.fromOpaque(me).takeUnretainedValue().packets(Int(count), data, packets)
-        }, hint, &stream)
-        if stream == nil { finish(.format) }
+        let d = SoundDecoder(type: type)
+        d.onFormat = { [weak self] f in
+            guard let self else { return }
+            self.info.kind = f.kind
+            self.info.rate = f.rate
+            self.info.channels = f.channels
+            if self.info.kbps == nil { self.info.kbps = f.kbps }
+            self.send(.info(self.info))
+        }
+        d.onSound = { [weak self] b in self?.send(.sound(b)) }
+        decoder = d
+        if d.failed { finish(.format) }
     }
 
-    private func parse(_ d: Data) {
-        guard let stream, !d.isEmpty else { return }
-        let status = d.withUnsafeBytes { p in
-            p.baseAddress.map { AudioFileStreamParseBytes(stream, UInt32(d.count), $0, []) } ?? noErr
+    private func take(_ data: Data) {
+        for part in icy.feed(data) {
+            switch part {
+            case .sound(let d): decoder?.parse(d)
+            case .title(let t): send(.title(t))
+            }
         }
-        if status != noErr, !gotSound { finish(.format) }
+        if decoder?.failed == true { finish(.format) }
+        if decoder?.gotSound != true, received > 400_000 { finish(.format) }
     }
 
-    private func property(_ id: AudioFileStreamPropertyID) {
-        guard id == kAudioFileStreamProperty_ReadyToProducePackets, let stream else { return }
-        var asbd = AudioStreamBasicDescription()
-        var size = UInt32(MemoryLayout.size(ofValue: asbd))
-        guard AudioFileStreamGetProperty(stream, kAudioFileStreamProperty_DataFormat, &size, &asbd) == noErr else { return finish(.format) }
-        // AAC+ is described as plain AAC first; the list names the full version, the best one first
-        var listSize: UInt32 = 0
-        if AudioFileStreamGetPropertyInfo(stream, kAudioFileStreamProperty_FormatList, &listSize, nil) == noErr, listSize > 0 {
-            var list = [AudioFormatListItem](repeating: AudioFormatListItem(), count: Int(listSize) / MemoryLayout<AudioFormatListItem>.stride)
-            if AudioFileStreamGetProperty(stream, kAudioFileStreamProperty_FormatList, &listSize, &list) == noErr,
-               let best = list.first(where: { [kAudioFormatMPEG4AAC_HE_V2, kAudioFormatMPEG4AAC_HE].contains($0.mASBD.mFormatID) }) {
-                asbd = best.mASBD
-            }
+    /// Very old servers answer "ICY 200 OK" instead of HTTP: iOS takes their headers for the beginning of the sound.
+    private func takeOld(_ data: Data) {
+        old.append(data)
+        let mark = Data("ICY 200".utf8)
+        if old.count < mark.count, mark.starts(with: old) { return }
+        guard old.starts(with: mark) else {
+            sniffing = false
+            return take(old)
         }
-        guard asbd.mSampleRate > 0, asbd.mFormatID != kAudioFormatLinearPCM,
-              let from = AVAudioFormat(streamDescription: &asbd),
-              let to = AVAudioFormat(standardFormatWithSampleRate: asbd.mSampleRate, channels: max(1, asbd.mChannelsPerFrame)),
-              let c = AVAudioConverter(from: from, to: to) else { return finish(.format) }
-        var cookieSize: UInt32 = 0
-        if AudioFileStreamGetPropertyInfo(stream, kAudioFileStreamProperty_MagicCookieData, &cookieSize, nil) == noErr, cookieSize > 0 {
-            var cookie = Data(count: Int(cookieSize))
-            let ok = cookie.withUnsafeMutableBytes { AudioFileStreamGetProperty(stream, kAudioFileStreamProperty_MagicCookieData, &cookieSize, $0.baseAddress!) }
-            if ok == noErr { c.magicCookie = cookie }
+        guard let end = old.range(of: Data("\r\n\r\n".utf8)) else {
+            if old.count > 16000 { finish(.format) }
+            return
         }
-        input = from
-        converter = c
-        info.kind = Self.name(asbd.mFormatID)
-        info.rate = asbd.mSampleRate
-        info.channels = Int(asbd.mChannelsPerFrame)
-        if info.kbps == nil {
-            var rate: UInt32 = 0
-            size = 4
-            if AudioFileStreamGetProperty(stream, kAudioFileStreamProperty_BitRate, &size, &rate) == noErr, rate > 0 {
-                info.kbps = rate < 1000 ? Double(rate) : (Double(rate) / 1000).rounded()
-            }
+        sniffing = false
+        var headers: [String: String] = [:]
+        for line in (String(data: old[..<end.lowerBound], encoding: .isoLatin1) ?? "").components(separatedBy: "\r\n") {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            headers[line[..<colon].lowercased()] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
         }
-        send(.info(info))
+        describe { headers[$0] }
+        open((headers["content-type"] ?? "audio/mpeg").lowercased())
+        take(Data(old[end.upperBound...]))
     }
 
-    private static func name(_ id: AudioFormatID) -> String {
-        switch id {
-        case kAudioFormatMPEGLayer3: "MP3"
-        case kAudioFormatMPEGLayer2: "MP2"
-        case kAudioFormatMPEG4AAC: "AAC"
-        case kAudioFormatMPEG4AAC_HE, kAudioFormatMPEG4AAC_HE_V2: "AAC+"
-        case kAudioFormatFLAC: "FLAC"
-        default: "AUDIO"
-        }
-    }
-
-    private func packets(_ count: Int, _ data: UnsafeRawPointer, _ descriptions: UnsafeMutablePointer<AudioStreamPacketDescription>?) {
-        guard let converter, let input, let descriptions, count > 0 else { return }
-        let sizes = (0..<count).map { Int(descriptions[$0].mDataByteSize) }
-        let packed = AVAudioCompressedBuffer(format: input, packetCapacity: AVAudioPacketCount(count), maximumPacketSize: max(1, sizes.max() ?? 1))
-        guard let to = packed.packetDescriptions else { return }
-        var offset = 0
-        for i in 0..<count {
-            memcpy(packed.data + offset, data + Int(descriptions[i].mStartOffset), sizes[i])
-            to[i] = AudioStreamPacketDescription(mStartOffset: Int64(offset), mVariableFramesInPacket: 0, mDataByteSize: UInt32(sizes[i]))
-            offset += sizes[i]
-        }
-        packed.byteLength = UInt32(offset)
-        packed.packetCount = AVAudioPacketCount(count)
-
-        let perPacket = input.streamDescription.pointee.mFramesPerPacket
-        let capacity = AVAudioFrameCount(max(perPacket, 1152)) * AVAudioFrameCount(count + 2)
-        var fed = false
-        while let out = AVAudioPCMBuffer(pcmFormat: converter.outputFormat, frameCapacity: capacity) {
-            var error: NSError?
-            let status = converter.convert(to: out, error: &error) { _, state in
-                if fed {
-                    state.pointee = .noDataNow
-                    return nil
-                }
-                fed = true
-                state.pointee = .haveData
-                return packed
-            }
-            if status == .error {
-                converter.reset() // a damaged piece: go on with the next one
-                return
-            }
-            if out.frameLength > 0 {
-                gotSound = true
-                send(.sound(out))
-            }
-            if status != .haveData || out.frameLength == 0 { return }
-        }
+    private func describe(_ header: (String) -> String?) {
+        icy = IcySplitter(interval: header("icy-metaint").flatMap { Int($0.trimmingCharacters(in: .whitespaces)) } ?? 0)
+        info.kbps = header("icy-br")?.split(separator: ",").first.flatMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+        info.name = header("icy-name").map(Self.repair)
     }
 }
 
