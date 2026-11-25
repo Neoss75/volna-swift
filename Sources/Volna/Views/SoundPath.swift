@@ -85,6 +85,8 @@ struct SoundPath: Equatable {
         var steps: [Step] = []
         let work = graph > 0 ? graph : out.rate
         let resampled = t != nil && rate > 0 && (abs(rate - work) > 1 || abs(work - out.rate) > 1)
+        // every change of the rate on the way
+        let chain = [work, out.rate].reduce([rate]) { abs(($1 - ($0.last ?? 0))) > 1 ? $0 + [$1] : $0 }
         if let t {
             let depth = t.bits.map { tr("{} бит / ", "\($0)") } ?? ""
             let file = t.kind + " · " + depth + OutputInfo.khz(t.sampleRate ?? rate)
@@ -94,7 +96,7 @@ struct SoundPath: Equatable {
             steps.append(Step(icon: "cpu", title: tr("Распаковка"), value: "PCM · " + OutputInfo.khz(rate) + " · " + Self.channels(channels),
                               detail: tr("внутри плеера звук 32-битный")))
             steps.append(Step(icon: "waveform.path", title: tr("Частота"),
-                              value: resampled ? OutputInfo.khz(rate) + " → " + OutputInfo.khz(out.rate) : OutputInfo.khz(rate),
+                              value: chain.map { OutputInfo.khz($0) }.joined(separator: " → "),
                               detail: resampled ? tr("пересчитывается") : tr("без пересчёта"), mark: resampled ? .changed : .good))
         }
         let changes = Self.changes(v, gain: t?.gainDb, preset: preset)
@@ -152,8 +154,13 @@ extension SoundPath {
     @MainActor
     static func now(_ player: Player, _ settings: Settings) -> SoundPath {
         let f = player.sourceFormat, t = player.current
-        return build(t, rate: f?.sampleRate ?? t?.sampleRate ?? 0, channels: Int(f?.channelCount ?? 2), graph: player.graph.rate, settings.v,
-                     preset: settings.preset?.name, .now())
+        let out = Output.now()
+        var graph = player.graph.rate
+        #if DEBUG
+            if Output.fake != nil { graph = out.rate }
+        #endif
+        return build(t, rate: f?.sampleRate ?? t?.sampleRate ?? 0, channels: Int(f?.channelCount ?? 2), graph: graph, settings.v,
+                     preset: settings.preset?.name, out)
     }
 }
 
