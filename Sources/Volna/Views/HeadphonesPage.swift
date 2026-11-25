@@ -42,7 +42,7 @@ struct HeadphonesPage: View {
                         Text(HeadphoneText.about(p)).font(.system(size: 13)).foregroundStyle(Theme.muted)
                     }
                     Spacer(minLength: 8)
-                    Button(tr("Настроить")) { editing = p }.buttonStyle(.glass)
+                    Button(tr("Настроить")) { editing = p }.font(.system(size: 14, weight: .semibold)).buttonStyle(.glass)
                 }
                 EQCurve(accent: settings.accent, dim: !headphones.on || settings.v.direct) { p.response($0) }
                     .frame(height: 130)
@@ -50,7 +50,7 @@ struct HeadphonesPage: View {
                 SwitchRow(label: tr("Профиль включён"), on: Binding(get: { headphones.on }, set: { headphones.turn($0) }))
                 if settings.v.direct { Hint(tr("Включён прямой вывод, поэтому профиль обойдён.")) }
                 Hint(tr("С профилем звук тише: он опускает громкость, чтобы не было искажений. Сравнивайте на одинаковой громкости."))
-                Button(tr("Убрать с этого устройства")) { headphones.assign(nil, to: d.id) }.buttonStyle(.glass)
+                Button(tr("Убрать с этого устройства")) { headphones.assign(nil, to: d.id) }.font(.system(size: 14, weight: .semibold)).buttonStyle(.glass)
             } else {
                 let guesses = HeadphoneBase.guess(d.name)
                 if guesses.isEmpty {

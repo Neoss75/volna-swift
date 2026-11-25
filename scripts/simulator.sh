@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(04|95|96|9[0-9])-'
+ONLY='^(92|95)-'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0

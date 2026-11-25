@@ -67,10 +67,11 @@ extension Demo {
         for m in [redmi.first, pods.first].compactMap({ $0 }) {
             let p = m.profile
             for rate in [44100.0, 48000] {
-                let got = measure(p, rate: rate, at: points) ?? []
-                let off = zip(points, got).map { $1 - p.response($0) }
+                // the offline engine itself may be quieter at another rate: compared with the same engine doing nothing
+                let got = measure(p, rate: rate, at: points) ?? [], flat = measure(HeadphoneProfile(name: ""), rate: rate, at: points) ?? []
+                let off = zip(points, zip(got, flat)).map { $1.0 - $1.1 - p.response($0) }
                 let worst = off.map { abs($0) }.max() ?? 99
-                check("sound of «\(m.name)» \(Int(rate))", worst < 1.5 && got.count == points.count, off.map { String(format: "%+.1f", $0) }.joined(separator: " "))
+                check("sound of «\(m.name)» \(Int(rate))", worst < 1.5 && got.count == points.count && flat.count == points.count, off.map { String(format: "%+.1f", $0) }.joined(separator: " "))
             }
         }
 
