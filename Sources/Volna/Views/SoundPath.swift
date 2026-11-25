@@ -131,11 +131,13 @@ struct SoundPath: Equatable {
         let source = t.isLossless ? "" : " " + tr("Сам файл сжат с потерями, лучше него на выходе не станет.")
         switch out.port {
         case .bluetoothA2DP, .bluetoothLE:
+            guard t.isLossless else { return tr("Файл уже сжат с потерями, а по Bluetooth звук сжимается ещё раз. Каким способом, iPhone приложениям не сообщает (обычно AAC).") }
             return tr("По Bluetooth звук сжимается ещё раз перед отправкой, поэтому без потерь он не дойдёт. Каким способом, iPhone приложениям не сообщает (обычно AAC).")
         case .bluetoothHFP:
             return tr("Наушники в режиме звонка: звук сильно упрощён. Закройте приложение, которое использует микрофон.")
         case .builtInSpeaker, .builtInReceiver:
-            return tr("Динамики iPhone работают на своей частоте. Чтобы услышать файл без потерь, нужны наушники по проводу или ЦАП.") + source
+            guard t.isLossless else { return tr("Файл сжат с потерями, лучше него на выходе не станет. Динамики iPhone работают на своей частоте, для такого файла это почти не слышно.") }
+            return tr("Динамики iPhone работают на своей частоте. Чтобы услышать файл без потерь, нужны наушники по проводу или ЦАП.")
         case .airPlay:
             return tr("По AirPlay звук передаётся по Wi-Fi. В каком виде он доходит, iPhone приложениям не сообщает.") + source
         default:

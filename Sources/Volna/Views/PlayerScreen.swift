@@ -47,10 +47,10 @@ struct PlayerScreen: View {
             header
             CoverArea()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            TitleBlock()
-            VizStrip()
+            TitleBlock().modifier(SwipeUp())
+            VizStrip().modifier(SwipeUp(overButtons: false))
             SeekBlock()
-            Transport()
+            Transport().modifier(SwipeUp())
             SleepNote()
             MenuBar()
         }
@@ -67,13 +67,13 @@ struct PlayerScreen: View {
             CoverArea()
                 .frame(width: side, height: side)
             VStack(spacing: 0) {
-                TitleBlock(compact: true)
+                TitleBlock(compact: true).modifier(SwipeUp())
                 Spacer(minLength: 4)
-                VizStrip(compact: true)
+                VizStrip(compact: true).modifier(SwipeUp(overButtons: false))
                 Spacer(minLength: 4)
                 SeekBlock()
                 Spacer(minLength: 2)
-                Transport(compact: true)
+                Transport(compact: true).modifier(SwipeUp())
                 SleepNote()
                 Spacer(minLength: 4)
                 MenuBar()
@@ -164,11 +164,33 @@ struct OutputBadges: View {
     }
 }
 
+/// A swipe up on the main screen opens the settings (a swipe down closes them, the system does that).
+/// Not on the lyrics, which scroll, and not on the wave, which is dragged.
+struct SwipeUp: ViewModifier {
+    @EnvironmentObject private var ui: UIState
+    /// The button under the finger must not be pressed by the swipe. Taps and long presses without buttons need no such care.
+    var overButtons = true
+
+    func body(content: Content) -> some View {
+        let drag = DragGesture(minimumDistance: 20).onEnded { g in
+            if Self.isUp(g.translation), ui.panel == nil { ui.panel = .fx }
+        }
+        if overButtons {
+            content.contentShape(Rectangle()).highPriorityGesture(drag)
+        } else {
+            content.simultaneousGesture(drag)
+        }
+    }
+
+    static func isUp(_ t: CGSize) -> Bool { t.height < -50 && -t.height > abs(t.width) * 1.4 }
+}
+
 // MARK: - Cover
 
 struct CoverArea: View {
     @EnvironmentObject private var player: Player
     @EnvironmentObject private var settings: Settings
+    @EnvironmentObject private var ui: UIState
     @State private var shift: CGFloat = 0
     @State private var fadeOut = false
 
@@ -194,6 +216,7 @@ struct CoverArea: View {
                 .gesture(DragGesture(minimumDistance: 20)
                     .onEnded { g in
                         let dx = g.translation.width
+                        if SwipeUp.isUp(g.translation) { return ui.panel = .fx }
                         guard abs(dx) > 50, abs(dx) > abs(g.translation.height) * 1.4, !player.queue.isEmpty else { return }
                         if dx < 0 {
                             swipe(-1)
@@ -519,6 +542,7 @@ struct MenuBar: View {
                 item(tr("Настройки"), "gearshape", dot: settings.fxActive) { ui.panel = .fx }
                 item(tr("Громкость"), "speaker.wave.2") { showVolume() }
             }
+            .modifier(SwipeUp())
             .opacity(volume ? 0 : 1)
             .allowsHitTesting(!volume)
             if volume {

@@ -46,6 +46,7 @@ enum Demo {
             ui.collection = .lossless
             player.play(t.id, from: library.tracks.map(\.id))
         }
+        if args.contains("-aac"), let t = await addFormats(library).last { player.play(t.id, from: library.tracks.map(\.id)) }
         switch value("-port") {
         case "usb": SoundPath.Output.fake = .init(port: .usbAudio, name: "USB DAC", rate: 44100, channels: 2, latency: 0.012, volume: 1)
         case "bt": SoundPath.Output.fake = .init(port: .bluetoothA2DP, name: "AirPods Pro", rate: 48000, channels: 2, latency: 0.16, volume: 0.6)
@@ -57,7 +58,8 @@ enum Demo {
             await selfTest(library: library, player: player, settings: settings, ui: ui)
             return
         }
-        if !args.contains("-lossless"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
+        if !args.contains("-lossless"), !args.contains("-aac"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
+        if args.contains("-still") { player.pause() }
         if args.contains("-eqrock") { settings.v.bands = EQPreset.all[2].bands }
         if args.contains("-landscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
             scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
@@ -406,6 +408,12 @@ enum Demo {
         check("sound path: resampled", !other.clean && other.steps[2].mark == .changed, other.steps[2].value)
         check("sound path: Bluetooth", !bt.clean && bt.verdict.contains("Bluetooth"), bt.steps[5].detail)
         check("sound path: speaker", !speaker.clean, speaker.verdict)
+        t.ext = "MP3"
+        t.bits = nil
+        let lossy = [build(.bluetoothA2DP, 48000), build(.builtInSpeaker, 48000)].map(\.verdict)
+        check("sound path: lossy file", lossy.allSatisfy { $0.contains("с потерями") && !$0.contains("без потерь") }, lossy.joined(separator: " "))
+        t.ext = "FLAC"
+        t.bits = 16
         v.direct = false
         v.bass = 3
         let bass = build(.usbAudio, 44100)

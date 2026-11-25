@@ -16,7 +16,7 @@ jobs:
 
       - name: Check line endings (must be LF)
         run: |
-          if grep -rlI $'\r' Sources Shared Widget Config scripts project.yml .github; then
+          if grep -rlI $'\r' Sources Shared Widget Config UITests scripts project.yml .github; then
             echo "::error::the files above have Windows line endings (CRLF)"; exit 1
           fi
 
@@ -32,8 +32,8 @@ jobs:
       - name: Build for the simulator
         run: |
           mkdir -p build shots
-          if ! xcodebuild -project Volna.xcodeproj -scheme Volna -configuration Debug \
-               -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build \
+          if ! xcodebuild -project Volna.xcodeproj -scheme VolnaUITests -configuration Debug \
+               -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build-for-testing \
                CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual AD_HOC_CODE_SIGNING_ALLOWED=YES > build.log 2>&1; then
             echo "===== errors ====="; grep -E "error:" build.log | sort -u | head -80
             exit 1
@@ -41,7 +41,7 @@ jobs:
           grep -E "(Sources|Shared|Widget)/.*warning:" build.log | sort -u | head -30 || true
 
       - name: Run and take screenshots
-        timeout-minutes: 38
+        timeout-minutes: 48
         run: bash scripts/simulator.sh
 
       - uses: actions/upload-artifact@v4

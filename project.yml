@@ -51,3 +51,26 @@ targets:
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_ENTITLEMENTS: Config/Volna.entitlements
         ENABLE_PREVIEWS: NO
+  # presses and swipes the real screen in the simulator, only for the check
+  VolnaUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: Volna
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.neoss75.volna.swift.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Volna
+schemes:
+  VolnaUITests:
+    build:
+      targets:
+        Volna: all
+        VolnaUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - VolnaUITests
