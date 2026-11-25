@@ -31,7 +31,11 @@ final class Radio: ObservableObject {
     /// More than a minute of sound is in store already.
     private var held = false
     /// Grows after every stop caused by a slow network.
-    private var need = 1.5
+    private var need = 2.0
+    /// How much the user wants in store before the sound starts.
+    var reserve = 2.0 { didSet { if reserve != oldValue { reserveChanged() } } }
+    /// What is being waited for now.
+    var target: Double { need }
     private let monitor = NWPathMonitor()
     private var online = true
 
@@ -61,7 +65,7 @@ final class Radio: ObservableObject {
         title = ""
         hops = 0
         tries = 0
-        need = 1.5
+        need = reserve
         lostSince = Date()
         state = .connecting
         connect(url)
@@ -159,6 +163,14 @@ final class Radio: ObservableObject {
         connect(link)
     }
 
+    /// A bigger store is collected at once: a live broadcast does not come faster than it plays, so the sound has to wait.
+    private func reserveChanged() {
+        need = reserve
+        guard state == .playing, !finished, let deck, deck.queued < need - 0.5 else { return }
+        deck.pauseStream()
+        state = .buffering
+    }
+
     func tick() {
         guard let deck, format != nil else { return }
         let have = deck.queued
@@ -174,7 +186,7 @@ final class Radio: ObservableObject {
                 return
             }
             deck.pauseStream()
-            need = min(6, need + 1.5)
+            need = max(reserve, min(6, need + 1.5))
             state = reader == nil ? .waiting : .buffering
         case .connecting, .buffering, .waiting:
             guard have >= need || finished && have > 0, graph.engine.isRunning else { return }

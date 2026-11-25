@@ -86,6 +86,8 @@ final class Settings: ObservableObject {
         var direct = false
         var refreshFolders = true
         var language = "system"
+        /// Seconds of sound the radio collects before it plays.
+        var radioBuffer: Double = 2
         var saverOn = true
         /// Seconds without touches before the screensaver.
         var saver = 10
@@ -106,6 +108,8 @@ final class Settings: ObservableObject {
             onChange?()
         }
     }
+
+    static let radioBuffers: [Double] = [2, 5, 10, 20, 30]
 
     var onChange: (() -> Void)?
     private static let key = "settings"

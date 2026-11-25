@@ -321,6 +321,14 @@ private struct PlaybackPage: View {
                 Button(tr("Обычная скорость")) { settings.v.rate = 1 }.buttonStyle(.glass)
             }
         }
+        Block(tr("Радио: запас звука")) {
+            Flow {
+                ForEach(Settings.radioBuffers, id: \.self) { s in
+                    Chip(text: tr("{} с", "\(Int(s))"), on: settings.v.radioBuffer == s) { settings.v.radioBuffer = s }
+                }
+            }
+            Hint(tr("Столько звука плеер набирает, прежде чем заиграть. Больше запас: реже прерывается при плохой связи, но станция дольше включается."))
+        }
         Block(tr("Таймер сна")) {
             Flow {
                 Chip(text: tr("Выключен"), on: player.sleepAt == nil && !player.sleepAfterTrack) { player.sleep(minutes: nil) }

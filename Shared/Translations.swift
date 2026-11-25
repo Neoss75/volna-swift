@@ -490,7 +490,10 @@ Siri и команды‖Siri та команди‖Siri and Shortcuts
 станция прервала передачу‖станція перервала передачу‖the station stopped sending
 Прямой эфир‖Прямий ефір‖Live
 Подключаюсь…‖Підключаюся…‖Connecting…
-Набираю запас звука…‖Набираю запас звуку…‖Buffering…
+Набираю запас звука: {} из {} с‖Набираю запас звуку: {} з {} с‖Buffering: {} of {} s
+запас‖запас‖store
+Радио: запас звука‖Радіо: запас звуку‖Radio: sound in store
+Столько звука плеер набирает, прежде чем заиграть. Больше запас: реже прерывается при плохой связи, но станция дольше включается.‖Стільки звуку плеєр набирає, перш ніж заграти. Більший запас: рідше переривається за поганого зв’язку, але станція довше вмикається.‖The player collects this much sound before it plays. A bigger store means fewer breaks on a poor connection, but stations take longer to start.
 Связь пропала, подключаюсь снова…‖Зв’язок зник, підключаюся знову…‖Connection lost, connecting again…
 На паузе‖На паузі‖Paused
 запас {} с‖запас {} с‖{} s in store

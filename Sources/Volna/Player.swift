@@ -523,6 +523,7 @@ final class Player: ObservableObject {
         var v = settings.v
         if radio != nil { v.rate = 1 }
         graph.apply(v)
+        live.reserve = v.radioBuffer
     }
 
     // MARK: - No gaps

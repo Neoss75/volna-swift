@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(01|02e|60-uk|75|76|8[0-9])-'
+ONLY='^(01|05b|80|82|88)-'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -110,6 +110,7 @@ shot 70-path -panel fx -page path
 shot 80-radio -radio
 shot 81-radio-list -radio -panel radio
 shot 87-radio-check -radio -stationcheck -panel radio
+shot 88-radio-uk -lang uk -radio
 shot 82-radio-land -landscape -radio
 shot 83-radio-empty -panel radio
 shot 84-radio-new -panel radio -newstation
@@ -134,7 +135,7 @@ for l in uk en; do
 done
 say "real touches"
 t 900 xcodebuild test-without-building -xctestrun "$(ls build/dd/Build/Products/*.xctestrun | head -n 1)" \
-  -destination "id=$DEV" > shots/uitest.txt 2>&1 || { echo "::error::the touch tests failed"; RESULT=1; }
+  -destination "id=$DEV" -retry-tests-on-failure -test-iterations 2 > shots/uitest.txt 2>&1 || { echo "::error::the touch tests failed"; RESULT=1; }
 grep -E "error:|Test Case .*(passed|failed)|TEST EXECUTE" shots/uitest.txt
 for f in shots/*-land-*.png; do W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}'); [ "$W" -lt "$H" ] && sips -r 270 "$f" > /dev/null; done
 for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done

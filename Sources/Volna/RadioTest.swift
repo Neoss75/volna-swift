@@ -189,6 +189,14 @@ extension Demo {
         check("radio ignores the speed", player.graph.decks.allSatisfy { $0.pitch.rate == 1 }, "")
         check("no song while the radio is on", player.current == nil && player.queue == songs, "")
         settings.v.rate = 1
+        settings.v.radioBuffer = 10
+        check("bigger store is collected", live.state == .buffering && live.target == 10, "\(live.state)")
+        check("bigger store plays", await until(14) { live.state == .playing } && live.stored > 8.5, String(format: "%.1f", live.stored))
+        settings.v.radioBuffer = 2
+        await wait(0.5)
+        check("smaller store goes on", live.state == .playing && live.stored > 7, String(format: "%.1f", live.stored))
+        player.play(a, from: ids)
+        check("small store starts", await until(6) { live.state == .playing } && live.stored < 5, String(format: "%.1f", live.stored))
         player.pause()
         check("radio pause", !player.isPlaying && live.state == .idle, "")
         player.resume()
@@ -235,7 +243,7 @@ extension Demo {
         player.resume()
         await wait(1)
         check("the song goes on", player.isPlaying && abs(player.position - place - 1) < 0.6, String(format: "%.2f", player.position))
-        var say = PlayStationIntent()
+        let say = PlayStationIntent()
         say.station = StationEntity(id: mp3.id, name: mp3.name)
         _ = try? await say.perform()
         check("Siri: radio", await until(10) { live.state == .playing } && player.radio?.id == mp3.id, player.radio?.name ?? "")
