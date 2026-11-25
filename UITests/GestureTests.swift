@@ -67,6 +67,23 @@ final class GestureTests: XCTestCase {
         XCTAssertFalse(app.navigationBars["Настройки"].exists, "songs opened the settings")
     }
 
+    func testStationFromSearchKeepsWholeList() {
+        start(["-radio"])
+        app.buttons["Радио"].firstMatch.tap()
+        let field = app.textFields["Поиск станции…"]
+        XCTAssertTrue(field.waitForExistence(timeout: 8), "the list of stations")
+        field.tap()
+        field.typeText("Jazz")
+        let row = app.buttons.containing(NSPredicate(format: "label CONTAINS 'Jazz Lounge'")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "found")
+        row.tap()
+        sleep(1)
+        app.buttons["Закрыть"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Jazz Lounge"].firstMatch.waitForExistence(timeout: 5), "the station is on")
+        let place = app.staticTexts.matching(NSPredicate(format: "label MATCHES '[0-9]+ из [0-9]+'")).firstMatch
+        XCTAssertTrue(place.exists && place.label != "1 из 1", place.exists ? place.label : "no place")
+    }
+
     func testLyricsScroll() {
         start(["-lyrics"])
         swipe(app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)), dy: -200)

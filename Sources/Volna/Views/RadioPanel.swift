@@ -88,7 +88,8 @@ struct RadioPanel: View {
                         }
                         ForEach(s.stations) { st in
                             StationRow(station: st) {
-                                player.play(st, from: ids)
+                                // found by the search or not, the next one is next in the whole list
+                                player.play(st, from: stations.ordered.map(\.id))
                             }
                             .id(st.id)
                             Divider().overlay(Theme.line)
