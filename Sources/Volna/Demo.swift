@@ -145,15 +145,23 @@ enum Demo {
         check("visualizer sees sound", (a.bins.max() ?? 0) > 0.2, "\(a.bins.max() ?? 0)")
         // a steady tone must not flicker
         let steady = VizTap(), sa = SpectrumAnalyzer()
-        steady.feed((0..<8192).map { Float(0.3 * sin(2 * .pi * 440 * Double($0) / 44100)) }, rate: 44100)
+        var tone = [Float](repeating: 0, count: 8192)
+        for i in 0..<tone.count {
+            let phase: Double = 2 * Double.pi * 440 * Double(i) / 44100
+            tone[i] = Float(0.3 * sin(phase))
+        }
+        steady.feed(tone, rate: 44100)
         var seen: [Float] = [], fine: [Float] = []
         for k in 0..<60 {
             sa.update(steady)
             let v = sa.bands(40, live: true, fall: 0.8).v.max() ?? 0, f = sa.fine(96, live: true).max() ?? 0
             if k > 40 { seen.append(v); fine.append(f) }
         }
-        let swing = (seen.max() ?? 0) - (seen.min() ?? 0), swing2 = (fine.max() ?? 0) - (fine.min() ?? 0)
-        check("steady tone does not flicker", (seen.min() ?? 0) > 0.3 && swing < 0.05 && swing2 < 0.05, String(format: "%.3f %.3f at %.2f", swing, swing2, seen.max() ?? 0))
+        let top: Float = seen.max() ?? 0, low: Float = seen.min() ?? 0
+        let swing: Float = top - low
+        let swing2: Float = (fine.max() ?? 0) - (fine.min() ?? 0)
+        let calm = low > 0.3 && swing < 0.05 && swing2 < 0.05
+        check("steady tone does not flicker", calm, "\(swing) \(swing2) at \(top)")
         check("lyrics file", LyricsStore.load(ids[0]).map { LyricsParser.lines($0.text)?.count == 4 } ?? false, "")
         check("title cleaning", TagCleaner.clean("Пелюстки троянд (Sefon.Pro)") == "Пелюстки троянд" && TagCleaner.clean("Muzaf.net") == "Muzaf.net"
             && TagCleaner.clean("Mr. Vain") == "Mr. Vain", TagCleaner.clean("Слава Україні 2022 (Muzaf.net)"))
