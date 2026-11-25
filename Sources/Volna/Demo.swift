@@ -6,7 +6,7 @@ import SwiftUI
 /// so the cloud Mac can check the app and take screenshots. Not part of the TestFlight build.
 @MainActor
 enum Demo {
-    static func run(library: Library, player: Player, settings: Settings, ui: UIState, stations: Stations) async {
+    static func run(library: Library, player: Player, settings: Settings, ui: UIState, stations: Stations, headphones: Headphones) async {
         let args = ProcessInfo.processInfo.arguments
         guard args.contains("-demo") else { return }
         func value(_ name: String) -> String? {
@@ -55,7 +55,7 @@ enum Demo {
         if let t = value("-tab") { ui.listTab = ListTab.allCases.first { "\($0)" == t } ?? .songs }
         if args.contains("-album"), let t = library.tracks.first(where: { !$0.album.isEmpty }) { ui.collection = .album(Library.albumKey(t)) }
         if args.contains("-selftest") {
-            await selfTest(library: library, player: player, settings: settings, ui: ui, stations: stations)
+            await selfTest(library: library, player: player, settings: settings, ui: ui, stations: stations, headphones: headphones)
             return
         }
         if !args.contains("-lossless"), !args.contains("-aac"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
@@ -66,6 +66,11 @@ enum Demo {
         if args.contains("-stationcheck") {
             stations.startCheck(stations.ordered)
             try? await Task.sleep(for: .seconds(2))
+        }
+        if let name = value("-buds") {
+            Headphones.fake = (.bluetoothA2DP, name, "test " + name)
+            headphones.look()
+            if args.contains("-profile"), let m = HeadphoneBase.guess(name).first { headphones.assign(headphones.add(m.profile), to: headphones.current.id) }
         }
         if args.contains("-newstation") { ui.stationSheet = StationSheet() }
         if args.contains("-still") { player.pause() }
@@ -81,7 +86,7 @@ enum Demo {
 
     private static var server: TestServer?
 
-    private static func selfTest(library: Library, player: Player, settings: Settings, ui: UIState, stations: Stations) async {
+    private static func selfTest(library: Library, player: Player, settings: Settings, ui: UIState, stations: Stations, headphones: Headphones) async {
         func log(_ s: String) { NSLog("SELFTEST %@", s) }
         func check(_ name: String, _ ok: Bool, _ info: String) { log((ok ? "ok   " : "FAIL ") + name + " " + info) }
         func wait(_ s: Double) async { try? await Task.sleep(for: .seconds(s)) }
@@ -211,6 +216,7 @@ enum Demo {
         check("plays after removal", player.isPlaying && player.position > 0.4, "")
         await folderTest(library, player, settings, check, wait)
         await radioTest(library, player, settings, stations, check, wait)
+        await headphoneTest(player, settings, headphones, check, wait)
         let formats = await addFormats(library)
         check("formats added", formats.map(\.kind) == ["FLAC", "ALAC", "M4A"], "\(formats.map(\.formatLine))")
         check("lossless mark", formats.map(\.isLossless) == [true, true, false], "\(formats.map { $0.bits ?? 0 })")

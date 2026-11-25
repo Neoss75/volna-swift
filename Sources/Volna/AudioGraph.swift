@@ -160,6 +160,9 @@ final class AudioGraph {
     let tap = VizTap()
     private let bus = AVAudioMixerNode()
     private let eq = AVAudioUnitEQ(numberOfBands: 11)
+    /// The correction of the headphones, before the equaliser.
+    private let correction = AVAudioUnitEQ(numberOfBands: HeadphoneProfile.maxFilters)
+    private var corrected = false
     private let limiter = AVAudioUnitEffect(audioComponentDescription: AudioComponentDescription(
         componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
         componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
@@ -178,6 +181,8 @@ final class AudioGraph {
             d.gain.bands[0].bypass = true
         }
         engine.attach(bus)
+        engine.attach(correction)
+        correction.bypass = true
         engine.attach(eq)
         engine.attach(limiter)
         engine.attach(out)
@@ -208,8 +213,9 @@ final class AudioGraph {
             engine.connect(d.gain, to: bus, fromBus: 0, toBus: i, format: format)
             if d.format == nil { connect(d, format) }
         }
-        for n in [bus, eq, limiter, out, engine.mainMixerNode] as [AVAudioNode] { engine.disconnectNodeOutput(n) }
-        engine.connect(bus, to: eq, format: format)
+        for n in [bus, correction, eq, limiter, out, engine.mainMixerNode] as [AVAudioNode] { engine.disconnectNodeOutput(n) }
+        engine.connect(bus, to: correction, format: format)
+        engine.connect(correction, to: eq, format: format)
         engine.connect(eq, to: limiter, format: format)
         engine.connect(limiter, to: out, format: format)
         engine.connect(out, to: engine.mainMixerNode, format: format)
@@ -286,7 +292,17 @@ final class AudioGraph {
         set { out.outputVolume = newValue }
     }
 
+    func correct(_ p: HeadphoneProfile?, direct: Bool) {
+        corrected = p != nil
+        if p != nil { correction.load(p) }
+        correction.bypass = !corrected || direct
+    }
+
+    /// For the test: what the bands of the correction do right now.
+    var correctionOn: Bool { !correction.bypass }
+
     func apply(_ v: Settings.Values) {
+        correction.bypass = !corrected || v.direct
         for i in 0..<10 { eq.bands[i].gain = v.eqOn ? Float(v.bands[i]) : 0 }
         eq.bands[10].gain = Float(v.bass)
         eq.globalGain = v.eqOn ? Float(v.preamp) : 0

@@ -669,18 +669,23 @@ struct ToastView: View {
 struct Dialogs: ViewModifier {
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var stations: Stations
+    @EnvironmentObject private var headphones: Headphones
     @EnvironmentObject private var ui: UIState
     let active: Bool
     @State private var name = ""
+    /// The picker closes before it tells what was picked.
+    @State private var kind: ImportKind?
 
     func body(content: Content) -> some View {
         content
+            .onChange(of: ui.importing) { _, k in if let k { kind = k } }
             .fileImporter(
                 isPresented: Binding(get: { active && ui.importing != nil }, set: { if !$0 { ui.importing = nil } }),
                 allowedContentTypes: types,
                 allowsMultipleSelection: true
             ) { result in
                 guard case .success(let urls) = result else { return }
+                if kind == .profile { return urls.forEach { headphones.add(file: $0) } }
                 let lists = urls.filter { StationList.extensions.contains($0.pathExtension.lowercased()) }
                 if !lists.isEmpty { stations.add(files: lists) }
                 let songs = urls.filter { !lists.contains($0) }
@@ -723,6 +728,7 @@ struct Dialogs: ViewModifier {
         func ext(_ list: [String]) -> [UTType] { list.compactMap { UTType(filenameExtension: $0) } }
         switch ui.importing {
         case .folder?: return [.folder]
+        case .profile?: return [.plainText]
         case .stations?: return [.m3uPlaylist] + ext(["m3u", "m3u8", "pls"])
         default: return [.audio] + ext(["lrc"])
         }

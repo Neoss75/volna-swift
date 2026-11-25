@@ -369,7 +369,7 @@ Hi-res и вывод‖Hi-res і вивід‖Hi-res and output
 Из самого файла, из файла .lrc с тем же именем, с сайта lrclib.net по вашему нажатию «Найти в интернете» или вставленный вручную. На lrclib.net отправляются название, исполнитель и длительность песни.‖Із самого файлу, з файлу .lrc з тим самим ім’ям, із сайту lrclib.net за вашим натисканням «Знайти в інтернеті» або вставлений вручну. На lrclib.net надсилаються назва, виконавець і тривалість пісні.‖From the file itself, from a .lrc file with the same name, from lrclib.net when you tap “Find online”, or pasted by hand. The title, artist and length of the song are sent to lrclib.net.
 Музыкальный плеер для файлов на вашем iPhone.‖Музичний плеєр для файлів на вашому iPhone.‖A music player for the files on your iPhone.
 Что уходит в интернет‖Що йде в інтернет‖What goes online
-Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст. Сами файлы, статистика и плейлисты остаются на телефоне.‖Лише назви пісень і виконавців: в iTunes для пошуку обкладинок, якщо його увімкнено, і на lrclib.net, коли ви шукаєте текст. Самі файли, статистика та плейлисти залишаються на телефоні.‖Only names of songs and artists: to iTunes for cover search, if it is on, and to lrclib.net when you look for lyrics. Files, statistics and playlists stay on the phone.
+Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст. Радио подключается к серверам станций. Сами файлы, статистика и плейлисты остаются на телефоне.‖Лише назви пісень і виконавців: в iTunes для пошуку обкладинок, якщо його увімкнено, і на lrclib.net, коли ви шукаєте текст. Радіо підключається до серверів станцій. Самі файли, статистика та плейлисти залишаються на телефоні.‖Only names of songs and artists: to iTunes for cover search, if it is on, and to lrclib.net when you look for lyrics. The radio connects to the servers of the stations. Files, statistics and playlists stay on the phone.
 Ничего не играет‖Нічого не грає‖Nothing is playing
 Предыдущая‖Попередня‖Previous
 Следующая‖Наступна‖Next
@@ -529,5 +529,49 @@ Siri и команды‖Siri та команди‖Siri and Shortcuts
 Стоп‖Стоп‖Stop
 Убрать ({})‖Прибрати ({})‖Remove ({})
 Убрано станций: {}‖Прибрано станцій: {}‖Stations removed: {}
+Наушники‖Навушники‖Headphones
+Профиль не выбран‖Профіль не вибрано‖No profile
+Сейчас подключено‖Зараз підключено‖Connected now
+Профиль включён‖Профіль увімкнено‖Profile is on
+Включён прямой вывод, поэтому профиль обойдён.‖Увімкнено прямий вивід, тому профіль не діє.‖Direct output is on, so the profile is bypassed.
+С профилем звук тише: он опускает громкость, чтобы не было искажений. Сравнивайте на одинаковой громкости.‖З профілем звук тихіший: він знижує гучність, щоб не було спотворень. Порівнюйте на однаковій гучності.‖With a profile the sound is quieter: it lowers the volume to avoid distortion. Compare at the same loudness.
+Убрать с этого устройства‖Прибрати з цього пристрою‖Remove from this device
+Профиль не выбран. Найдите свою модель ниже.‖Профіль не вибрано. Знайдіть свою модель нижче.‖No profile yet. Find your model below.
+Похоже, это одна из этих моделей:‖Схоже, це одна з цих моделей:‖Looks like one of these models:
+Найти модель‖Знайти модель‖Find a model
+AirPods, Sony, Sennheiser…‖AirPods, Sony, Sennheiser…‖AirPods, Sony, Sennheiser…
+Из файла‖З файлу‖From a file
+Свой профиль‖Свій профіль‖Own profile
+Мой профиль‖Мій профіль‖My profile
+Мои профили‖Мої профілі‖My profiles
+Профиль: {}‖Профіль: {}‖Profile: {}
+Профиль «{}» добавлен‖Профіль «{}» додано‖Profile “{}” added
+Настроить‖Налаштувати‖Adjust
+Другие устройства‖Інші пристрої‖Other devices
+Плеер сам меняет профиль, когда вы подключаете другие наушники.‖Плеєр сам змінює профіль, коли ви підключаєте інші навушники.‖The player changes the profile by itself when you connect other headphones.
+Без профиля‖Без профілю‖No profile
+Забыть устройство‖Забути пристрій‖Forget the device
+Откуда профили‖Звідки профілі‖Where the profiles come from
+Измерения {} моделей из открытого проекта AutoEq (лицензия MIT). Профиль выравнивает звук наушников, поверх него работает обычный эквалайзер.‖Вимірювання {} моделей із відкритого проєкту AutoEq (ліцензія MIT). Профіль вирівнює звук навушників, поверх нього працює звичайний еквалайзер.‖Measurements of {} models from the open AutoEq project (MIT licence). A profile evens out the sound of the headphones, the usual equaliser works on top of it.
+Профили наушников: AutoEq, © Jaakko Pasanen, лицензия MIT.‖Профілі навушників: AutoEq, © Jaakko Pasanen, ліцензія MIT.‖Headphone profiles: AutoEq, © Jaakko Pasanen, MIT licence.
+В этом файле нет фильтров. Подходит файл ParametricEQ из AutoEq.‖У цьому файлі немає фільтрів. Підійде файл ParametricEQ з AutoEq.‖There are no filters in this file. A ParametricEQ file of AutoEq will do.
+фильтр‖фільтр‖filter
+фильтра‖фільтри‖filters
+фильтров‖фільтрів‖filters
+{} Гц‖{} Гц‖{} Hz
+Самое громкое место поднято на {}: возможны искажения.‖Найгучніше місце піднято на {}: можливі спотворення.‖The loudest point is raised by {}: distortion is possible.
+Убавить предусилитель‖Зменшити передпідсилювач‖Lower the preamp
+Добавить фильтр‖Додати фільтр‖Add a filter
+Удалить фильтр‖Видалити фільтр‖Remove the filter
+Вернуть как было‖Повернути як було‖Undo all
+Точный эквалайзер‖Точний еквалайзер‖Precise equaliser
+Готово‖Готово‖Done
+Вид‖Вид‖Kind
+Усиление‖Підсилення‖Gain
+Острота (Q)‖Гострота (Q)‖Sharpness (Q)
+Низкая полка‖Низька полиця‖Low shelf
+Колокол‖Дзвін‖Bell
+Высокая полка‖Висока полиця‖High shelf
+профиль «{}»‖профіль «{}»‖profile “{}”
 """#
 }

@@ -49,10 +49,10 @@ final class TestServer: @unchecked Sendable {
             c.send(content: Data(head.utf8) + body, isComplete: true, completion: .contentProcessed { _ in c.cancel() })
         }
         switch path {
-        case "/live", "/drop", "/icy":
+        case "/live", "/drop", "/icy", "/stall":
             let head = (path == "/icy" ? "ICY" : "HTTP/1.0") + " 200 OK\r\nContent-Type: audio/aac\r\nicy-name: Тест FM\r\nicy-br: 128\r\nicy-metaint: 4000\r\n\r\n"
             c.send(content: Data(head.utf8), completion: .idempotent)
-            pump(c, aac, perSecond, title: "Океан Ельзи - Обійми", limit: path == "/drop" ? 5 : .infinity)
+            pump(c, aac, perSecond, title: "Океан Ельзи - Обійми", limit: path == "/drop" ? 5 : path == "/stall" ? 4 : .infinity, hang: path == "/stall")
         case "/mp3":
             // a valid MPEG-1 Layer III frame of silence, 128 kbit/s, 44.1 kHz
             let frame = Data([0xFF, 0xFB, 0x90, 0x64]) + Data(count: 413)
@@ -138,7 +138,7 @@ final class TestServer: @unchecked Sendable {
     }
 
     /// Three seconds at once, then at the speed of listening, the way real stations do.
-    private func pump(_ c: NWConnection, _ sound: Data, _ speed: Int, title: String?, limit: Double) {
+    private func pump(_ c: NWConnection, _ sound: Data, _ speed: Int, title: String?, limit: Double, hang: Bool = false) {
         var at = 0, sent = 0, untilMeta = 4000, first = true
         func next(_ n: Int) -> Data {
             var out = Data()
@@ -171,6 +171,7 @@ final class TestServer: @unchecked Sendable {
             default: return timer.cancel()
             }
             if Double(sent) > limit * Double(speed) {
+                if hang { return } // the connection stays, but nothing comes
                 c.cancel()
                 return timer.cancel()
             }
@@ -286,6 +287,21 @@ extension Demo {
         _ = await until(10) { live.state == .playing }
         await wait(9)
         check("connects again", server.count("/drop") >= 2 && player.isPlaying && live.state == .playing, "\(server.count("/drop")) times, \(live.state)")
+        let stall = station("/stall")
+        player.play(stall, from: ids)
+        _ = await until(10) { live.state == .playing }
+        check("sound comes in smoothly", live.goal == 1 && player.graph.decks.contains { $0.fade < 0.9 }, "\(player.graph.decks.map(\.fade))")
+        await wait(0.8)
+        check("sound is full", player.graph.decks.allSatisfy { $0.fade > 0.99 }, "\(player.graph.decks.map(\.fade))")
+        var faded = false
+        _ = await until(5) {
+            if live.state == .playing, live.goal == 0 { faded = true }
+            return live.state != .playing
+        }
+        check("sound goes out smoothly", faded && live.state != .idle, "\(live.state)")
+        check("silent connection is changed", await until(12) { server.count("/stall") >= 2 && live.state == .playing }, "\(server.count("/stall")) times, \(live.state)")
+        player.play(drop, from: ids)
+        _ = await until(10) { live.state == .playing }
         player.next()
         check("radio plays MP3", await until(10) { live.state == .playing } && live.info.kind == "MP3", "\(live.state) \(live.info)")
         player.next()

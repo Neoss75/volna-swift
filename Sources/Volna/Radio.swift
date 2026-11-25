@@ -41,14 +41,20 @@ final class Radio: ObservableObject {
     var target: Double { need }
     private let monitor = NWPathMonitor()
     private var online = true
+    /// Wi-Fi or the mobile network, whichever the connection was made through.
+    private var way: NWInterface.InterfaceType?
+    private var lastSound = Date()
+    private var ramp: Task<Void, Never>?
+    /// Where the volume is going to.
+    private(set) var goal: Float = 1
 
     static let giveUp = 150.0
 
     init(graph: AudioGraph) {
         self.graph = graph
         monitor.pathUpdateHandler = { [weak self] path in
-            let ok = path.status == .satisfied
-            DispatchQueue.main.async { MainActor.assumeIsolated { self?.network(ok) } }
+            let ok = path.status == .satisfied, ways = path.availableInterfaces.map(\.type)
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.network(ok, ways) } }
         }
         monitor.start(queue: .global(qos: .utility))
     }
@@ -80,7 +86,11 @@ final class Radio: ObservableObject {
         retry = nil
         reader?.stop()
         reader = nil
+        ramp?.cancel()
+        ramp = nil
+        goal = 1
         deck?.unload()
+        deck?.fade = 1
         deck = nil
         format = nil
         finished = false
@@ -101,6 +111,7 @@ final class Radio: ObservableObject {
             r = StreamReader(url, onEvent: take)
         }
         reader = r
+        lastSound = Date()
         r.start()
     }
 
@@ -115,11 +126,13 @@ final class Radio: ObservableObject {
                 onInfo?(i.rate)
                 graph.openStream(f, into: deck)
                 if state == .playing { state = .buffering }
+                deck.fade = 0
             }
             onFacts?(i.facts)
         case .sound(let b):
             lostSince = nil
             tries = 0
+            lastSound = Date()
             deck.feed(b)
             tick()
         case .title(let t):
@@ -170,9 +183,16 @@ final class Radio: ObservableObject {
     }
 
     /// Back from a tunnel, or from Wi-Fi to the mobile network: do not wait for the next try.
-    private func network(_ ok: Bool) {
-        defer { online = ok }
-        guard ok, !online, retry != nil, let link else { return }
+    private func network(_ ok: Bool, _ ways: [NWInterface.InterfaceType]) {
+        let before = way
+        defer {
+            online = ok
+            if ok { way = ways.first }
+        }
+        guard ok, let link else { return }
+        // the network the connection went through is gone: its silence would be noticed much later
+        let moved = before.map { !ways.contains($0) } ?? false
+        guard moved && reader is StreamReader || !online && retry != nil else { return }
         tries = 0
         if state == .waiting { state = .connecting }
         connect(link)
@@ -182,18 +202,42 @@ final class Radio: ObservableObject {
     private func reserveChanged() {
         need = reserve
         guard state == .playing, !finished, let deck, deck.queued < need - 0.5 else { return }
-        deck.pauseStream()
         state = .buffering
+        fade(to: 0, in: 0.15) { [weak self, weak deck] in
+            if self?.state == .buffering { deck?.pauseStream() }
+        }
+    }
+
+    /// No clicks: the sound comes and goes smoothly, in the mixer of the deck.
+    private func fade(to level: Float, in seconds: Double, then: (() -> Void)? = nil) {
+        ramp?.cancel()
+        goal = level
+        guard let deck else { return }
+        let from = deck.fade, steps = max(1, Int(seconds / 0.02))
+        ramp = Task { [weak deck] in
+            for i in 1...steps {
+                try? await Task.sleep(for: .milliseconds(20))
+                if Task.isCancelled { return }
+                deck?.fade = from + (level - from) * Float(i) / Float(steps)
+            }
+            then?()
+        }
     }
 
     func tick() {
         guard let deck, format != nil else { return }
         let have = deck.queued
+        // the connection is open, but nothing comes through it
+        if reader is StreamReader, !held, have < 4, Date().timeIntervalSince(lastSound) > 5, let link { connect(link) }
         if abs(have - stored) >= 0.2 { stored = have }
         if have > 60 { held = true } else if have < 30 { held = false }
         reader?.hold(held)
         switch state {
         case .playing:
+            // what is already on the way to the headphones cannot be changed
+            let left = have - AVAudioSession.sharedInstance().outputLatency
+            if left < 0.5, goal == 1 { fade(to: 0, in: max(0.1, min(0.35, left - 0.1))) }
+            if left > 0.9, goal == 0 { fade(to: 1, in: 0.3) }
             guard have < 0.12 else { return }
             if finished {
                 stop()
@@ -205,8 +249,10 @@ final class Radio: ObservableObject {
             state = reader == nil ? .waiting : .buffering
         case .connecting, .buffering, .waiting:
             guard have >= need || finished && have > 0, graph.engine.isRunning else { return }
+            deck.fade = 0
             deck.playStream()
             state = .playing
+            fade(to: 1, in: 0.35)
         case .idle:
             break
         }

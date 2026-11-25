@@ -81,7 +81,7 @@ struct SoundPath: Equatable {
     let clean: Bool
 
     /// `rate` is the rate of the decoded song, `graph` the rate the player works at.
-    static func build(_ t: Track?, rate: Double, channels: Int, graph: Double, _ v: Settings.Values, preset: String?, _ out: Output, stream: Bool = false) -> SoundPath {
+    static func build(_ t: Track?, rate: Double, channels: Int, graph: Double, _ v: Settings.Values, preset: String?, _ out: Output, stream: Bool = false, headphones: String? = nil) -> SoundPath {
         var steps: [Step] = []
         let work = graph > 0 ? graph : out.rate
         let resampled = t != nil && rate > 0 && (abs(rate - work) > 1 || abs(work - out.rate) > 1)
@@ -99,7 +99,7 @@ struct SoundPath: Equatable {
                               value: chain.map { OutputInfo.khz($0) }.joined(separator: " → "),
                               detail: resampled ? tr("пересчитывается") : tr("без пересчёта"), mark: resampled ? .changed : .good))
         }
-        let changes = Self.changes(v, gain: t?.gainDb, preset: preset)
+        let changes = Self.changes(v, gain: t?.gainDb, preset: preset, headphones: headphones)
         steps.append(Step(icon: "slider.vertical.3", title: tr("Обработка"),
                           value: v.direct ? tr("Прямой вывод") : changes.isEmpty ? tr("ничего не меняет") : changes.joined(separator: ", "),
                           detail: v.direct ? tr("обработка обойдена") : "", mark: changes.isEmpty ? .good : .changed))
@@ -114,9 +114,10 @@ struct SoundPath: Equatable {
     static func channels(_ n: Int) -> String { n == 1 ? tr("моно") : n == 2 ? tr("стерео") : tr("каналов: {}", "\(n)") }
 
     /// What the player itself does to the sound now.
-    static func changes(_ v: Settings.Values, gain: Double?, preset: String?) -> [String] {
+    static func changes(_ v: Settings.Values, gain: Double?, preset: String?, headphones: String?) -> [String] {
         guard !v.direct else { return [] }
         var c: [String] = []
+        if let headphones { c.append(tr("профиль «{}»", "\(headphones)")) }
         if v.eqOn, v.preamp != 0 || v.bands.contains(where: { $0 != 0 }) { c.append(tr("эквалайзер") + (preset.map { " «" + tr($0) + "»" } ?? "")) }
         if v.bass != 0 { c.append(tr("бас +") + String(format: "%g", v.bass) + tr(" дБ")) }
         if v.normalize, let gain, gain != 0 { c.append(tr("выравн. ") + formatDb(gain)) }
@@ -173,7 +174,7 @@ extension SoundPath {
         var v = settings.v
         if player.radio != nil { v.rate = 1 }
         return build(t, rate: f?.sampleRate ?? t?.sampleRate ?? 0, channels: Int(f?.channelCount ?? 2), graph: graph, v,
-                     preset: settings.preset?.name, out, stream: player.radio != nil)
+                     preset: settings.preset?.name, out, stream: player.radio != nil, headphones: player.headphoneProfile)
     }
 }
 

@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Pages of the settings, grouped on the first screen by what they are about.
 enum SettingsPage: String, Hashable, CaseIterable {
-    case path, sound, eq, loudness, playback, hires
+    case path, headphones, sound, eq, loudness, playback, hires
     case theme, viz
     case library, covers, lyrics
     case siri, language, stats, about
@@ -12,6 +12,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
     var title: String {
         switch self {
         case .path: tr("Путь звука")
+        case .headphones: tr("Наушники")
         case .sound: tr("Обработка звука")
         case .eq: tr("Эквалайзер")
         case .loudness: tr("Выравнивание громкости")
@@ -32,6 +33,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
     var icon: String {
         switch self {
         case .path: "point.topleft.down.to.point.bottomright.curvepath"
+        case .headphones: "headphones"
         case .sound: "waveform"
         case .eq: "slider.vertical.3"
         case .loudness: "speaker.wave.2"
@@ -50,7 +52,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
     }
 
     static let groups: [(title: String, pages: [SettingsPage])] = [
-        ("Аудио", [.path, .eq, .sound, .loudness, .playback, .hires]),
+        ("Аудио", [.path, .headphones, .eq, .sound, .loudness, .playback, .hires]),
         ("Графика", [.theme, .viz]),
         ("Музыка", [.library, .covers, .lyrics]),
         ("Прочее", [.siri, .language, .stats, .about]),
@@ -85,6 +87,7 @@ struct SettingsPanel: View {
 
 private struct SettingsRoot: View {
     @EnvironmentObject private var settings: Settings
+    @EnvironmentObject private var headphones: Headphones
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var player: Player
     @EnvironmentObject private var stats: Stats
@@ -136,6 +139,8 @@ private struct SettingsRoot: View {
         switch page {
         case .eq:
             return v.eqOn ? (settings.preset.map { tr($0.name) } ?? tr("Свой")) : tr("Выключен")
+        case .headphones:
+            return headphones.active?.name ?? (headphones.chosen == nil ? tr("Профиль не выбран") : tr("Выключен"))
         case .sound:
             var p: [String] = []
             if v.bass > 0 { p.append(tr("бас +") + String(format: "%g", v.bass) + tr(" дБ")) }
@@ -223,6 +228,7 @@ private struct SettingsPageView: View {
                     VStack(spacing: 14) {
                         switch page {
                         case .path: SoundPathPage()
+                        case .headphones: HeadphonesPage()
                         case .sound: SoundPage()
                         case .loudness: LoudnessPage()
                         case .playback: PlaybackPage()
@@ -616,9 +622,10 @@ private struct AboutPage: View {
     var body: some View {
         Block(tr("Волна ") + AppInfo.version) {
             Hint(tr("Музыкальный плеер для файлов на вашем iPhone."))
+            Hint(tr("Профили наушников: AutoEq, © Jaakko Pasanen, лицензия MIT."))
         }
         Block(tr("Что уходит в интернет")) {
-            Hint(tr("Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст. Сами файлы, статистика и плейлисты остаются на телефоне."))
+            Hint(tr("Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст. Радио подключается к серверам станций. Сами файлы, статистика и плейлисты остаются на телефоне."))
         }
     }
 }

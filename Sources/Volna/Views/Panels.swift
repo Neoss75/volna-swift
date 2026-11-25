@@ -342,7 +342,7 @@ struct EQPanel: View {
                     }
                     if settings.preset == nil { Chip(text: tr("Свой"), on: true) {} }
                 }
-                EQCurve(v: settings.v, accent: settings.accent)
+                EQCurve(accent: settings.accent) { AudioGraph.response(settings.v, at: $0) }
                     .frame(height: 150)
                     .background(Theme.raise, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 HStack(spacing: 2) {
@@ -370,8 +370,9 @@ struct EQPanel: View {
 }
 
 struct EQCurve: View {
-    let v: Settings.Values
     let accent: Color
+    var dim = false
+    let response: (Double) -> Double
 
     var body: some View {
         Canvas { g, size in
@@ -395,15 +396,15 @@ struct EQCurve: View {
             var curve = Path()
             for i in 0..<160 {
                 let f = 20 * pow(1000, Double(i) / 159)
-                let p = CGPoint(x: X(f), y: Y(min(15, max(-15, AudioGraph.response(v, at: f)))))
+                let p = CGPoint(x: X(f), y: Y(min(15, max(-15, response(f)))))
                 if i == 0 { curve.move(to: p) } else { curve.addLine(to: p) }
             }
             var area = curve
             area.addLine(to: CGPoint(x: X(20000), y: Y(0)))
             area.addLine(to: CGPoint(x: X(20), y: Y(0)))
             area.closeSubpath()
-            g.fill(area, with: .color(accent.opacity(0.16)))
-            g.stroke(curve, with: .color(accent), style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
+            g.fill(area, with: .color(accent.opacity(dim ? 0.06 : 0.16)))
+            g.stroke(curve, with: .color(accent.opacity(dim ? 0.35 : 1)), style: StrokeStyle(lineWidth: 2.5, lineJoin: .round))
         }
         .accessibilityHidden(true)
     }

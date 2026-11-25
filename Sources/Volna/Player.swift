@@ -27,6 +27,7 @@ final class Player: ObservableObject {
     let live: Radio
     private var radioList: [UUID] = []
     private let stations: Stations
+    private let headphones: Headphones
 
     let clock = PlaybackClock()
     let graph = AudioGraph()
@@ -55,8 +56,9 @@ final class Player: ObservableObject {
     private var deck: Deck { graph.decks[active] }
     private var spare: Deck { graph.decks[1 - active] }
 
-    init(library: Library, settings: Settings, stats: Stats, covers: CoverFinder, stations: Stations) {
+    init(library: Library, settings: Settings, stats: Stats, covers: CoverFinder, stations: Stations, headphones: Headphones) {
         self.stations = stations
+        self.headphones = headphones
         live = Radio(graph: graph)
         self.library = library
         self.settings = settings
@@ -65,6 +67,11 @@ final class Player: ObservableObject {
         analyzer = Analyzer(library: library)
         graph.apply(settings.v)
         settings.onChange = { [weak self] in self?.settingsChanged() }
+        graph.correct(headphones.active, direct: settings.v.direct)
+        headphones.onChange = { [weak self] in
+            guard let self else { return }
+            self.graph.correct(self.headphones.active, direct: self.settings.v.direct)
+        }
         library.onRemove = { [weak self] in self?.removed($0) }
         analyzer.onDone = { [weak self] in self?.analyzed($0) }
         covers.onChange = { [weak self] in self?.publish() }
@@ -684,6 +691,9 @@ final class Player: ObservableObject {
     private func analyzed(_ id: UUID) {
         if current?.id == id { applyLoudness() }
     }
+
+    /// The profile of the headphones that is heard now.
+    var headphoneProfile: String? { settings.v.direct ? nil : headphones.active?.name }
 
     /// The decoded song, before anything else happens to it.
     var sourceFormat: AVAudioFormat? {

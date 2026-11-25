@@ -5,7 +5,7 @@ enum Panel: String, Identifiable {
     var id: String { rawValue }
 }
 
-enum ImportKind { case files, folder, stations }
+enum ImportKind { case files, folder, stations, profile }
 
 enum Prompt: Equatable {
     case newPlaylist(UUID?)
@@ -49,6 +49,7 @@ struct VolnaApp: App {
     @StateObject private var stats: Stats
     @StateObject private var covers: CoverFinder
     @StateObject private var stations: Stations
+    @StateObject private var headphones: Headphones
     @StateObject private var player: Player
     @StateObject private var ui = UIState()
     @Environment(\.scenePhase) private var scenePhase
@@ -57,12 +58,14 @@ struct VolnaApp: App {
         let library = Library(), settings = Settings(), stats = Stats()
         let covers = CoverFinder(library: library, settings: settings), stations = Stations()
         _stations = StateObject(wrappedValue: stations)
+        let headphones = Headphones()
+        _headphones = StateObject(wrappedValue: headphones)
         _library = StateObject(wrappedValue: library)
         _settings = StateObject(wrappedValue: settings)
         _stats = StateObject(wrappedValue: stats)
         _covers = StateObject(wrappedValue: covers)
         // made right now, not with the first screen: Siri and the widget may start the app without any screen
-        let player = Player(library: library, settings: settings, stats: stats, covers: covers, stations: stations)
+        let player = Player(library: library, settings: settings, stats: stats, covers: covers, stations: stations, headphones: headphones)
         _player = StateObject(wrappedValue: player)
         SiriBridge.library = library
         SiriBridge.player = player
@@ -81,12 +84,13 @@ struct VolnaApp: App {
                 .environmentObject(player.analyzer)
                 .environmentObject(player.live)
                 .environmentObject(stations)
+                .environmentObject(headphones)
                 .environmentObject(ui)
                 .environmentObject(Toaster.shared)
                 .preferredColorScheme(settings.colorScheme)
                 .tint(settings.accent)
             #if DEBUG
-                .task { await Demo.run(library: library, player: player, settings: settings, ui: ui, stations: stations) }
+                .task { await Demo.run(library: library, player: player, settings: settings, ui: ui, stations: stations, headphones: headphones) }
             #endif
         }
         .onChange(of: library.tracks.count) { _, _ in VolnaShortcuts.updateAppShortcutParameters() }
@@ -100,6 +104,7 @@ struct VolnaApp: App {
             if phase == .background, !player.isPlaying, stations.check?.running == true { stations.endCheck() }
             if phase != .active {
                 player.save()
+                headphones.write()
                 library.saveNow()
                 stats.flush(keepTicking: true)
             }
