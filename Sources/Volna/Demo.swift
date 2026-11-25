@@ -375,7 +375,7 @@ enum Demo {
         _ = try? await PlayFavouritesIntent().perform()
         await wait(0.5)
         check("Siri: favourites", player.current.map { library.isFavourite($0.id) } ?? false && player.isPlaying, player.current?.title ?? "")
-        var song = PlaySongIntent()
+        let song = PlaySongIntent()
         song.song = SongEntity(library.tracks[2])
         _ = try? await song.perform()
         await wait(0.5)
