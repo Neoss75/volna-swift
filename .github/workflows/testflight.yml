@@ -6,13 +6,14 @@
 #   ASC_KEY_ID      — App Store Connect API key ID
 #   ASC_ISSUER_ID   — Issuer ID shown above the list of keys
 #   ASC_KEY_P8      — full text of the AuthKey_XXXX.p8 file
-# Runs after every upload to main, or by hand: Actions → "TestFlight" → Run workflow.
+# Runs after every upload to main that changes the app (not only documents), or by hand: Actions → "TestFlight" → Run workflow.
 name: TestFlight
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths-ignore: ['**.md', 'LICENSE*', '.gitignore', '.gitattributes', '.github/**', 'UITests/**']
 
 jobs:
   build:
