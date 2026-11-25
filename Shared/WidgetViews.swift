@@ -37,7 +37,7 @@ struct WidgetPlayButton: View {
                 .background(Circle().fill(state.accentColor))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(state.playing ? "Пауза" : "Играть")
+        .accessibilityLabel(state.playing ? tr("Пауза") : tr("Играть"))
     }
 }
 
@@ -46,8 +46,8 @@ struct WidgetTitles: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(state.title.isEmpty ? "Волна" : state.title).font(.system(size: 14, weight: .bold)).foregroundStyle(widgetFg)
-            Text(state.title.isEmpty ? "Ничего не играет" : state.artist.isEmpty ? "Неизвестный исполнитель" : state.artist)
+            Text(state.title.isEmpty ? tr("Волна") : state.title).font(.system(size: 14, weight: .bold)).foregroundStyle(widgetFg)
+            Text(state.title.isEmpty ? tr("Ничего не играет") : state.artist.isEmpty ? tr("Неизвестный исполнитель") : state.artist)
                 .font(.system(size: 12))
                 .foregroundStyle(widgetMuted)
         }
@@ -83,9 +83,9 @@ struct MediumWidgetView: View {
             VStack(alignment: .leading, spacing: 12) {
                 WidgetTitles(state: state)
                 HStack(spacing: 20) {
-                    Button(intent: PreviousIntent()) { icon("backward.end.fill") }.accessibilityLabel("Предыдущая")
+                    Button(intent: PreviousIntent()) { icon("backward.end.fill") }.accessibilityLabel(tr("Предыдущая"))
                     WidgetPlayButton(state: state, size: 46)
-                    Button(intent: NextIntent()) { icon("forward.end.fill") }.accessibilityLabel("Следующая")
+                    Button(intent: NextIntent()) { icon("forward.end.fill") }.accessibilityLabel(tr("Следующая"))
                 }
                 .buttonStyle(.plain)
             }
@@ -106,8 +106,8 @@ struct LockWidgetView: View {
         HStack(spacing: 8) {
             Image(systemName: state.playing ? "waveform" : "play.fill").font(.system(size: 18, weight: .semibold))
             VStack(alignment: .leading, spacing: 0) {
-                Text(state.title.isEmpty ? "Волна" : state.title).font(.system(size: 14, weight: .semibold))
-                Text(state.title.isEmpty ? "Ничего не играет" : state.artist).font(.system(size: 12)).opacity(0.8)
+                Text(state.title.isEmpty ? tr("Волна") : state.title).font(.system(size: 14, weight: .semibold))
+                Text(state.title.isEmpty ? tr("Ничего не играет") : state.artist).font(.system(size: 12)).opacity(0.8)
             }
             .lineLimit(1)
             Spacer(minLength: 0)

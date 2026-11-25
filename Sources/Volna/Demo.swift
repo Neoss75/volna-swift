@@ -14,6 +14,7 @@ enum Demo {
             return args[i + 1]
         }
         settings.v.onlineArt = false
+        settings.v.language = value("-lang") ?? "ru"
         settings.v.saverOn = false
         settings.v.vizPalette = value("-colors").flatMap(VizColors.init(rawValue:)) ?? .accent
         if library.tracks.isEmpty {
@@ -339,6 +340,14 @@ enum Demo {
         }
         let gone = try? JSONDecoder().decode([VizMode].self, from: Data(#"["falls","ring"]"#.utf8))
         check("removed visualisation", gone == [.bars, .ring], "\(gone?.map(\.rawValue) ?? [])")
+        let wrong = Translations.table.filter { k, v in v.contains { $0.isEmpty || $0.components(separatedBy: "{}").count != k.components(separatedBy: "{}").count } }
+        check("translations", Translations.table.count > 400 && wrong.isEmpty, "\(Translations.table.count) \(wrong.keys.prefix(3))")
+        settings.v.language = "en"
+        check("English", tr("Песни") == "Songs" && plural(21, tr("песня"), tr("песни"), tr("песен")) == "21 songs" && tr("{} из {}", "2", "46") == "2 of 46", plural(1, tr("песня"), tr("песни"), tr("песен")))
+        settings.v.language = "uk"
+        check("Ukrainian", plural(5, tr("раз"), tr("раза"), tr("раз#мн")) == "5 разів" && formatSpan(3700) == "1 год 1 хв", formatDb(-3))
+        settings.v.language = "ru"
+        check("Russian", plural(5, tr("раз"), tr("раза"), tr("раз#мн")) == "5 раз" && tr("Песни") == "Песни", "")
         check("old library opens", (try? JSONDecoder().decode([Track].self, from: Data(old.utf8)))?.count == 1, "")
         let oldStats = #"{"songs":{"x":{"plays":1,"seconds":5,"title":"T","artist":"A"}},"days":{},"total":5}"#
         check("old statistics open", (try? JSONDecoder().decode(Stats.Data.self, from: Data(oldStats.utf8)))?.songs.count == 1, "")

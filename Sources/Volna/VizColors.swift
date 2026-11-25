@@ -11,11 +11,11 @@ enum VizColors: String, Codable, CaseIterable, Identifiable {
 
     var name: String {
         switch self {
-        case .accent: "В тон плеера"
-        case .level: "По уровню"
-        case .rainbow: "Радуга"
-        case .fire: "Огонь"
-        case .neon: "Неон"
+        case .accent: tr("В тон плеера")
+        case .level: tr("По уровню")
+        case .rainbow: tr("Радуга")
+        case .fire: tr("Огонь")
+        case .neon: tr("Неон")
         }
     }
 

@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(01|51|52|55)-'
+ONLY='^(01|05|6[0-9])-'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -106,6 +106,17 @@ shot 54-saver-confetti -saver -viz confetti -colors rainbow
 shot 55-saver-aurora -saver -viz aurora -colors rainbow
 shot 56-saver-land-kaleido -landscape -saver -viz kaleido -colors neon
 shot 57-saver-land-tiles -landscape -saver -viz tiles -colors fire
+for l in uk en; do
+  shot 60-$l-player -lang $l
+  shot 61-$l-list -lang $l -panel list
+  shot 62-$l-settings -lang $l -panel fx
+  shot 63-$l-playback -lang $l -panel fx -page playback
+  shot 64-$l-viz -lang $l -panel fx -page viz
+  shot 65-$l-language -lang $l -panel fx -page language
+  shot 66-$l-stats -lang $l -panel stats
+  shot 67-$l-eq -lang $l -panel eq
+  shot 68-$l-hires -lang $l -panel fx -page hires
+done
 for f in shots/*-land-*.png; do W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}'); [ "$W" -lt "$H" ] && sips -r 270 "$f" > /dev/null; done
 for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done
 exit $RESULT

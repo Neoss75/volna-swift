@@ -66,16 +66,17 @@ func formatTime(_ seconds: Double?) -> String {
 }
 
 func formatDb(_ v: Double) -> String {
-    (v > 0 ? "+" : "") + String(format: "%.1f", v) + " дБ"
+    (v > 0 ? "+" : "") + String(format: "%.1f", v) + tr(" дБ")
 }
 
 func formatSpan(_ seconds: Double) -> String {
     let s = Int(seconds.rounded()), h = s / 3600, m = s % 3600 / 60
-    if h > 0 { return "\(h) ч \(m) мин" }
-    return m > 0 ? "\(m) мин" : "\(s) с"
+    if h > 0 { return tr("{} ч {} мин", "\(h)", "\(m)") }
+    return m > 0 ? tr("{} мин", "\(m)") : tr("{} с", "\(s)")
 }
 
 func pluralWord(_ n: Int, _ one: String, _ few: String, _ many: String) -> String {
+    if Lang.current == .en { return n == 1 ? one : few }
     let m = n % 10, h = n % 100
     if m == 1, h != 11 { return one }
     return (2...4).contains(m) && !(12...14).contains(h) ? few : many

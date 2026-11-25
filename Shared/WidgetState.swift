@@ -9,6 +9,7 @@ struct WidgetState: Codable, Equatable {
     var playing = false
     var accent = "amber"
     var coverVersion = ""
+    var lang: String?
 
     static let group = "group.com.neoss75.volna"
 

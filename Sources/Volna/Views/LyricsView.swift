@@ -14,28 +14,28 @@ struct LyricsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text((lyrics?.source ?? "текст песни").uppercased())
+                Text(tr(lyrics?.source ?? "текст песни").uppercased())
                     .font(.mono(10))
                     .kerning(0.6)
                     .foregroundStyle(Theme.muted)
                 Spacer()
                 if player.current != nil {
                     Menu {
-                        Button("Найти в интернете", systemImage: "magnifyingglass") { find() }
-                        Button(lyrics == nil ? "Вставить текст" : "Изменить текст", systemImage: "pencil") { editing = true }
+                        Button(tr("Найти в интернете"), systemImage: "magnifyingglass") { find() }
+                        Button(lyrics == nil ? tr("Вставить текст") : tr("Изменить текст"), systemImage: "pencil") { editing = true }
                         if lyrics != nil {
-                            Button("Удалить текст", systemImage: "trash", role: .destructive) { remove() }
+                            Button(tr("Удалить текст"), systemImage: "trash", role: .destructive) { remove() }
                         }
                     } label: {
                         Image(systemName: "ellipsis").foregroundStyle(Theme.muted).frame(width: 36, height: 36)
                     }
-                    .accessibilityLabel("Действия с текстом")
+                    .accessibilityLabel(tr("Действия с текстом"))
                 }
                 Button { settings.v.lyricsOn = false } label: {
                     Image(systemName: "xmark").font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.muted).frame(width: 36, height: 36)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Закрыть текст")
+                .accessibilityLabel(tr("Закрыть текст"))
             }
             .padding(.leading, 16)
             .padding(.trailing, 6)
@@ -51,7 +51,7 @@ struct LyricsView: View {
 
     @ViewBuilder private var content: some View {
         if player.current == nil {
-            empty("Сначала выберите песню.")
+            empty(tr("Сначала выберите песню."))
         } else if let lines {
             synced(lines)
         } else if let lyrics {
@@ -65,20 +65,20 @@ struct LyricsView: View {
             }
         } else if searching {
             Spacer()
-            ProgressView("Ищу текст на lrclib.net…")
+            ProgressView(tr("Ищу текст на lrclib.net…"))
             Spacer()
         } else {
             VStack(spacing: 14) {
                 Spacer()
-                Text("Текста для этой песни пока нет.").foregroundStyle(Theme.muted)
+                Text(tr("Текста для этой песни пока нет.")).foregroundStyle(Theme.muted)
                 HStack {
-                    Button("Найти в интернете") { find() }
+                    Button(tr("Найти в интернете")) { find() }
                         .buttonStyle(.glassProminent)
                         .foregroundStyle(Theme.accentInk)
-                    Button("Вставить текст") { editing = true }
+                    Button(tr("Вставить текст")) { editing = true }
                         .buttonStyle(.glass)
                 }
-                Text("Поиск отправит название и исполнителя на сайт lrclib.net. Ещё можно добавить вместе с песней файл .lrc с тем же именем.")
+                Text(tr("Поиск отправит название и исполнителя на сайт lrclib.net. Ещё можно добавить вместе с песней файл .lrc с тем же именем."))
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
                     .multilineTextAlignment(.center)
@@ -143,12 +143,12 @@ struct LyricsView: View {
                 if let l = try await LyricsSearch.find(t) {
                     LyricsStore.save(l, id: t.id)
                     reload()
-                    toast(l.source.contains("синхр") ? "Найден текст с синхронизацией" : "Найден текст")
+                    toast(l.source.contains("синхр") ? tr("Найден текст с синхронизацией") : tr("Найден текст"))
                 } else {
-                    toast("Текст не найден. Его можно вставить вручную")
+                    toast(tr("Текст не найден. Его можно вставить вручную"))
                 }
             } catch {
-                toast("Не удалось связаться с lrclib.net. Проверьте интернет")
+                toast(tr("Не удалось связаться с lrclib.net. Проверьте интернет"))
             }
         }
     }
@@ -157,7 +157,7 @@ struct LyricsView: View {
         guard let t = player.current else { return }
         LyricsStore.delete(t.id)
         reload()
-        toast("Текст удалён")
+        toast(tr("Текст удалён"))
     }
 }
 
@@ -175,19 +175,19 @@ struct LyricsEditor: View {
                 .background(Theme.surface)
                 .overlay(alignment: .topLeading) {
                     if text.isEmpty {
-                        Text("Вставьте текст. Строки вида [01:23.45] будут подсвечиваться в такт песне.")
+                        Text(tr("Вставьте текст. Строки вида [01:23.45] будут подсвечиваться в такт песне."))
                             .foregroundStyle(Theme.muted)
                             .padding(.horizontal, 18)
                             .padding(.top, 8)
                             .allowsHitTesting(false)
                     }
                 }
-                .navigationTitle("Текст песни")
+                .navigationTitle(tr("Текст песни"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } }
+                    ToolbarItem(placement: .cancellationAction) { Button(tr("Отмена")) { dismiss() } }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Сохранить") {
+                        Button(tr("Сохранить")) {
                             let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
                             if !t.isEmpty { LyricsStore.save(Lyrics(text: t, source: "добавлен вручную"), id: id) }
                             dismiss()

@@ -18,15 +18,15 @@ struct PanelView: View {
                         if panel == .list { Text("\(library.tracks.count)").font(.mono(12)).foregroundStyle(Theme.muted) }
                         Spacer()
                         if panel == .list {
-                            addButton("Добавить папку", "folder.badge.plus") { ui.add(.folder) }
-                            addButton("Добавить файлы", "plus") { ui.add(.files) }
+                            addButton(tr("Добавить папку"), "folder.badge.plus") { ui.add(.folder) }
+                            addButton(tr("Добавить файлы"), "plus") { ui.add(.files) }
                         }
                         Button { ui.panel = nil } label: {
                             Image(systemName: "xmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.fg).frame(width: 26, height: 26)
                         }
                         .buttonStyle(.glass)
                         .buttonBorderShape(.circle)
-                        .accessibilityLabel("Закрыть")
+                        .accessibilityLabel(tr("Закрыть"))
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 18)
@@ -42,6 +42,7 @@ struct PanelView: View {
                 }
             }
         }
+        .id(settings.v.language)
         .background(Theme.surface.ignoresSafeArea())
         .overlay(alignment: .bottom) { ToastView().padding(.bottom, 12) }
         .presentationDetents([.large])
@@ -62,11 +63,11 @@ struct PanelView: View {
 
     private var title: String {
         switch panel {
-        case .list: "Список песен"
-        case .queue: "Очередь"
-        case .eq: "Эквалайзер"
-        case .fx: "Настройки"
-        case .stats: "Статистика"
+        case .list: tr("Список песен")
+        case .queue: tr("Очередь")
+        case .eq: tr("Эквалайзер")
+        case .fx: tr("Настройки")
+        case .stats: tr("Статистика")
         }
     }
 }
@@ -173,26 +174,26 @@ struct TrackActions: View {
     let track: Track
 
     var body: some View {
-        Button("Играть следующей", systemImage: "text.line.first.and.arrowtriangle.forward") { player.playNext(track.id) }
-        Button("В конец очереди", systemImage: "text.append") { player.enqueue(track.id) }
+        Button(tr("Играть следующей"), systemImage: "text.line.first.and.arrowtriangle.forward") { player.playNext(track.id) }
+        Button(tr("В конец очереди"), systemImage: "text.append") { player.enqueue(track.id) }
         let fav = library.isFavourite(track.id)
-        Button(fav ? "Убрать из избранного" : "В избранное", systemImage: fav ? "heart.slash" : "heart") { library.toggleFavourite(track.id) }
-        Menu("Добавить в плейлист", systemImage: "music.note.list") {
+        Button(fav ? tr("Убрать из избранного") : tr("В избранное"), systemImage: fav ? "heart.slash" : "heart") { library.toggleFavourite(track.id) }
+        Menu(tr("Добавить в плейлист"), systemImage: "music.note.list") {
             ForEach(library.playlists) { p in Button(p.name) { library.add(track.id, to: p.id) } }
-            Button("Новый плейлист", systemImage: "plus") { ui.prompt = .newPlaylist(track.id) }
+            Button(tr("Новый плейлист"), systemImage: "plus") { ui.prompt = .newPlaylist(track.id) }
         }
         if let p = library.playlists.first(where: { ui.collection == .playlist($0.id) }) {
-            Button("Убрать из «\(p.name)»", systemImage: "minus.circle") { library.remove(track.id, from: p.id) }
+            Button(tr("Убрать из «{}»", "\(p.name)"), systemImage: "minus.circle") { library.remove(track.id, from: p.id) }
         }
         if !track.hasArtwork || track.artOnline == true {
-            Button(track.artOnline == true && track.hasArtwork ? "Найти другую обложку" : "Найти обложку в интернете", systemImage: "photo") { ui.coverFor = track.id }
+            Button(track.artOnline == true && track.hasArtwork ? tr("Найти другую обложку") : tr("Найти обложку в интернете"), systemImage: "photo") { ui.coverFor = track.id }
         }
         if track.hasArtwork, track.artOnline == true {
-            Button("Убрать найденную обложку", systemImage: "photo.badge.minus") { library.dropCover(track.id) }
+            Button(tr("Убрать найденную обложку"), systemImage: "photo.badge.minus") { library.dropCover(track.id) }
         }
-        Button("Изменить название…", systemImage: "pencil") { ui.editing = track.id }
+        Button(tr("Изменить название…"), systemImage: "pencil") { ui.editing = track.id }
         Divider()
-        Button("Удалить из плеера", systemImage: "trash", role: .destructive) { library.remove([track.id]) }
+        Button(tr("Удалить из плеера"), systemImage: "trash", role: .destructive) { library.remove([track.id]) }
     }
 }
 
@@ -214,7 +215,7 @@ struct SongRow: View {
                         Text(track.title)
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(track.bad == true ? Theme.danger : on ? settings.accent : Theme.fg)
-                        Text(track.bad == true ? "файл не открывается" : track.subtitle)
+                        Text(track.bad == true ? tr("файл не открывается") : track.subtitle)
                             .font(.system(size: 13))
                             .foregroundStyle(Theme.muted)
                     }
@@ -231,7 +232,7 @@ struct SongRow: View {
                                 .padding(.vertical, 1.5)
                                 .overlay(Capsule().stroke(Theme.muted.opacity(0.7), lineWidth: 1))
                                 .padding(.top, 2)
-                                .accessibilityLabel("без потерь")
+                                .accessibilityLabel(tr("без потерь"))
                         }
                     }
                     .foregroundStyle(Theme.muted)
@@ -249,11 +250,11 @@ struct SongRow: View {
                     .frame(width: 34, height: 40)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(fav ? "Убрать из избранного" : "В избранное")
+            .accessibilityLabel(fav ? tr("Убрать из избранного") : tr("В избранное"))
             Menu { TrackActions(track: track) } label: {
                 Image(systemName: "ellipsis").font(.system(size: 16)).foregroundStyle(Theme.muted).frame(width: 34, height: 40)
             }
-            .accessibilityLabel("Действия с песней")
+            .accessibilityLabel(tr("Действия с песней"))
         }
     }
 }
@@ -268,12 +269,12 @@ struct QueuePanel: View {
     var body: some View {
         if player.queue.isEmpty {
             Spacer()
-            Text("Очередь пуста. Откройте «Песни» и выберите трек.").foregroundStyle(Theme.muted).padding(24)
+            Text(tr("Очередь пуста. Откройте «Песни» и выберите трек.")).foregroundStyle(Theme.muted).padding(24)
             Spacer()
         } else {
             ScrollViewReader { proxy in
                 List {
-                    Hint("Нажатие на песню в списке запускает весь список с этого места. Перетащите строку, чтобы поменять порядок; смахните, чтобы убрать.")
+                    Hint(tr("Нажатие на песню в списке запускает весь список с этого места. Перетащите строку, чтобы поменять порядок; смахните, чтобы убрать."))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                     ForEach(Array(player.queue.enumerated()), id: \.offset) { i, id in
@@ -319,9 +320,9 @@ struct EQPanel: View {
         ScrollView {
             VStack(spacing: 16) {
                 HStack {
-                    SwitchRow(label: "Эквалайзер включён", on: $settings.v.eqOn).fixedSize()
+                    SwitchRow(label: tr("Эквалайзер включён"), on: $settings.v.eqOn).fixedSize()
                     Spacer()
-                    Button("Сбросить") {
+                    Button(tr("Сбросить")) {
                         settings.v.bands = EQPreset.all[0].bands
                         settings.v.preamp = 0
                     }
@@ -329,9 +330,9 @@ struct EQPanel: View {
                 }
                 Flow {
                     ForEach(EQPreset.all) { p in
-                        Chip(text: p.name, on: settings.preset?.id == p.id) { settings.v.bands = p.bands }
+                        Chip(text: tr(p.name), on: settings.preset?.id == p.id) { settings.v.bands = p.bands }
                     }
-                    if settings.preset == nil { Chip(text: "Свой", on: true) {} }
+                    if settings.preset == nil { Chip(text: tr("Свой"), on: true) {} }
                 }
                 EQCurve(v: settings.v, accent: settings.accent)
                     .frame(height: 150)
@@ -346,14 +347,14 @@ struct EQPanel: View {
                                 .minimumScaleFactor(0.7)
                             BandSlider(value: $settings.v.bands[i], accent: settings.accent, dim: !settings.v.eqOn)
                                 .frame(height: 170)
-                                .accessibilityLabel(AudioGraph.labels[i] + " герц")
+                                .accessibilityLabel(AudioGraph.labels[i] + tr(" герц"))
                             Text(AudioGraph.labels[i]).font(.mono(10)).foregroundStyle(Theme.fg).lineLimit(1).minimumScaleFactor(0.7)
                         }
                         .frame(maxWidth: .infinity)
                     }
                 }
-                SliderRow(label: "Предусилитель", value: $settings.v.preamp, range: -12...6, step: 0.5, format: formatDb)
-                Hint("10 полос, ±12 дБ. Двойное нажатие на полосу сбрасывает её в ноль. Крайние полосы поднимают весь самый низ и весь верх, до 20 кГц.")
+                SliderRow(label: tr("Предусилитель"), value: $settings.v.preamp, range: -12...6, step: 0.5, format: formatDb)
+                Hint(tr("10 полос, ±12 дБ. Двойное нажатие на полосу сбрасывает её в ноль. Крайние полосы поднимают весь самый низ и весь верх, до 20 кГц."))
             }
             .padding(16)
         }
@@ -442,28 +443,28 @@ struct StatsPanel: View {
             VStack(alignment: .leading, spacing: 18) {
                 let songs = stats.data.songs.values.filter { $0.plays > 0 }.count
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())], spacing: 8) {
-                    tile(formatSpan(stats.data.total), "всего прослушано")
-                    tile("\(stats.plays)", pluralWord(stats.plays, "прослушивание", "прослушивания", "прослушиваний"))
-                    tile("\(songs)", pluralWord(songs, "песня", "разные песни", "разных песен"))
-                    tile(formatSpan(stats.today), "сегодня")
+                    tile(formatSpan(stats.data.total), tr("всего прослушано"))
+                    tile("\(stats.plays)", pluralWord(stats.plays, tr("прослушивание"), tr("прослушивания"), tr("прослушиваний")))
+                    tile("\(songs)", pluralWord(songs, tr("песня"), tr("разные песни"), tr("разных песен")))
+                    tile(formatSpan(stats.today), tr("сегодня"))
                 }
-                Text("Последние 7 дней, минут в день").font(.display(14, .semibold)).foregroundStyle(Theme.fg)
+                Text(tr("Последние 7 дней, минут в день")).font(.display(14, .semibold)).foregroundStyle(Theme.fg)
                 week
-                Text("Чаще всего").font(.display(14, .semibold)).foregroundStyle(Theme.fg)
-                if stats.topSongs.isEmpty { Hint("Здесь появятся песни, которые вы слушаете чаще всего.") }
+                Text(tr("Чаще всего")).font(.display(14, .semibold)).foregroundStyle(Theme.fg)
+                if stats.topSongs.isEmpty { Hint(tr("Здесь появятся песни, которые вы слушаете чаще всего.")) }
                 ForEach(Array(stats.topSongs.enumerated()), id: \.offset) { i, e in
-                    line(i, e.title, e.artist.isEmpty ? "Неизвестный исполнитель" : e.artist, plural(e.plays, "раз", "раза", "раз") + "\n" + formatSpan(e.seconds))
+                    line(i, e.title, e.artist.isEmpty ? tr("Неизвестный исполнитель") : e.artist, plural(e.plays, tr("раз"), tr("раза"), tr("раз#мн")) + "\n" + formatSpan(e.seconds))
                 }
-                Text("Исполнители").font(.display(14, .semibold)).foregroundStyle(Theme.fg)
-                if stats.topArtists.isEmpty { Hint("Пока пусто.") }
+                Text(tr("Исполнители")).font(.display(14, .semibold)).foregroundStyle(Theme.fg)
+                if stats.topArtists.isEmpty { Hint(tr("Пока пусто.")) }
                 ForEach(Array(stats.topArtists.enumerated()), id: \.offset) { i, a in line(i, a.name, nil, formatSpan(a.seconds)) }
-                Button("Сбросить статистику") { confirm = true }.buttonStyle(.glass).tint(Theme.danger)
+                Button(tr("Сбросить статистику")) { confirm = true }.buttonStyle(.glass).tint(Theme.danger)
             }
             .padding(16)
         }
         .onAppear { stats.flush(keepTicking: true) }
-        .confirmationDialog("Сбросить всю статистику прослушиваний? Это нельзя отменить.", isPresented: $confirm, titleVisibility: .visible) {
-            Button("Сбросить статистику", role: .destructive) { stats.reset() }
+        .confirmationDialog(tr("Сбросить всю статистику прослушиваний? Это нельзя отменить."), isPresented: $confirm, titleVisibility: .visible) {
+            Button(tr("Сбросить статистику"), role: .destructive) { stats.reset() }
         }
     }
 
@@ -488,7 +489,7 @@ struct StatsPanel: View {
                             if d.minutes >= 0.5, i == 6 || d.minutes == top { Text("\(Int(d.minutes.rounded()))").font(.mono(10)).foregroundStyle(Theme.fg) }
                             RoundedRectangle(cornerRadius: 4).fill(d.minutes < 0.5 ? Theme.line : settings.accent)
                                 .frame(width: 28, height: max(2, 110 * d.minutes / top))
-                            Text(i == 6 ? "сег." : Self.weekday(d.date)).font(.mono(10)).foregroundStyle(i == 6 ? Theme.fg : Theme.muted)
+                            Text(i == 6 ? tr("сег.") : Self.weekday(d.date)).font(.mono(10)).foregroundStyle(i == 6 ? Theme.fg : Theme.muted)
                         }
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
@@ -497,17 +498,17 @@ struct StatsPanel: View {
                 }
             }
             .frame(height: 150)
-            Hint(selected.map { Self.long(days[$0].date) + ": " + formatSpan(days[$0].minutes * 60) } ?? "Нажмите на столбик, чтобы увидеть точное значение.")
+            Hint(selected.map { Self.long(days[$0].date) + ": " + formatSpan(days[$0].minutes * 60) } ?? tr("Нажмите на столбик, чтобы увидеть точное значение."))
         }
     }
 
     private static func weekday(_ d: Date) -> String {
-        ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"][Calendar.current.component(.weekday, from: d) - 1]
+        [tr("Вс"), tr("Пн"), tr("Вт"), tr("Ср"), tr("Чт"), tr("Пт"), tr("Сб")][Calendar.current.component(.weekday, from: d) - 1]
     }
 
     private static func long(_ d: Date) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ru_RU")
+        f.locale = Lang.current.locale
         f.dateFormat = "EEEE, d MMMM"
         let s = f.string(from: d)
         return s.prefix(1).uppercased() + s.dropFirst()
@@ -535,7 +536,7 @@ struct CoverPicker: View {
     @Environment(\.dismiss) private var dismiss
     let id: UUID
     @State private var list: [CoverCandidate]?
-    @State private var message = "Ищу обложку…"
+    @State private var message = tr("Ищу обложку…")
 
     var body: some View {
         NavigationStack {
@@ -567,9 +568,9 @@ struct CoverPicker: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.surface.ignoresSafeArea())
-            .navigationTitle("Выберите обложку")
+            .navigationTitle(tr("Выберите обложку"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(tr("Отмена")) { dismiss() } } }
         }
         .task { await search() }
     }
@@ -578,14 +579,14 @@ struct CoverPicker: View {
         guard let t = library.track(id) else { return }
         do {
             let found = try await covers.candidates(t, thorough: true)
-            message = "Обложка не найдена"
+            message = tr("Обложка не найдена")
             list = Array(found.prefix(9))
         } catch is CancellationError {
         } catch {
             if case CoverFinder.Failure.limit = error {
-                message = "iTunes просит подождать минуту, попробуйте позже"
+                message = tr("iTunes просит подождать минуту, попробуйте позже")
             } else {
-                message = "Не удалось связаться с iTunes. Проверьте интернет"
+                message = tr("Не удалось связаться с iTunes. Проверьте интернет")
             }
             list = []
         }
@@ -596,9 +597,9 @@ struct CoverPicker: View {
         Task {
             do {
                 try await covers.set(c, for: t)
-                toast("Обложка сохранена")
+                toast(tr("Обложка сохранена"))
             } catch {
-                toast("Не удалось скачать обложку")
+                toast(tr("Не удалось скачать обложку"))
             }
             dismiss()
         }

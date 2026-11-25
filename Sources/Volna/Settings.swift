@@ -11,29 +11,29 @@ enum VizMode: String, Codable, CaseIterable, Identifiable {
 
     var name: String {
         switch self {
-        case .bars: "Столбики"
-        case .peaks: "Пики"
-        case .mirror: "Зеркало"
-        case .led: "Индикатор"
-        case .dots: "Точки"
-        case .area: "Спектр"
-        case .ribbons: "Ленты"
-        case .wave: "Осциллограф"
-        case .scope: "Стереофигура"
-        case .ridges: "Горы"
-        case .flows: "Потоки"
-        case .kaleido: "Калейдоскоп"
-        case .tiles: "Мозаика"
-        case .drop: "Капля"
-        case .aurora: "Сияние"
-        case .confetti: "Конфетти"
-        case .sparks: "Искры"
-        case .pulse: "Пульс"
-        case .stars: "Звёзды"
-        case .flower: "Лепестки"
-        case .ring: "Круг"
-        case .vu: "Стрелки L/R"
-        case .off: "Выключено"
+        case .bars: tr("Столбики")
+        case .peaks: tr("Пики")
+        case .mirror: tr("Зеркало")
+        case .led: tr("Индикатор")
+        case .dots: tr("Точки")
+        case .area: tr("Спектр")
+        case .ribbons: tr("Ленты")
+        case .wave: tr("Осциллограф")
+        case .scope: tr("Стереофигура")
+        case .ridges: tr("Горы")
+        case .flows: tr("Потоки")
+        case .kaleido: tr("Калейдоскоп")
+        case .tiles: tr("Мозаика")
+        case .drop: tr("Капля")
+        case .aurora: tr("Сияние")
+        case .confetti: tr("Конфетти")
+        case .sparks: tr("Искры")
+        case .pulse: tr("Пульс")
+        case .stars: tr("Звёзды")
+        case .flower: tr("Лепестки")
+        case .ring: tr("Круг")
+        case .vu: tr("Стрелки L/R")
+        case .off: tr("Выключено")
         }
     }
 
@@ -85,6 +85,7 @@ final class Settings: ObservableObject {
         var matchRate = true
         var direct = false
         var refreshFolders = true
+        var language = "system"
         var saverOn = true
         /// Seconds without touches before the screensaver.
         var saver = 10
@@ -100,6 +101,7 @@ final class Settings: ObservableObject {
     @Published var v: Values {
         didSet {
             guard v != oldValue else { return }
+            if v.language != oldValue.language { Lang.apply(v.language) }
             save()
             onChange?()
         }
@@ -119,6 +121,7 @@ final class Settings: ObservableObject {
         } else {
             v = base
         }
+        Lang.apply(v.language)
     }
 
     private static func dictionary(_ data: Data?) -> [String: Any] {
@@ -149,13 +152,13 @@ final class Settings: ObservableObject {
     func cycleColors() {
         let all = VizColors.allCases, i = all.firstIndex(of: v.vizPalette) ?? 0
         v.vizPalette = all[(i + 1) % all.count]
-        toast("Цвета: " + v.vizPalette.name)
+        toast(tr("Цвета: ") + v.vizPalette.name)
     }
 
     func cycleViz() {
         let modes = VizMode.allCases.filter { $0 != .off }
         let i = modes.firstIndex(of: v.viz) ?? -1
         v.viz = modes[(i + 1) % modes.count]
-        toast("Визуализация: " + v.viz.name)
+        toast(tr("Визуализация: ") + v.viz.name)
     }
 }

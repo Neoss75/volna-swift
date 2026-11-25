@@ -157,12 +157,12 @@ final class CoverFinder: ObservableObject {
 
     func findAll() {
         let list = library.tracks.filter { !$0.hasArtwork && $0.bad != true }
-        guard !list.isEmpty else { toast("У всех песен уже есть обложки"); return }
+        guard !list.isEmpty else { toast(tr("У всех песен уже есть обложки")); return }
         for t in list {
             library.update(t.id) { $0.artTried = nil }
             if !queue.contains(t.id) { queue.append(t.id) }
         }
-        toast("Ищу обложки: " + plural(list.count, "песня", "песни", "песен"))
+        toast(tr("Ищу обложки: ") + plural(list.count, tr("песня"), tr("песни"), tr("песен")))
         run()
     }
 

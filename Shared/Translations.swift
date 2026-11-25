@@ -1,0 +1,412 @@
+/// One text per line: Russian ‖ Ukrainian ‖ English. {} is replaced by a value, what follows # only tells equal words apart.
+/// scripts/check-texts.py makes sure that nothing is missing.
+enum Translations {
+    static let text = #"""
+файл не найден: его переместили или удалили в «Файлах»‖файл не знайдено: його перемістили або видалили у «Файлах»‖file not found: it was moved or deleted in Files
+У всех песен уже есть обложки‖Усі пісні вже мають обкладинки‖All songs already have covers
+Ищу обложки: ‖Шукаю обкладинки: ‖Looking for covers:
+песня‖пісня‖song
+песни‖пісні‖songs
+песен‖пісень‖songs
+Добавлено: ‖Додано: ‖Added:
+уже в списке: {}‖вже у списку: {}‖already in the list: {}
+не удалось: {}‖не вдалося: {}‖failed: {}
+Папок пока нет. Добавьте папку целиком‖Папок ще немає. Додайте папку цілком‖No folders yet. Add a whole folder
+Новые песни в папках: {}‖Нові пісні в папках: {}‖New songs in folders: {}
+Новых песен в папках нет‖Нових пісень у папках немає‖No new songs in folders
+Сохранено‖Збережено‖Saved
+Файл не открывается‖Файл не відкривається‖The file cannot be opened
+Возвращено из файла‖Повернуто з файлу‖Restored from the file
+Удалено: «{}»‖Видалено: «{}»‖Removed: “{}”
+Удалено ‖Видалено ‖Removed
+Отменить‖Скасувати‖Undo
+Возвращено‖Повернуто‖Restored
+Убрано из избранного‖Прибрано з обраного‖Removed from favourites
+Добавлено в избранное‖Додано в обране‖Added to favourites
+Плейлист создан. Добавляйте песни через «⋯»‖Плейлист створено. Додавайте пісні через «⋯»‖Playlist created. Add songs with “⋯”
+Добавлено в «{}»‖Додано в «{}»‖Added to “{}”
+Уже есть в «{}»‖Вже є в «{}»‖Already in “{}”
+Убрано из плейлиста‖Прибрано з плейлиста‖Removed from the playlist
+Плейлист удалён, песни остались‖Плейлист видалено, пісні залишилися‖Playlist deleted, the songs stay
+Обложка убрана‖Обкладинку прибрано‖Cover removed
+Сыграет следующей‖Зіграє наступною‖Will play next
+Добавлено в очередь‖Додано в чергу‖Added to the queue
+Перемешивание включено‖Перемішування увімкнено‖Shuffle on
+Перемешивание выключено‖Перемішування вимкнено‖Shuffle off
+Повтор: ‖Повтор: ‖Repeat:
+выключен‖вимкнено‖off
+вся очередь‖вся черга‖whole queue
+один трек‖один трек‖one song
+Сначала добавьте музыку: «Песни» → «+»‖Спочатку додайте музику: «Пісні» → «+»‖Add some music first: Songs → “+”
+Не удалось включить звук: {}‖Не вдалося увімкнути звук: {}‖Could not start the sound: {}
+Это начало списка‖Це початок списку‖This is the start of the list
+не удалось открыть файл‖не вдалося відкрити файл‖could not open the file
+Таймер сна: воспроизведение остановлено‖Таймер сну: відтворення зупинено‖Sleep timer: playback stopped
+Столбики‖Стовпчики‖Bars
+Пики‖Піки‖Peaks
+Зеркало‖Дзеркало‖Mirror
+Индикатор‖Індикатор‖LED meter
+Точки‖Крапки‖Dots
+Спектр‖Спектр‖Spectrum
+Ленты‖Стрічки‖Ribbons
+Осциллограф‖Осцилограф‖Oscilloscope
+Стереофигура‖Стереофігура‖Stereo figure
+Горы‖Гори‖Mountains
+Потоки‖Потоки‖Streams
+Калейдоскоп‖Калейдоскоп‖Kaleidoscope
+Мозаика‖Мозаїка‖Mosaic
+Капля‖Крапля‖Drop
+Сияние‖Сяйво‖Aurora
+Конфетти‖Конфеті‖Confetti
+Искры‖Іскри‖Sparks
+Пульс‖Пульс‖Pulse
+Звёзды‖Зірки‖Stars
+Лепестки‖Пелюстки‖Petals
+Круг‖Коло‖Ring
+Стрелки L/R‖Стрілки L/R‖VU meters L/R
+Выключено‖Вимкнено‖Off
+Цвета: ‖Кольори: ‖Colours:
+Визуализация: ‖Візуалізація: ‖Visualisation:
+Статистика сброшена‖Статистику скинуто‖Statistics reset
+Пока ничего не прослушано. Статистика копится сама, пока играет музыка.‖Поки нічого не прослухано. Статистика накопичується сама, поки грає музика.‖Nothing played yet. Statistics collect by themselves while music plays.
+Всего {} · {} · сегодня {}‖Усього {} · {} · сьогодні {}‖Total {} · {} · today {}
+прослушивание‖прослуховування‖play
+прослушивания‖прослуховування‖plays
+прослушиваний‖прослуховувань‖plays
+Неизвестный исполнитель‖Невідомий виконавець‖Unknown artist
+ дБ‖ дБ‖ dB
+{} ч {} мин‖{} год {} хв‖{} h {} min
+{} мин‖{} хв‖{} min
+{} с‖{} с‖{} s
+%.1f МБ‖%.1f МБ‖%.1f MB
+{} кбит/с‖{} кбіт/с‖{} kbps
+VBR ≈ {} кбит/с‖VBR ≈ {} кбіт/с‖VBR ≈ {} kbps
+≈ {} кбит/с‖≈ {} кбіт/с‖≈ {} kbps
+ кбит/с‖ кбіт/с‖ kbps
+%g кГц‖%g кГц‖%g kHz
+{} бит / {}‖{} біт / {}‖{} bit / {}
+В тон плеера‖У тон плеєра‖Player accent
+По уровню‖За рівнем‖By level
+Радуга‖Веселка‖Rainbow
+Огонь‖Вогонь‖Fire
+Неон‖Неон‖Neon
+Раздел‖Розділ‖Section
+Поиск по названию, артисту…‖Пошук за назвою, артистом…‖Search titles, artists…
+Очистить поиск‖Очистити пошук‖Clear search
+Все‖Усі‖All
+♥ Избранное‖♥ Обране‖♥ Favourites
+Без потерь‖Без втрат‖Lossless
+Недавние‖Недавні‖Recent
+Часто играют‖Часто грають‖Most played
+Давно не слушали‖Давно не слухали‖Not played lately
++ Плейлист‖+ Плейлист‖+ Playlist
+Сортировка‖Сортування‖Sort
+По добавлению‖За додаванням‖By date added
+По названию‖За назвою‖By title
+По исполнителю‖За виконавцем‖By artist
+Разные исполнители‖Різні виконавці‖Various artists
+Без альбома‖Без альбому‖No album
+Папок пока нет. Добавьте папку целиком, и новые песни из неё будут появляться сами.‖Папок ще немає. Додайте папку цілком, і нові пісні з неї з’являтимуться самі.‖No folders yet. Add a whole folder, and new songs from it will appear by themselves.
+Список пуст. Добавьте файлы или папку.‖Список порожній. Додайте файли або папку.‖The list is empty. Add files or a folder.
+Файлы‖Файли‖Files
+Папку‖Папку‖Folder
+альбом‖альбом‖album
+альбома‖альбоми‖albums
+альбомов‖альбомів‖albums
+Папка‖Папка‖Folder
+Играть‖Грати‖Play
+Перемешать‖Перемішати‖Shuffle
+Показано {} из {}‖Показано {} з {}‖Showing {} of {}
+Переименовать‖Перейменувати‖Rename
+Удалить‖Видалити‖Delete
+Удалить все‖Видалити всі‖Remove all
+Удалить ({})‖Видалити ({})‖Remove ({})
+Убрать из плеера: {}? Файлы останутся на месте.‖Прибрати з плеєра: {}? Файли залишаться на місці.‖Remove from the player: {}? The files stay where they are.
+Убрать из плеера‖Прибрати з плеєра‖Remove from the player
+Удалить плейлист «{}»? Песни останутся.‖Видалити плейлист «{}»? Пісні залишаться.‖Delete the playlist “{}”? The songs stay.
+Удалить плейлист‖Видалити плейлист‖Delete playlist
+Ничего не найдено‖Нічого не знайдено‖Nothing found
+В избранном пока пусто. Нажмите ♥ у песни, чтобы добавить её сюда.‖В обраному поки порожньо. Натисніть ♥ біля пісні, щоб додати її сюди.‖No favourites yet. Tap ♥ next to a song to add it here.
+Плейлист пуст. Добавьте песни через «⋯» → «Добавить в плейлист».‖Плейлист порожній. Додайте пісні через «⋯» → «Додати в плейлист».‖The playlist is empty. Add songs with “⋯” → “Add to playlist”.
+Песен без потерь пока нет. Это файлы FLAC, ALAC, WAV и AIFF.‖Пісень без втрат поки немає. Це файли FLAC, ALAC, WAV та AIFF.‖No lossless songs yet. These are FLAC, ALAC, WAV and AIFF files.
+Здесь появятся песни, которые вы слушаете чаще всего.‖Тут з’являться пісні, які ви слухаєте найчастіше.‖The songs you play most will appear here.
+Название‖Назва‖Title
+Исполнитель‖Виконавець‖Artist
+Альбом‖Альбом‖Album
+Меняется только в плеере, сам файл «{}» остаётся как есть.‖Змінюється лише в плеєрі, сам файл «{}» залишається як є.‖Changes only in the player, the file “{}” stays as it is.
+Поменять местами название и исполнителя‖Поміняти місцями назву та виконавця‖Swap title and artist
+Вернуть из файла‖Повернути з файлу‖Restore from the file
+Изменить‖Змінити‖Edit
+Отмена‖Скасувати‖Cancel
+Сохранить‖Зберегти‖Save
+текст песни‖текст пісні‖lyrics
+Найти в интернете‖Знайти в інтернеті‖Find online
+Вставить текст‖Вставити текст‖Paste lyrics
+Изменить текст‖Змінити текст‖Edit lyrics
+Удалить текст‖Видалити текст‖Delete lyrics
+Действия с текстом‖Дії з текстом‖Lyrics actions
+Закрыть текст‖Закрити текст‖Close lyrics
+Сначала выберите песню.‖Спочатку виберіть пісню.‖Choose a song first.
+Ищу текст на lrclib.net…‖Шукаю текст на lrclib.net…‖Looking on lrclib.net…
+Текста для этой песни пока нет.‖Тексту для цієї пісні поки немає.‖No lyrics for this song yet.
+Поиск отправит название и исполнителя на сайт lrclib.net. Ещё можно добавить вместе с песней файл .lrc с тем же именем.‖Пошук надішле назву та виконавця на сайт lrclib.net. Ще можна додати разом із піснею файл .lrc з тим самим ім’ям.‖The search sends the title and the artist to lrclib.net. You can also add a .lrc file with the same name together with the song.
+Найден текст с синхронизацией‖Знайдено текст із синхронізацією‖Synced lyrics found
+Найден текст‖Знайдено текст‖Lyrics found
+Текст не найден. Его можно вставить вручную‖Текст не знайдено. Його можна вставити вручну‖No lyrics found. You can paste them by hand
+Не удалось связаться с lrclib.net. Проверьте интернет‖Не вдалося зв’язатися з lrclib.net. Перевірте інтернет‖Could not reach lrclib.net. Check the internet connection
+Текст удалён‖Текст видалено‖Lyrics deleted
+Вставьте текст. Строки вида [01:23.45] будут подсвечиваться в такт песне.‖Вставте текст. Рядки на кшталт [01:23.45] підсвічуватимуться в такт пісні.‖Paste the lyrics. Lines like [01:23.45] light up in time with the song.
+Текст песни‖Текст пісні‖Lyrics
+Добавить папку‖Додати папку‖Add folder
+Добавить файлы‖Додати файли‖Add files
+Закрыть‖Закрити‖Close
+Список песен‖Список пісень‖Song list
+Очередь‖Черга‖Queue
+Эквалайзер‖Еквалайзер‖Equaliser
+Настройки‖Налаштування‖Settings
+Статистика‖Статистика‖Statistics
+Играть следующей‖Грати наступною‖Play next
+В конец очереди‖У кінець черги‖Add to queue
+Убрать из избранного‖Прибрати з обраного‖Remove from favourites
+В избранное‖В обране‖Add to favourites
+Добавить в плейлист‖Додати в плейлист‖Add to playlist
+Новый плейлист‖Новий плейлист‖New playlist
+Убрать из «{}»‖Прибрати з «{}»‖Remove from “{}”
+Найти другую обложку‖Знайти іншу обкладинку‖Find another cover
+Найти обложку в интернете‖Знайти обкладинку в інтернеті‖Find a cover online
+Убрать найденную обложку‖Прибрати знайдену обкладинку‖Remove the found cover
+Изменить название…‖Змінити назву…‖Edit title…
+Удалить из плеера‖Видалити з плеєра‖Remove from the player
+файл не открывается‖файл не відкривається‖the file cannot be opened
+без потерь‖без втрат‖lossless
+Действия с песней‖Дії з піснею‖Song actions
+Очередь пуста. Откройте «Песни» и выберите трек.‖Черга порожня. Відкрийте «Пісні» та виберіть трек.‖The queue is empty. Open Songs and choose one.
+Нажатие на песню в списке запускает весь список с этого места. Перетащите строку, чтобы поменять порядок; смахните, чтобы убрать.‖Натискання на пісню у списку запускає весь список із цього місця. Перетягніть рядок, щоб змінити порядок; змахніть, щоб прибрати.‖Tapping a song in a list plays the whole list from there. Drag a row to change the order, swipe to remove it.
+Эквалайзер включён‖Еквалайзер увімкнено‖Equaliser on
+Сбросить‖Скинути‖Reset
+Свой‖Свій‖Custom
+ герц‖ герц‖ hertz
+Предусилитель‖Передпідсилювач‖Preamp
+10 полос, ±12 дБ. Двойное нажатие на полосу сбрасывает её в ноль. Крайние полосы поднимают весь самый низ и весь верх, до 20 кГц.‖10 смуг, ±12 дБ. Подвійне натискання на смугу скидає її в нуль. Крайні смуги піднімають увесь найнижчий діапазон і весь верх, до 20 кГц.‖10 bands, ±12 dB. Double-tap a band to set it to zero. The outer bands lift all of the lowest bass and all of the top, up to 20 kHz.
+всего прослушано‖усього прослухано‖played in total
+разные песни‖різні пісні‖different songs
+разных песен‖різних пісень‖different songs
+сегодня‖сьогодні‖today
+Последние 7 дней, минут в день‖Останні 7 днів, хвилин на день‖Last 7 days, minutes a day
+Чаще всего‖Найчастіше‖Most played
+раз‖раз‖time
+раза‖рази‖times
+раз#мн‖разів‖times
+Исполнители‖Виконавці‖Artists
+Пока пусто.‖Поки порожньо.‖Nothing here yet.
+Сбросить статистику‖Скинути статистику‖Reset statistics
+Сбросить всю статистику прослушиваний? Это нельзя отменить.‖Скинути всю статистику прослуховувань? Це не можна скасувати.‖Reset all listening statistics? This cannot be undone.
+сег.‖сьог.‖today
+Нажмите на столбик, чтобы увидеть точное значение.‖Натисніть на стовпчик, щоб побачити точне значення.‖Tap a bar to see the exact value.
+Вс‖Нд‖Sun
+Пн‖Пн‖Mon
+Вт‖Вт‖Tue
+Ср‖Ср‖Wed
+Чт‖Чт‖Thu
+Пт‖Пт‖Fri
+Сб‖Сб‖Sat
+Ищу обложку…‖Шукаю обкладинку…‖Looking for a cover…
+Выберите обложку‖Виберіть обкладинку‖Choose a cover
+Обложка не найдена‖Обкладинку не знайдено‖No cover found
+iTunes просит подождать минуту, попробуйте позже‖iTunes просить зачекати хвилину, спробуйте пізніше‖iTunes asks to wait a minute, try again later
+Не удалось связаться с iTunes. Проверьте интернет‖Не вдалося зв’язатися з iTunes. Перевірте інтернет‖Could not reach iTunes. Check the internet connection
+Обложка сохранена‖Обкладинку збережено‖Cover saved
+Не удалось скачать обложку‖Не вдалося завантажити обкладинку‖Could not download the cover
+Читаю песни…‖Читаю пісні…‖Reading songs…
+Волна‖Волна‖Volna
+СБОРКА {}‖ЗБІРКА {}‖BUILD {}
+ПРЯМОЙ‖ПРЯМИЙ‖DIRECT
+Файл без потерь‖Файл без втрат‖Lossless file
+Прямой вывод‖Прямий вивід‖Direct output
+Hi-Res: песня идёт без пересчёта частоты‖Hi-Res: пісня йде без перерахунку частоти‖Hi-Res: the song plays at its own sample rate
+Режим Hi-Res включён, сейчас не используется‖Режим Hi-Res увімкнено, зараз не використовується‖Hi-Res mode is on, not in use now
+Обложка. Смахивание переключает песню‖Обкладинка. Змахування перемикає пісню‖Cover. Swipe to change the song
+Ничего не выбрано‖Нічого не вибрано‖Nothing chosen
+Добавить в избранное‖Додати в обране‖Add to favourites
+Откройте «Песни» и добавьте музыку‖Відкрийте «Пісні» та додайте музику‖Open Songs and add some music
+Откройте «Песни» и выберите трек‖Відкрийте «Пісні» та виберіть трек‖Open Songs and choose one
+{} из {}‖{} з {}‖{} of {}
+выравн. ‖вирівн. ‖gain
+Позиция в треке‖Позиція в треку‖Position in the song
+Предыдущий‖Попередній‖Previous
+Пауза‖Пауза‖Pause
+Следующий‖Наступний‖Next
+Повтор‖Повтор‖Repeat
+Таймер сна: остановка после этого трека‖Таймер сну: зупинка після цього треку‖Sleep timer: stops after this song
+Таймер сна: ‖Таймер сну: ‖Sleep timer:
+Песни‖Пісні‖Songs
+Громкость‖Гучність‖Volume
+Скрыть громкость‖Сховати гучність‖Hide volume
+Плейлист {}‖Плейлист {}‖Playlist {}
+Переименовать плейлист‖Перейменувати плейлист‖Rename playlist
+Заставка. Нажмите, чтобы вернуться к плееру‖Заставка. Натисніть, щоб повернутися до плеєра‖Screensaver. Tap to return to the player
+Обработка звука‖Обробка звуку‖Sound processing
+Выравнивание громкости‖Вирівнювання гучності‖Loudness levelling
+Воспроизведение‖Відтворення‖Playback
+Hi-res и вывод‖Hi-res і вивід‖Hi-res and output
+Оформление‖Оформлення‖Appearance
+Визуализация‖Візуалізація‖Visualisation
+Библиотека и файлы‖Бібліотека та файли‖Library and files
+Обложки‖Обкладинки‖Covers
+Тексты песен‖Тексти пісень‖Lyrics
+О приложении‖Про застосунок‖About
+Выключен‖Вимкнено‖Off
+бас +‖бас +‖bass +
+лимитер включён‖лімітер увімкнено‖limiter on
+лимитер выключен‖лімітер вимкнено‖limiter off
+Включено‖Увімкнено‖On
+кроссфейд {} с‖кросфейд {} с‖crossfade {} s
+без пауз‖без пауз‖gapless
+без кроссфейда‖без кросфейду‖no crossfade
+таймер сна‖таймер сну‖sleep timer
+Тёмная‖Темна‖Dark
+Светлая‖Світла‖Light
+Как в системе‖Як у системі‖Same as iPhone
+плейлист‖плейлист‖playlist
+плейлиста‖плейлисти‖playlists
+плейлистов‖плейлистів‖playlists
+Поиск в iTunes включён‖Пошук в iTunes увімкнено‖iTunes search on
+Поиск выключен‖Пошук вимкнено‖Search off
+Показан вместо обложки‖Показано замість обкладинки‖Shown instead of the cover
+Открывается кнопкой на главном экране‖Відкривається кнопкою на головному екрані‖Opens with a button on the main screen
+Пока ничего не прослушано‖Поки нічого не прослухано‖Nothing played yet
+Всего ‖Усього ‖Total
+Волна ‖Волна ‖Volna
+центр‖центр‖centre
+Л ‖Л ‖L
+П ‖П ‖R
+Тембр‖Тембр‖Tone
+Усиление баса‖Підсилення басу‖Bass boost
+Открыть эквалайзер‖Відкрити еквалайзер‖Open the equaliser
+Стерео‖Стерео‖Stereo
+Баланс‖Баланс‖Balance
+Защита от искажений‖Захист від спотворень‖Distortion protection
+Лимитер‖Лімітер‖Limiter
+Убирает хрип, когда бас или эквалайзер сильно подняты.‖Прибирає хрип, коли бас або еквалайзер сильно підняті.‖Removes crackling when the bass or the equaliser is turned up a lot.
+Сбросить обработку‖Скинути обробку‖Reset processing
+Выравнивать громкость между песнями‖Вирівнювати гучність між піснями‖Level loudness between songs
+Плеер один раз измеряет громкость каждой песни и подстраивает её, чтобы тихие и громкие треки звучали одинаково. Сами файлы не меняются.‖Плеєр один раз вимірює гучність кожної пісні та підлаштовує її, щоб тихі й гучні треки звучали однаково. Самі файли не змінюються.‖The player measures every song once and adjusts it, so that quiet and loud songs sound the same. The files do not change.
+Измерения‖Вимірювання‖Measurements
+Измерено {} из {}‖Виміряно {} з {}‖Measured {} of {}
+ · идёт измерение…‖ · триває вимірювання…‖ · measuring…
+Текущая песня: ‖Поточна пісня: ‖Current song:
+Измерить всю библиотеку‖Виміряти всю бібліотеку‖Measure the whole library
+Вся библиотека уже измерена‖Усю бібліотеку вже виміряно‖The whole library is already measured
+Измеряю громкость: ‖Вимірюю гучність: ‖Measuring loudness:
+Переход между песнями‖Перехід між піснями‖Between songs
+Кроссфейд‖Кросфейд‖Crossfade
+выкл‖вимк‖off
+Конец песни плавно затухает, а следующая нарастает поверх него. Работает при автоматическом переходе. Кнопки «вперёд» и «назад» и свайп по обложке переключают сразу.‖Кінець пісні плавно згасає, а наступна наростає поверх нього. Працює під час автоматичного переходу. Кнопки «вперед» і «назад» та свайп по обкладинці перемикають одразу.‖The end of a song fades out while the next one fades in over it. Works when songs change by themselves. The next and previous buttons and a swipe on the cover switch at once.
+Без пауз‖Без пауз‖Gapless
+Песни без пауз между собой‖Пісні без пауз між собою‖No gaps between songs
+Следующая песня начинается ровно в конце предыдущей: важно для концертов и альбомов, где музыка не прерывается. Работает, когда кроссфейд выключен и у обеих песен одинаковая частота и число каналов.‖Наступна пісня починається рівно в кінці попередньої: важливо для концертів та альбомів, де музика не переривається. Працює, коли кросфейд вимкнено і в обох пісень однакова частота та кількість каналів.‖The next song starts exactly where the last one ends: it matters for concerts and albums without breaks. Works when crossfade is off and both songs have the same sample rate and number of channels.
+Скорость‖Швидкість‖Speed
+Сохранять высоту тона‖Зберігати висоту тону‖Keep the pitch
+Обычная скорость‖Звичайна швидкість‖Normal speed
+Таймер сна‖Таймер сну‖Sleep timer
+1 час‖1 година‖1 hour
+{} минут‖{} хвилин‖{} minutes
+Таймер сна: {} минут‖Таймер сну: {} хвилин‖Sleep timer: {} minutes
+После трека‖Після треку‖After this song
+Сейчас‖Зараз‖Now
+Вывод‖Вивід‖Output
+Частота вывода‖Частота виводу‖Output rate
+Файл‖Файл‖File
+{} бит / ‖{} біт / ‖{} bit /
+Пересчёт частоты‖Перерахунок частоти‖Resampling
+нет‖немає‖no
+есть‖є‖yes
+Частота‖Частота‖Sample rate
+Подстраивать вывод под файл‖Підлаштовувати вивід під файл‖Match the output to the file
+Значок LOSSLESS на главном экране: файл без потерь (FLAC, ALAC, WAV, AIFF). Он говорит о файле, а не о наушниках.‖Значок LOSSLESS на головному екрані: файл без втрат (FLAC, ALAC, WAV, AIFF). Він говорить про файл, а не про навушники.‖The LOSSLESS mark on the main screen: a lossless file (FLAC, ALAC, WAV, AIFF). It is about the file, not the headphones.
+Значок HI-RES на главном экране: контур означает, что режим включён, закрашенный — что песня выше качества CD и идёт на ЦАП без пересчёта.‖Значок HI-RES на головному екрані: контур означає, що режим увімкнено, зафарбований — що пісня вища за якість CD і йде на ЦАП без перерахунку.‖The HI-RES mark on the main screen: an outline means the mode is on, a filled one means the song is better than CD quality and reaches the DAC without resampling.
+Работает с внешним ЦАП по USB-C или HDMI: он переключается на частоту песни, и она идёт без пересчёта. Динамик и Bluetooth работают на своей частоте, её поменять нельзя, а Bluetooth к тому же сжимает звук.‖Працює із зовнішнім ЦАП через USB-C або HDMI: він перемикається на частоту пісні, і вона йде без перерахунку. Динамік і Bluetooth працюють на своїй частоті, її змінити не можна, а Bluetooth до того ж стискає звук.‖Works with an external DAC over USB-C or HDMI: it switches to the sample rate of the song, so nothing is resampled. The speaker and Bluetooth have a fixed rate, and Bluetooth compresses the sound as well.
+Обработка‖Обробка‖Processing
+Выключает всё, что меняет звук: эквалайзер, бас, баланс, лимитер, выравнивание и скорость. Ваши настройки сохраняются и вернутся, когда вы выключите этот режим.‖Вимикає все, що змінює звук: еквалайзер, бас, баланс, лімітер, вирівнювання та швидкість. Ваші налаштування зберігаються й повернуться, коли ви вимкнете цей режим.‖Turns off everything that changes the sound: equaliser, bass, balance, limiter, levelling and speed. Your settings are kept and come back when you turn this mode off.
+Тема‖Тема‖Theme
+Цвет‖Колір‖Colour
+Как выглядит‖Як виглядає‖Preview
+Визуализация выключена.‖Візуалізацію вимкнено.‖Visualisation is off.
+Включите песню, чтобы увидеть движение.‖Увімкніть пісню, щоб побачити рух.‖Play a song to see it move.
+Цвета‖Кольори‖Colours
+низкие‖низькі‖low
+тихо‖тихо‖quiet
+высокие‖високі‖high
+громко‖гучно‖loud
+Режим‖Режим‖Mode
+На главном экране нажатие на визуализацию меняет режим, долгое нажатие — цвета.‖На головному екрані натискання на візуалізацію змінює режим, довге натискання — кольори.‖On the main screen a tap on the visualisation changes the mode, a long press changes the colours.
+Заставка‖Заставка‖Screensaver
+Включать заставку‖Вмикати заставку‖Use the screensaver
+Если играет музыка и вы столько не касаетесь экрана, визуализация открывается на весь экран. Нажатие возвращает плеер. Поверх списков, настроек и текста песни заставка не появляется.‖Якщо грає музика і ви стільки не торкаєтеся екрана, візуалізація відкривається на весь екран. Натискання повертає плеєр. Поверх списків, налаштувань і тексту пісні заставка не з’являється.‖When music plays and you do not touch the screen for this long, the visualisation fills the screen. A tap brings the player back. It does not appear over lists, settings or lyrics.
+10 секунд‖10 секунд‖10 seconds
+20 секунд‖20 секунд‖20 seconds
+30 секунд‖30 секунд‖30 seconds
+1 минута‖1 хвилина‖1 minute
+Как на главном экране‖Як на головному екрані‖Same as the main screen
+Не гасить экран во время заставки‖Не гасити екран під час заставки‖Keep the screen on
+Если выключено, iPhone погаснет сам через время из своих настроек («Экран и яркость → Автоблокировка»), музыка при этом играет дальше. Если включено, экран не гаснет и батарея садится быстрее.‖Якщо вимкнено, iPhone згасне сам через час зі своїх налаштувань («Екран і яскравість → Автоблокування»), музика при цьому грає далі. Якщо увімкнено, екран не гасне і батарея сідає швидше.‖If off, the iPhone dims by its own setting (Display & Brightness → Auto-Lock) and the music goes on. If on, the screen stays lit and the battery drains faster.
+Показать сейчас‖Показати зараз‖Show now
+Сейчас в плеере‖Зараз у плеєрі‖In the player now
+В избранном‖В обраному‖Favourites
+Плейлисты‖Плейлисти‖Playlists
+Общий размер файлов‖Загальний розмір файлів‖Total file size
+%.0f МБ‖%.0f МБ‖%.0f MB
+Папки‖Папки‖Folders
+Искать новые песни при запуске‖Шукати нові пісні під час запуску‖Look for new songs at start
+Папок: {}. Песни, которые вы убрали из плеера, при обновлении не возвращаются.‖Папок: {}. Пісні, які ви прибрали з плеєра, під час оновлення не повертаються.‖Folders: {}. Songs you removed from the player do not come back on refresh.
+Ищу…‖Шукаю…‖Looking…
+Обновить сейчас‖Оновити зараз‖Refresh now
+Добавить‖Додати‖Add
+Папку целиком‖Папку цілком‖Whole folder
+Песни не копируются: плеер играет их там, где они лежат в «Файлах». Удаление из списка сами файлы не трогает. Если переместить или удалить файл, песня перестанет открываться.‖Пісні не копіюються: плеєр грає їх там, де вони лежать у «Файлах». Видалення зі списку самі файли не чіпає. Якщо перемістити або видалити файл, пісня перестане відкриватися.‖Songs are not copied: the player plays them where they are in Files. Removing a song from the list does not touch the file. If a file is moved or deleted, the song stops opening.
+Искать обложки в интернете‖Шукати обкладинки в інтернеті‖Find covers online
+Для песен без своей обложки плеер ищет её в каталоге iTunes по исполнителю и альбому. Туда отправляются только эти названия. Найденная обложка сохраняется и дальше видна без интернета.‖Для пісень без власної обкладинки плеєр шукає її в каталозі iTunes за виконавцем та альбомом. Туди надсилаються лише ці назви. Знайдена обкладинка зберігається й надалі видно без інтернету.‖For songs without a cover the player looks in the iTunes catalogue by artist and album. Only these names are sent there. A found cover is saved and then shows without the internet.
+Библиотека‖Бібліотека‖Library
+Найдено обложек: {}. Без обложки: ‖Знайдено обкладинок: {}. Без обкладинки: ‖Covers found: {}. Without a cover:
+Идёт поиск, осталось {}. iTunes отвечает не чаще раза в 3 секунды, так что это займёт несколько минут.‖Триває пошук, залишилося {}. iTunes відповідає не частіше ніж раз на 3 секунди, тож це займе кілька хвилин.‖Searching, {} left. iTunes answers at most once in 3 seconds, so this takes a few minutes.
+Найти для всей библиотеки‖Знайти для всієї бібліотеки‖Find for the whole library
+Показывать текст вместо обложки‖Показувати текст замість обкладинки‖Show lyrics instead of the cover
+Текст открывается и кнопкой с облачком внизу главного экрана. Строки с временем подсвечиваются в такт песне, нажатие на строку перематывает к ней.‖Текст відкривається і кнопкою з хмаринкою внизу головного екрана. Рядки з часом підсвічуються в такт пісні, натискання на рядок перемотує до нього.‖The speech bubble button at the bottom of the main screen opens lyrics too. Timed lines light up with the song, a tap on a line jumps to it.
+Откуда берётся текст‖Звідки береться текст‖Where lyrics come from
+Из самого файла, из файла .lrc с тем же именем, с сайта lrclib.net по вашему нажатию «Найти в интернете» или вставленный вручную. На lrclib.net отправляются название, исполнитель и длительность песни.‖Із самого файлу, з файлу .lrc з тим самим ім’ям, із сайту lrclib.net за вашим натисканням «Знайти в інтернеті» або вставлений вручну. На lrclib.net надсилаються назва, виконавець і тривалість пісні.‖From the file itself, from a .lrc file with the same name, from lrclib.net when you tap “Find online”, or pasted by hand. The title, artist and length of the song are sent to lrclib.net.
+Музыкальный плеер для файлов на вашем iPhone.‖Музичний плеєр для файлів на вашому iPhone.‖A music player for the files on your iPhone.
+Что уходит в интернет‖Що йде в інтернет‖What goes online
+Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст. Сами файлы, статистика и плейлисты остаются на телефоне.‖Лише назви пісень і виконавців: в iTunes для пошуку обкладинок, якщо його увімкнено, і на lrclib.net, коли ви шукаєте текст. Самі файли, статистика та плейлисти залишаються на телефоні.‖Only names of songs and artists: to iTunes for cover search, if it is on, and to lrclib.net when you look for lyrics. Files, statistics and playlists stay on the phone.
+Ничего не играет‖Нічого не грає‖Nothing is playing
+Предыдущая‖Попередня‖Previous
+Следующая‖Наступна‖Next
+Название песни‖Назва пісні‖Song title
+Ровно‖Рівно‖Flat
+Бас‖Бас‖Bass
+Рок‖Рок‖Rock
+Поп‖Поп‖Pop
+Вокал‖Вокал‖Vocal
+Джаз‖Джаз‖Jazz
+Классика‖Класика‖Classical
+Электроника‖Електроніка‖Electronic
+Верха‖Верхи‖Treble
+Янтарь‖Бурштин‖Amber
+Мята‖М’ята‖Mint
+Коралл‖Корал‖Coral
+Лаванда‖Лаванда‖Lavender
+Небо‖Небо‖Sky
+Роза‖Троянда‖Rose
+Альбомы‖Альбоми‖Albums
+Аудио‖Аудіо‖Audio
+Графика‖Графіка‖Graphics
+Музыка‖Музика‖Music
+Прочее‖Інше‖Other
+файл .lrc‖файл .lrc‖.lrc file
+из файла‖з файлу‖from the file
+добавлен вручную‖додано вручну‖added by hand
+lrclib.net · синхронный‖lrclib.net · синхронний‖lrclib.net · synced
+Язык‖Мова‖Language
+«Как в системе» берёт язык из настроек iPhone.‖«Як у системі» бере мову з налаштувань iPhone.‖“Same as iPhone” takes the language from the iPhone settings.
+Названия песен и исполнителей не переводятся.‖Назви пісень і виконавців не перекладаються.‖Names of songs and artists are not translated.
+"""#
+}

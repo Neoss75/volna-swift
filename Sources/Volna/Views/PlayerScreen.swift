@@ -19,10 +19,11 @@ struct PlayerScreen: View {
                 portrait
             }
         }
+        .id(settings.v.language)
         .background(Theme.bg.ignoresSafeArea())
         .overlay(alignment: .top) {
             if library.importing {
-                ProgressView("Читаю песни…")
+                ProgressView(tr("Читаю песни…"))
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
                     .glassEffect(.regular, in: .capsule)
@@ -94,12 +95,12 @@ struct PlayerScreen: View {
 
     private func headerRow(build: Bool, rate: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text("Волна")
+            Text(tr("Волна"))
                 .font(.display(18))
                 .foregroundStyle(Theme.fg)
                 .fixedSize()
             if build {
-                Text("СБОРКА \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")")
+                Text(tr("СБОРКА {}", "\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")"))
                     .font(.mono(11))
                     .kerning(0.9)
                     .foregroundStyle(Theme.muted)
@@ -135,7 +136,7 @@ struct OutputBadges: View {
                             Text(out.rateText).font(.mono(11)).foregroundStyle(Theme.muted)
                         }
                         if lossless { badge("LOSSLESS", true) }
-                        if settings.v.direct { badge("ПРЯМОЙ", true) }
+                        if settings.v.direct { badge(tr("ПРЯМОЙ"), true) }
                         if settings.v.matchRate { badge("HI-RES", live) }
                     }
                     .fixedSize()
@@ -143,9 +144,9 @@ struct OutputBadges: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel([
-                    lossless ? "Файл без потерь" : nil,
-                    settings.v.direct ? "Прямой вывод" : nil,
-                    settings.v.matchRate ? (live ? "Hi-Res: песня идёт без пересчёта частоты" : "Режим Hi-Res включён, сейчас не используется") : nil,
+                    lossless ? tr("Файл без потерь") : nil,
+                    settings.v.direct ? tr("Прямой вывод") : nil,
+                    settings.v.matchRate ? (live ? tr("Hi-Res: песня идёт без пересчёта частоты") : tr("Режим Hi-Res включён, сейчас не используется")) : nil,
                 ].compactMap { $0 }.joined(separator: ". "))
             }
         }
@@ -203,7 +204,7 @@ struct CoverArea: View {
                     })
             }
             .accessibilityElement()
-            .accessibilityLabel("Обложка. Смахивание переключает песню")
+            .accessibilityLabel(tr("Обложка. Смахивание переключает песню"))
         }
     }
 
@@ -261,7 +262,7 @@ struct TitleBlock: View {
         let t = player.current
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 8) {
-                Text(t?.title ?? "Ничего не выбрано")
+                Text(t?.title ?? tr("Ничего не выбрано"))
                     .font(.display(compact ? 18 : 21, .semibold))
                     .foregroundStyle(Theme.fg)
                     .lineLimit(compact ? 1 : 2)
@@ -275,12 +276,12 @@ struct TitleBlock: View {
                             .frame(width: 34, height: 28)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(on ? "Убрать из избранного" : "Добавить в избранное")
+                    .accessibilityLabel(on ? tr("Убрать из избранного") : tr("Добавить в избранное"))
                 }
             }
             HStack(spacing: 10) {
-                Text(t.map { $0.artist.isEmpty ? "Неизвестный исполнитель" : $0.artist }
-                    ?? (library.tracks.isEmpty ? "Откройте «Песни» и добавьте музыку" : "Откройте «Песни» и выберите трек"))
+                Text(t.map { $0.artist.isEmpty ? tr("Неизвестный исполнитель") : $0.artist }
+                    ?? (library.tracks.isEmpty ? tr("Откройте «Песни» и добавьте музыку") : tr("Откройте «Песни» и выберите трек")))
                     .font(.system(size: 16))
                     .foregroundStyle(Theme.muted)
                     .lineLimit(1)
@@ -308,8 +309,8 @@ struct TitleBlock: View {
 
     private func placeLine(_ t: Track) -> String {
         var p: [String] = []
-        if player.qi >= 0 { p.append("\(player.qi + 1) из \(player.queue.count)") }
-        if settings.v.effectiveNormalize, let g = t.gainDb, g != 0 { p.append("выравн. " + formatDb(g)) }
+        if player.qi >= 0 { p.append(tr("{} из {}", "\(player.qi + 1)", "\(player.queue.count)")) }
+        if settings.v.effectiveNormalize, let g = t.gainDb, g != 0 { p.append(tr("выравн. ") + formatDb(g)) }
         return p.joined(separator: " · ")
     }
 }
@@ -337,7 +338,7 @@ struct SeekBlock: View {
             }
             .frame(height: 48)
             .accessibilityElement()
-            .accessibilityLabel("Позиция в треке")
+            .accessibilityLabel(tr("Позиция в треке"))
             .accessibilityValue(formatTime(clock.time))
             .accessibilityAdjustableAction { dir in
                 player.seek(to: player.position + (dir == .increment ? 10 : -10))
@@ -433,9 +434,9 @@ struct Transport: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            small(player.shuffle ? "Перемешивание включено" : "Перемешать", "shuffle", on: player.shuffle) { player.toggleShuffle() }
+            small(player.shuffle ? tr("Перемешивание включено") : tr("Перемешать"), "shuffle", on: player.shuffle) { player.toggleShuffle() }
             Spacer()
-            side("Предыдущий", "backward.end.fill") { player.previous() }
+            side(tr("Предыдущий"), "backward.end.fill") { player.previous() }
             Spacer()
             Button { player.toggle() } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
@@ -446,11 +447,11 @@ struct Transport: View {
                     .glassEffect(.regular.tint(settings.accent).interactive(), in: .circle)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(player.isPlaying ? "Пауза" : "Играть")
+            .accessibilityLabel(player.isPlaying ? tr("Пауза") : tr("Играть"))
             Spacer()
-            side("Следующий", "forward.end.fill") { player.next() }
+            side(tr("Следующий"), "forward.end.fill") { player.next() }
             Spacer()
-            small("Повтор", player.repeatMode == .one ? "repeat.1" : "repeat", on: player.repeatMode != .off) { player.cycleRepeat() }
+            small(tr("Повтор"), player.repeatMode == .one ? "repeat.1" : "repeat", on: player.repeatMode != .off) { player.cycleRepeat() }
         }
     }
 
@@ -485,10 +486,10 @@ struct SleepNote: View {
 
     var body: some View {
         if player.sleepAfterTrack {
-            note("Таймер сна: остановка после этого трека")
+            note(tr("Таймер сна: остановка после этого трека"))
         } else if let at = player.sleepAt {
             TimelineView(.periodic(from: .now, by: 1)) { c in
-                note("Таймер сна: " + formatTime(max(0, at.timeIntervalSince(c.date))))
+                note(tr("Таймер сна: ") + formatTime(max(0, at.timeIntervalSince(c.date))))
             }
         }
     }
@@ -511,12 +512,12 @@ struct MenuBar: View {
     var body: some View {
         ZStack {
             HStack(spacing: 0) {
-                item("Песни", "music.note", count: library.tracks.count) { ui.panel = .list }
-                item("Очередь", "list.bullet", count: player.queue.count) { ui.panel = .queue }
-                item("Текст песни", "text.bubble", on: settings.v.lyricsOn) { settings.v.lyricsOn.toggle() }
-                item("Эквалайзер", "slider.vertical.3", dot: settings.eqActive) { ui.panel = .eq }
-                item("Настройки", "gearshape", dot: settings.fxActive) { ui.panel = .fx }
-                item("Громкость", "speaker.wave.2") { showVolume() }
+                item(tr("Песни"), "music.note", count: library.tracks.count) { ui.panel = .list }
+                item(tr("Очередь"), "list.bullet", count: player.queue.count) { ui.panel = .queue }
+                item(tr("Текст песни"), "text.bubble", on: settings.v.lyricsOn) { settings.v.lyricsOn.toggle() }
+                item(tr("Эквалайзер"), "slider.vertical.3", dot: settings.eqActive) { ui.panel = .eq }
+                item(tr("Настройки"), "gearshape", dot: settings.fxActive) { ui.panel = .fx }
+                item(tr("Громкость"), "speaker.wave.2") { showVolume() }
             }
             .opacity(volume ? 0 : 1)
             .allowsHitTesting(!volume)
@@ -528,7 +529,7 @@ struct MenuBar: View {
                         Image(systemName: "xmark").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.muted).frame(width: 30, height: 40)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Скрыть громкость")
+                    .accessibilityLabel(tr("Скрыть громкость"))
                 }
                 .padding(.horizontal, 14)
                 .transition(.opacity)
@@ -640,9 +641,9 @@ struct Dialogs: ViewModifier {
                 if case .success(let urls) = result { Task { await library.add(urls: urls) } }
             }
             .alert(promptTitle, isPresented: Binding(get: { active && ui.prompt != nil }, set: { if !$0 { ui.prompt = nil } }), presenting: ui.prompt) { prompt in
-                TextField("Название", text: $name)
-                Button("Отмена", role: .cancel) {}
-                Button("Сохранить") {
+                TextField(tr("Название"), text: $name)
+                Button(tr("Отмена"), role: .cancel) {}
+                Button(tr("Сохранить")) {
                     let n = name.trimmingCharacters(in: .whitespaces)
                     guard !n.isEmpty else { return }
                     switch prompt {
@@ -656,7 +657,7 @@ struct Dialogs: ViewModifier {
             }
             .onChange(of: ui.prompt) { _, p in
                 switch p {
-                case .newPlaylist?: name = "Плейлист \(library.playlists.count + 1)"
+                case .newPlaylist?: name = tr("Плейлист {}", "\(library.playlists.count + 1)")
                 case .rename(_, let old)?: name = old
                 case nil: break
                 }
@@ -670,7 +671,7 @@ struct Dialogs: ViewModifier {
     }
 
     private var promptTitle: String {
-        if case .rename? = ui.prompt { return "Переименовать плейлист" }
-        return "Новый плейлист"
+        if case .rename? = ui.prompt { return tr("Переименовать плейлист") }
+        return tr("Новый плейлист")
     }
 }

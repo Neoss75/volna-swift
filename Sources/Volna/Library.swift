@@ -108,9 +108,9 @@ final class Library: ObservableObject {
                 LyricsStore.save(Lyrics(text: text, source: "файл .lrc"), id: t.id)
             }
         }
-        var parts = ["Добавлено: " + plural(added, "песня", "песни", "песен")]
-        if duplicates > 0 { parts.append("уже в списке: \(duplicates)") }
-        if failed > 0 { parts.append("не удалось: \(failed)") }
+        var parts = [tr("Добавлено: ") + plural(added, tr("песня"), tr("песни"), tr("песен"))]
+        if duplicates > 0 { parts.append(tr("уже в списке: {}", "\(duplicates)")) }
+        if failed > 0 { parts.append(tr("не удалось: {}", "\(failed)")) }
         toast(parts.joined(separator: ", "))
     }
 
@@ -169,7 +169,7 @@ final class Library: ObservableObject {
     /// Looks for new songs in the folders added earlier.
     func refreshFolders(quiet: Bool) async {
         guard !refreshing, !importing, !folders.isEmpty else {
-            if !quiet, folders.isEmpty { toast("Папок пока нет. Добавьте папку целиком") }
+            if !quiet, folders.isEmpty { toast(tr("Папок пока нет. Добавьте папку целиком")) }
             return
         }
         refreshing = true
@@ -190,9 +190,9 @@ final class Library: ObservableObject {
         }
         if added > 0 {
             saveNow()
-            toast("Новые песни в папках: \(added)")
+            toast(tr("Новые песни в папках: {}", "\(added)"))
         } else if !quiet {
-            toast("Новых песен в папках нет")
+            toast(tr("Новых песен в папках нет"))
         }
     }
 
@@ -207,12 +207,12 @@ final class Library: ObservableObject {
             $0.album = album
             $0.edited = true
         }
-        toast("Сохранено")
+        toast(tr("Сохранено"))
     }
 
     func restoreTags(_ id: UUID) async {
         guard let t = track(id), let access = open(t) else {
-            toast("Файл не открывается")
+            toast(tr("Файл не открывается"))
             return
         }
         let meta = await MetadataReader.read(url: access.url)
@@ -220,7 +220,7 @@ final class Library: ObservableObject {
             $0.edited = false
             self.apply(meta, to: &$0)
         }
-        toast("Возвращено из файла")
+        toast(tr("Возвращено из файла"))
     }
 
     private func remember(folder url: URL) -> FolderRef? {
@@ -289,14 +289,14 @@ final class Library: ObservableObject {
         reindex()
         onRemove?(ids)
         scheduleSave()
-        let text = removed.count == 1 ? "Удалено: «\(removed[0].element.title)»" : "Удалено " + plural(removed.count, "песня", "песни", "песен")
-        Toaster.shared.show(text, action: "Отменить") { [weak self] in
+        let text = removed.count == 1 ? tr("Удалено: «{}»", "\(removed[0].element.title)") : tr("Удалено ") + plural(removed.count, tr("песня"), tr("песни"), tr("песен"))
+        Toaster.shared.show(text, action: tr("Отменить")) { [weak self] in
             guard let self else { return }
             for (i, t) in removed { self.tracks.insert(t, at: min(i, self.tracks.count)) }
             self.hidden.subtract(hiddenNow)
             self.reindex()
             self.scheduleSave()
-            toast("Возвращено")
+            toast(tr("Возвращено"))
         }
     }
 
@@ -306,10 +306,10 @@ final class Library: ObservableObject {
 
     func toggleFavourite(_ id: UUID) {
         if favourites.remove(id) != nil {
-            toast("Убрано из избранного")
+            toast(tr("Убрано из избранного"))
         } else {
             favourites.insert(id)
-            toast("Добавлено в избранное")
+            toast(tr("Добавлено в избранное"))
         }
         scheduleSave()
     }
@@ -319,17 +319,17 @@ final class Library: ObservableObject {
         let p = Playlist(id: UUID(), name: name, keys: ids)
         playlists.append(p)
         scheduleSave()
-        toast(ids.isEmpty ? "Плейлист создан. Добавляйте песни через «⋯»" : "Добавлено в «\(name)»")
+        toast(ids.isEmpty ? tr("Плейлист создан. Добавляйте песни через «⋯»") : tr("Добавлено в «{}»", "\(name)"))
         return p
     }
 
     func add(_ id: UUID, to playlist: UUID) {
         guard let i = playlists.firstIndex(where: { $0.id == playlist }) else { return }
         if playlists[i].keys.contains(id) {
-            toast("Уже есть в «\(playlists[i].name)»")
+            toast(tr("Уже есть в «{}»", "\(playlists[i].name)"))
         } else {
             playlists[i].keys.append(id)
-            toast("Добавлено в «\(playlists[i].name)»")
+            toast(tr("Добавлено в «{}»", "\(playlists[i].name)"))
             scheduleSave()
         }
     }
@@ -338,7 +338,7 @@ final class Library: ObservableObject {
         guard let i = playlists.firstIndex(where: { $0.id == playlist }) else { return }
         playlists[i].keys.removeAll { $0 == id }
         scheduleSave()
-        toast("Убрано из плейлиста")
+        toast(tr("Убрано из плейлиста"))
     }
 
     func rename(_ playlist: UUID, to name: String) {
@@ -350,7 +350,7 @@ final class Library: ObservableObject {
     func deletePlaylist(_ id: UUID) {
         playlists.removeAll { $0.id == id }
         scheduleSave()
-        toast("Плейлист удалён, песни остались")
+        toast(tr("Плейлист удалён, песни остались"))
     }
 
     // MARK: - Covers
@@ -373,7 +373,7 @@ final class Library: ObservableObject {
             $0.artOnline = false
             $0.artTried = CoverFinder.version
         }
-        toast("Обложка убрана")
+        toast(tr("Обложка убрана"))
     }
 
     // MARK: - Saving

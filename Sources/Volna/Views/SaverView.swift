@@ -24,7 +24,7 @@ struct SaverView: View {
         .onTapGesture(perform: close)
         .gesture(DragGesture(minimumDistance: 15).onEnded { _ in close() })
         .accessibilityElement()
-        .accessibilityLabel("Заставка. Нажмите, чтобы вернуться к плееру")
+        .accessibilityLabel(tr("Заставка. Нажмите, чтобы вернуться к плееру"))
         .accessibilityAddTraits(.isButton)
         .task {
             // a still picture is not good for the screen, so everything wanders a little

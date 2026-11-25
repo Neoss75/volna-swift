@@ -6,22 +6,23 @@ enum SettingsPage: String, Hashable, CaseIterable {
     case sound, eq, loudness, playback, hires
     case theme, viz
     case library, covers, lyrics
-    case stats, about
+    case language, stats, about
 
     var title: String {
         switch self {
-        case .sound: "Обработка звука"
-        case .eq: "Эквалайзер"
-        case .loudness: "Выравнивание громкости"
-        case .playback: "Воспроизведение"
-        case .hires: "Hi-res и вывод"
-        case .theme: "Оформление"
-        case .viz: "Визуализация"
-        case .library: "Библиотека и файлы"
-        case .covers: "Обложки"
-        case .lyrics: "Тексты песен"
-        case .stats: "Статистика"
-        case .about: "О приложении"
+        case .sound: tr("Обработка звука")
+        case .eq: tr("Эквалайзер")
+        case .loudness: tr("Выравнивание громкости")
+        case .playback: tr("Воспроизведение")
+        case .hires: tr("Hi-res и вывод")
+        case .theme: tr("Оформление")
+        case .viz: tr("Визуализация")
+        case .library: tr("Библиотека и файлы")
+        case .covers: tr("Обложки")
+        case .lyrics: tr("Тексты песен")
+        case .language: tr("Язык")
+        case .stats: tr("Статистика")
+        case .about: tr("О приложении")
         }
     }
 
@@ -37,6 +38,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .library: "folder"
         case .covers: "photo"
         case .lyrics: "text.bubble"
+        case .language: "globe"
         case .stats: "chart.xyaxis.line"
         case .about: "info.circle"
         }
@@ -46,7 +48,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         ("Аудио", [.eq, .sound, .loudness, .playback, .hires]),
         ("Графика", [.theme, .viz]),
         ("Музыка", [.library, .covers, .lyrics]),
-        ("Прочее", [.stats, .about]),
+        ("Прочее", [.language, .stats, .about]),
     ]
 }
 
@@ -56,7 +58,7 @@ struct SettingsPanel: View {
     var body: some View {
         NavigationStack(path: $ui.settingsPath) {
             SettingsRoot()
-                .navigationTitle("Настройки")
+                .navigationTitle(tr("Настройки"))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { closeButton }
                 .navigationDestination(for: SettingsPage.self) { page in
@@ -71,7 +73,7 @@ struct SettingsPanel: View {
     private var closeButton: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             Button { ui.panel = nil } label: { Image(systemName: "xmark").foregroundStyle(Theme.fg) }
-                .accessibilityLabel("Закрыть")
+                .accessibilityLabel(tr("Закрыть"))
         }
     }
 }
@@ -87,7 +89,7 @@ private struct SettingsRoot: View {
             VStack(alignment: .leading, spacing: 22) {
                 ForEach(SettingsPage.groups, id: \.title) { group in
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(group.title).font(.display(14, .semibold)).foregroundStyle(Theme.fg).padding(.leading, 4)
+                        Text(tr(group.title)).font(.display(14, .semibold)).foregroundStyle(Theme.fg).padding(.leading, 4)
                         VStack(spacing: 0) {
                             ForEach(group.pages, id: \.self) { page in
                                 NavigationLink(value: page) { row(page) }.buttonStyle(.plain)
@@ -128,37 +130,39 @@ private struct SettingsRoot: View {
         let v = settings.v
         switch page {
         case .eq:
-            return v.eqOn ? settings.preset?.name ?? "Свой" : "Выключен"
+            return v.eqOn ? (settings.preset.map { tr($0.name) } ?? tr("Свой")) : tr("Выключен")
         case .sound:
             var p: [String] = []
-            if v.bass > 0 { p.append("бас +" + String(format: "%g", v.bass) + " дБ") }
+            if v.bass > 0 { p.append(tr("бас +") + String(format: "%g", v.bass) + tr(" дБ")) }
             if v.balance != 0 { p.append(FXFormat.balance(v.balance)) }
-            p.append(v.limiter ? "лимитер включён" : "лимитер выключен")
+            p.append(v.limiter ? tr("лимитер включён") : tr("лимитер выключен"))
             return p.joined(separator: " · ")
         case .loudness:
-            return v.normalize ? "Включено" : "Выключено"
+            return v.normalize ? tr("Включено") : tr("Выключено")
         case .playback:
-            var p = [v.crossfade > 0 ? "кроссфейд \(Int(v.crossfade)) с" : v.gapless ? "без пауз" : "без кроссфейда"]
+            var p = [v.crossfade > 0 ? tr("кроссфейд {} с", "\(Int(v.crossfade))") : v.gapless ? tr("без пауз") : tr("без кроссфейда")]
             if v.rate != 1 { p.append(FXFormat.rate(v.rate)) }
-            if player.sleepAt != nil || player.sleepAfterTrack { p.append("таймер сна") }
+            if player.sleepAt != nil || player.sleepAfterTrack { p.append(tr("таймер сна")) }
             return p.joined(separator: " · ")
         case .hires:
-            return v.direct ? "Прямой вывод" : OutputInfo.now().rateText
+            return v.direct ? tr("Прямой вывод") : OutputInfo.now().rateText
         case .theme:
-            let mode = ["dark": "Тёмная", "light": "Светлая"][v.themeMode] ?? "Как в системе"
-            return mode + " · " + (Accent.all.first { $0.id == v.accent }?.name ?? "")
+            let mode = ["dark": tr("Тёмная"), "light": tr("Светлая")][v.themeMode] ?? tr("Как в системе")
+            return mode + " · " + tr(Accent.all.first { $0.id == v.accent }?.name ?? "")
         case .viz:
             return v.viz == .off ? v.viz.name : v.viz.name + " · " + v.vizPalette.name.lowercased()
         case .library:
-            return plural(library.tracks.count, "песня", "песни", "песен") + " · " + plural(library.playlists.count, "плейлист", "плейлиста", "плейлистов")
+            return plural(library.tracks.count, tr("песня"), tr("песни"), tr("песен")) + " · " + plural(library.playlists.count, tr("плейлист"), tr("плейлиста"), tr("плейлистов"))
         case .covers:
-            return v.onlineArt ? "Поиск в iTunes включён" : "Поиск выключен"
+            return v.onlineArt ? tr("Поиск в iTunes включён") : tr("Поиск выключен")
         case .lyrics:
-            return v.lyricsOn ? "Показан вместо обложки" : "Открывается кнопкой на главном экране"
+            return v.lyricsOn ? tr("Показан вместо обложки") : tr("Открывается кнопкой на главном экране")
+        case .language:
+            return v.language == "system" ? tr("Как в системе") : Lang.current.name
         case .stats:
-            return stats.data.total < 1 ? "Пока ничего не прослушано" : "Всего " + formatSpan(stats.data.total)
+            return stats.data.total < 1 ? tr("Пока ничего не прослушано") : tr("Всего ") + formatSpan(stats.data.total)
         case .about:
-            return "Волна " + AppInfo.version
+            return tr("Волна ") + AppInfo.version
         }
     }
 }
@@ -171,7 +175,7 @@ enum AppInfo {
 }
 
 enum FXFormat {
-    static func balance(_ v: Double) -> String { v == 0 ? "центр" : (v < 0 ? "Л " : "П ") + "\(Int(abs(v)))%" }
+    static func balance(_ v: Double) -> String { v == 0 ? tr("центр") : (v < 0 ? tr("Л ") : tr("П ")) + "\(Int(abs(v)))%" }
     static func rate(_ v: Double) -> String { String(format: "%.2f×", v) }
 }
 
@@ -217,6 +221,7 @@ private struct SettingsPageView: View {
                         case .library: LibraryPage()
                         case .covers: CoversPage()
                         case .lyrics: LyricsPage()
+                        case .language: LanguagePage()
                         default: AboutPage()
                         }
                     }
@@ -234,18 +239,18 @@ private struct SoundPage: View {
     @EnvironmentObject private var settings: Settings
 
     var body: some View {
-        Block("Тембр") {
-            SliderRow(label: "Усиление баса", value: $settings.v.bass, range: 0...12, step: 0.5, format: formatDb)
-            NavigationLink(value: SettingsPage.eq) { Text("Открыть эквалайзер") }.buttonStyle(.glass)
+        Block(tr("Тембр")) {
+            SliderRow(label: tr("Усиление баса"), value: $settings.v.bass, range: 0...12, step: 0.5, format: formatDb)
+            NavigationLink(value: SettingsPage.eq) { Text(tr("Открыть эквалайзер")) }.buttonStyle(.glass)
         }
-        Block("Стерео") {
-            SliderRow(label: "Баланс", value: $settings.v.balance, range: -100...100, step: 5, format: FXFormat.balance)
+        Block(tr("Стерео")) {
+            SliderRow(label: tr("Баланс"), value: $settings.v.balance, range: -100...100, step: 5, format: FXFormat.balance)
         }
-        Block("Защита от искажений") {
-            SwitchRow(label: "Лимитер", on: $settings.v.limiter)
-            Hint("Убирает хрип, когда бас или эквалайзер сильно подняты.")
+        Block(tr("Защита от искажений")) {
+            SwitchRow(label: tr("Лимитер"), on: $settings.v.limiter)
+            Hint(tr("Убирает хрип, когда бас или эквалайзер сильно подняты."))
         }
-        Button("Сбросить обработку") {
+        Button(tr("Сбросить обработку")) {
             settings.v.bass = 0
             settings.v.balance = 0
             settings.v.limiter = true
@@ -262,25 +267,25 @@ private struct LoudnessPage: View {
 
     var body: some View {
         Block {
-            SwitchRow(label: "Выравнивать громкость между песнями", on: $settings.v.normalize)
-            Hint("Плеер один раз измеряет громкость каждой песни и подстраивает её, чтобы тихие и громкие треки звучали одинаково. Сами файлы не меняются.")
+            SwitchRow(label: tr("Выравнивать громкость между песнями"), on: $settings.v.normalize)
+            Hint(tr("Плеер один раз измеряет громкость каждой песни и подстраивает её, чтобы тихие и громкие треки звучали одинаково. Сами файлы не меняются."))
         }
-        Block("Измерения") {
+        Block(tr("Измерения")) {
             let done = library.tracks.filter { $0.gainDb != nil }.count
-            Hint("Измерено \(done) из \(library.tracks.count)" + (analyzer.left > 0 ? " · идёт измерение…" : ""))
-            if let g = player.current?.gainDb { Hint("Текущая песня: " + formatDb(g)) }
-            Button("Измерить всю библиотеку") { measureAll() }.buttonStyle(.glass)
+            Hint(tr("Измерено {} из {}", "\(done)", "\(library.tracks.count)") + (analyzer.left > 0 ? tr(" · идёт измерение…") : ""))
+            if let g = player.current?.gainDb { Hint(tr("Текущая песня: ") + formatDb(g)) }
+            Button(tr("Измерить всю библиотеку")) { measureAll() }.buttonStyle(.glass)
         }
     }
 
     private func measureAll() {
         let l = library.tracks.filter { ($0.gainDb == nil || $0.wave == nil) && $0.bad != true }
         if l.isEmpty {
-            toast("Вся библиотека уже измерена")
+            toast(tr("Вся библиотека уже измерена"))
             return
         }
         for t in l { analyzer.request(t, first: false) }
-        toast("Измеряю громкость: " + plural(l.count, "песня", "песни", "песен"))
+        toast(tr("Измеряю громкость: ") + plural(l.count, tr("песня"), tr("песни"), tr("песен")))
     }
 }
 
@@ -289,31 +294,31 @@ private struct PlaybackPage: View {
     @EnvironmentObject private var player: Player
 
     var body: some View {
-        Block("Переход между песнями") {
-            SliderRow(label: "Кроссфейд", value: $settings.v.crossfade, range: 0...12, step: 1) { $0 == 0 ? "выкл" : "\(Int($0)) с" }
-            Hint("Конец песни плавно затухает, а следующая нарастает поверх него. Работает при автоматическом переходе. Кнопки «вперёд» и «назад» и свайп по обложке переключают сразу.")
+        Block(tr("Переход между песнями")) {
+            SliderRow(label: tr("Кроссфейд"), value: $settings.v.crossfade, range: 0...12, step: 1) { $0 == 0 ? tr("выкл") : tr("{} с", "\(Int($0))") }
+            Hint(tr("Конец песни плавно затухает, а следующая нарастает поверх него. Работает при автоматическом переходе. Кнопки «вперёд» и «назад» и свайп по обложке переключают сразу."))
         }
-        Block("Без пауз") {
-            SwitchRow(label: "Песни без пауз между собой", on: $settings.v.gapless)
-            Hint("Следующая песня начинается ровно в конце предыдущей: важно для концертов и альбомов, где музыка не прерывается. Работает, когда кроссфейд выключен и у обеих песен одинаковая частота и число каналов.")
+        Block(tr("Без пауз")) {
+            SwitchRow(label: tr("Песни без пауз между собой"), on: $settings.v.gapless)
+            Hint(tr("Следующая песня начинается ровно в конце предыдущей: важно для концертов и альбомов, где музыка не прерывается. Работает, когда кроссфейд выключен и у обеих песен одинаковая частота и число каналов."))
         }
-        Block("Скорость") {
-            SliderRow(label: "Скорость", value: $settings.v.rate, range: 0.5...2, step: 0.05, format: FXFormat.rate)
-            SwitchRow(label: "Сохранять высоту тона", on: $settings.v.keepPitch)
+        Block(tr("Скорость")) {
+            SliderRow(label: tr("Скорость"), value: $settings.v.rate, range: 0.5...2, step: 0.05, format: FXFormat.rate)
+            SwitchRow(label: tr("Сохранять высоту тона"), on: $settings.v.keepPitch)
             if settings.v.rate != 1 {
-                Button("Обычная скорость") { settings.v.rate = 1 }.buttonStyle(.glass)
+                Button(tr("Обычная скорость")) { settings.v.rate = 1 }.buttonStyle(.glass)
             }
         }
-        Block("Таймер сна") {
+        Block(tr("Таймер сна")) {
             Flow {
-                Chip(text: "Выключен", on: player.sleepAt == nil && !player.sleepAfterTrack) { player.sleep(minutes: nil) }
+                Chip(text: tr("Выключен"), on: player.sleepAt == nil && !player.sleepAfterTrack) { player.sleep(minutes: nil) }
                 ForEach([15, 30, 45, 60], id: \.self) { m in
-                    Chip(text: m == 60 ? "1 час" : "\(m) минут", on: false) {
+                    Chip(text: m == 60 ? tr("1 час") : tr("{} минут", "\(m)"), on: false) {
                         player.sleep(minutes: m)
-                        toast("Таймер сна: \(m) минут")
+                        toast(tr("Таймер сна: {} минут", "\(m)"))
                     }
                 }
-                Chip(text: "После трека", on: player.sleepAfterTrack) { player.sleepAfterThisTrack() }
+                Chip(text: tr("После трека"), on: player.sleepAfterTrack) { player.sleepAfterThisTrack() }
             }
             SleepNote()
         }
@@ -340,7 +345,7 @@ struct OutputInfo: Equatable {
         return abs(sr - rate) < 1
     }
 
-    static func khz(_ r: Double) -> String { String(format: "%g кГц", (r / 100).rounded() / 10) }
+    static func khz(_ r: Double) -> String { String(format: tr("%g кГц"), (r / 100).rounded() / 10) }
 }
 
 private struct HiResPage: View {
@@ -350,24 +355,24 @@ private struct HiResPage: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let o = OutputInfo.now()
-            Block("Сейчас") {
-                line("Вывод", o.device)
-                line("Частота вывода", o.rateText)
+            Block(tr("Сейчас")) {
+                line(tr("Вывод"), o.device)
+                line(tr("Частота вывода"), o.rateText)
                 if let t = player.current, let sr = t.sampleRate {
-                    line("Файл", (t.bits.map { "\($0) бит / " } ?? "") + OutputInfo.khz(sr))
-                    line("Пересчёт частоты", abs(sr - o.rate) < 1 ? "нет" : "есть")
+                    line(tr("Файл"), (t.bits.map { tr("{} бит / ", "\($0)") } ?? "") + OutputInfo.khz(sr))
+                    line(tr("Пересчёт частоты"), abs(sr - o.rate) < 1 ? tr("нет") : tr("есть"))
                 }
             }
         }
-        Block("Частота") {
-            SwitchRow(label: "Подстраивать вывод под файл", on: $settings.v.matchRate)
-            Hint("Значок LOSSLESS на главном экране: файл без потерь (FLAC, ALAC, WAV, AIFF). Он говорит о файле, а не о наушниках.")
-            Hint("Значок HI-RES на главном экране: контур означает, что режим включён, закрашенный — что песня выше качества CD и идёт на ЦАП без пересчёта.")
-            Hint("Работает с внешним ЦАП по USB-C или HDMI: он переключается на частоту песни, и она идёт без пересчёта. Динамик и Bluetooth работают на своей частоте, её поменять нельзя, а Bluetooth к тому же сжимает звук.")
+        Block(tr("Частота")) {
+            SwitchRow(label: tr("Подстраивать вывод под файл"), on: $settings.v.matchRate)
+            Hint(tr("Значок LOSSLESS на главном экране: файл без потерь (FLAC, ALAC, WAV, AIFF). Он говорит о файле, а не о наушниках."))
+            Hint(tr("Значок HI-RES на главном экране: контур означает, что режим включён, закрашенный — что песня выше качества CD и идёт на ЦАП без пересчёта."))
+            Hint(tr("Работает с внешним ЦАП по USB-C или HDMI: он переключается на частоту песни, и она идёт без пересчёта. Динамик и Bluetooth работают на своей частоте, её поменять нельзя, а Bluetooth к тому же сжимает звук."))
         }
-        Block("Обработка") {
-            SwitchRow(label: "Прямой вывод", on: $settings.v.direct)
-            Hint("Выключает всё, что меняет звук: эквалайзер, бас, баланс, лимитер, выравнивание и скорость. Ваши настройки сохраняются и вернутся, когда вы выключите этот режим.")
+        Block(tr("Обработка")) {
+            SwitchRow(label: tr("Прямой вывод"), on: $settings.v.direct)
+            Hint(tr("Выключает всё, что меняет звук: эквалайзер, бас, баланс, лимитер, выравнивание и скорость. Ваши настройки сохраняются и вернутся, когда вы выключите этот режим."))
         }
     }
 
@@ -386,17 +391,17 @@ private struct ThemePage: View {
     @EnvironmentObject private var settings: Settings
 
     var body: some View {
-        Block("Тема") {
+        Block(tr("Тема")) {
             Flow {
-                ForEach([("system", "Как в системе"), ("dark", "Тёмная"), ("light", "Светлая")], id: \.0) { m in
+                ForEach([("system", tr("Как в системе")), ("dark", tr("Тёмная")), ("light", tr("Светлая"))], id: \.0) { m in
                     Chip(text: m.1, on: settings.v.themeMode == m.0) { settings.v.themeMode = m.0 }
                 }
             }
         }
-        Block("Цвет") {
+        Block(tr("Цвет")) {
             Flow {
                 ForEach(Accent.all) { a in
-                    Chip(text: a.name, dot: a.color, on: settings.v.accent == a.id) { settings.v.accent = a.id }
+                    Chip(text: tr(a.name), dot: a.color, on: settings.v.accent == a.id) { settings.v.accent = a.id }
                 }
             }
         }
@@ -409,10 +414,10 @@ private struct VizPage: View {
     @EnvironmentObject private var ui: UIState
 
     var body: some View {
-        Block("Как выглядит") {
+        Block(tr("Как выглядит")) {
             switch settings.v.viz {
             case .off:
-                Hint("Визуализация выключена.")
+                Hint(tr("Визуализация выключена."))
             case .ring:
                 HStack {
                     Spacer()
@@ -422,9 +427,9 @@ private struct VizPage: View {
             default:
                 VizStrip()
             }
-            if !player.isPlaying, settings.v.viz != .off { Hint("Включите песню, чтобы увидеть движение.") }
+            if !player.isPlaying, settings.v.viz != .off { Hint(tr("Включите песню, чтобы увидеть движение.")) }
         }
-        Block("Цвета") {
+        Block(tr("Цвета")) {
             Flow {
                 ForEach(VizColors.allCases) { c in
                     Chip(text: c.name, on: settings.v.vizPalette == c) { settings.v.vizPalette = c }
@@ -435,39 +440,39 @@ private struct VizPage: View {
                     .frame(height: 8)
                     .clipShape(Capsule())
                 HStack {
-                    Text(settings.v.vizPalette == .rainbow ? "низкие" : "тихо")
+                    Text(settings.v.vizPalette == .rainbow ? tr("низкие") : tr("тихо"))
                     Spacer()
-                    Text(settings.v.vizPalette == .rainbow ? "высокие" : "громко")
+                    Text(settings.v.vizPalette == .rainbow ? tr("высокие") : tr("громко"))
                 }
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.muted)
             }
         }
-        Block("Режим") {
+        Block(tr("Режим")) {
             Flow {
                 ForEach(VizMode.allCases) { m in
                     Chip(text: m.name, on: settings.v.viz == m) { settings.v.viz = m }
                 }
             }
-            Hint("На главном экране нажатие на визуализацию меняет режим, долгое нажатие — цвета.")
+            Hint(tr("На главном экране нажатие на визуализацию меняет режим, долгое нажатие — цвета."))
         }
-        Block("Заставка") {
-            SwitchRow(label: "Включать заставку", on: $settings.v.saverOn)
-            Hint("Если играет музыка и вы столько не касаетесь экрана, визуализация открывается на весь экран. Нажатие возвращает плеер. Поверх списков, настроек и текста песни заставка не появляется.")
+        Block(tr("Заставка")) {
+            SwitchRow(label: tr("Включать заставку"), on: $settings.v.saverOn)
+            Hint(tr("Если играет музыка и вы столько не касаетесь экрана, визуализация открывается на весь экран. Нажатие возвращает плеер. Поверх списков, настроек и текста песни заставка не появляется."))
             if settings.v.saverOn {
                 Flow {
-                    ForEach([(10, "10 секунд"), (20, "20 секунд"), (30, "30 секунд"), (60, "1 минута")], id: \.0) { s in
+                    ForEach([(10, tr("10 секунд")), (20, tr("20 секунд")), (30, tr("30 секунд")), (60, tr("1 минута"))], id: \.0) { s in
                         Chip(text: s.1, on: settings.v.saver == s.0) { settings.v.saver = s.0 }
                     }
                 }
                 Flow {
                     ForEach([VizMode.off] + VizMode.allCases.filter { $0 != .off }) { m in
-                        Chip(text: m == .off ? "Как на главном экране" : m.name, on: settings.v.saverViz == m) { settings.v.saverViz = m }
+                        Chip(text: m == .off ? tr("Как на главном экране") : m.name, on: settings.v.saverViz == m) { settings.v.saverViz = m }
                     }
                 }
-                SwitchRow(label: "Не гасить экран во время заставки", on: $settings.v.saverAwake)
-                Hint("Если выключено, iPhone погаснет сам через время из своих настроек («Экран и яркость → Автоблокировка»), музыка при этом играет дальше. Если включено, экран не гаснет и батарея садится быстрее.")
-                Button("Показать сейчас") {
+                SwitchRow(label: tr("Не гасить экран во время заставки"), on: $settings.v.saverAwake)
+                Hint(tr("Если выключено, iPhone погаснет сам через время из своих настроек («Экран и яркость → Автоблокировка»), музыка при этом играет дальше. Если включено, экран не гаснет и батарея садится быстрее."))
+                Button(tr("Показать сейчас")) {
                     ui.panel = nil
                     ui.saver = true
                 }
@@ -487,29 +492,29 @@ private struct LibraryPage: View {
     @EnvironmentObject private var settings: Settings
 
     var body: some View {
-        Block("Сейчас в плеере") {
-            line("Песни", "\(library.tracks.count)")
-            line("В избранном", "\(library.tracks.filter { library.isFavourite($0.id) }.count)")
-            line("Плейлисты", "\(library.playlists.count)")
-            line("Общий размер файлов", String(format: "%.0f МБ", Double(library.tracks.reduce(0) { $0 + ($1.size ?? 0) }) / 1_048_576))
+        Block(tr("Сейчас в плеере")) {
+            line(tr("Песни"), "\(library.tracks.count)")
+            line(tr("В избранном"), "\(library.tracks.filter { library.isFavourite($0.id) }.count)")
+            line(tr("Плейлисты"), "\(library.playlists.count)")
+            line(tr("Общий размер файлов"), String(format: tr("%.0f МБ"), Double(library.tracks.reduce(0) { $0 + ($1.size ?? 0) }) / 1_048_576))
         }
-        Block("Папки") {
-            SwitchRow(label: "Искать новые песни при запуске", on: $settings.v.refreshFolders)
+        Block(tr("Папки")) {
+            SwitchRow(label: tr("Искать новые песни при запуске"), on: $settings.v.refreshFolders)
             if library.folders.isEmpty {
-                Hint("Папок пока нет. Добавьте папку целиком, и новые песни из неё будут появляться сами.")
+                Hint(tr("Папок пока нет. Добавьте папку целиком, и новые песни из неё будут появляться сами."))
             } else {
-                Hint("Папок: \(library.folders.count). Песни, которые вы убрали из плеера, при обновлении не возвращаются.")
-                Button(library.refreshing ? "Ищу…" : "Обновить сейчас") { Task { await library.refreshFolders(quiet: false) } }
+                Hint(tr("Папок: {}. Песни, которые вы убрали из плеера, при обновлении не возвращаются.", "\(library.folders.count)"))
+                Button(library.refreshing ? tr("Ищу…") : tr("Обновить сейчас")) { Task { await library.refreshFolders(quiet: false) } }
                     .buttonStyle(.glass)
                     .disabled(library.refreshing)
             }
         }
-        Block("Добавить") {
+        Block(tr("Добавить")) {
             HStack {
-                Button("Файлы") { ui.add(.files) }.buttonStyle(.glass)
-                Button("Папку целиком") { ui.add(.folder) }.buttonStyle(.glass)
+                Button(tr("Файлы")) { ui.add(.files) }.buttonStyle(.glass)
+                Button(tr("Папку целиком")) { ui.add(.folder) }.buttonStyle(.glass)
             }
-            Hint("Песни не копируются: плеер играет их там, где они лежат в «Файлах». Удаление из списка сами файлы не трогает. Если переместить или удалить файл, песня перестанет открываться.")
+            Hint(tr("Песни не копируются: плеер играет их там, где они лежат в «Файлах». Удаление из списка сами файлы не трогает. Если переместить или удалить файл, песня перестанет открываться."))
         }
     }
 
@@ -529,16 +534,16 @@ private struct CoversPage: View {
 
     var body: some View {
         Block {
-            SwitchRow(label: "Искать обложки в интернете", on: $settings.v.onlineArt)
-            Hint("Для песен без своей обложки плеер ищет её в каталоге iTunes по исполнителю и альбому. Туда отправляются только эти названия. Найденная обложка сохраняется и дальше видна без интернета.")
+            SwitchRow(label: tr("Искать обложки в интернете"), on: $settings.v.onlineArt)
+            Hint(tr("Для песен без своей обложки плеер ищет её в каталоге iTunes по исполнителю и альбому. Туда отправляются только эти названия. Найденная обложка сохраняется и дальше видна без интернета."))
         }
-        Block("Библиотека") {
+        Block(tr("Библиотека")) {
             let found = library.tracks.filter { $0.artOnline == true && $0.hasArtwork }.count, no = library.tracks.filter { !$0.hasArtwork }.count
-            Hint("Найдено обложек: \(found). Без обложки: " + plural(no, "песня", "песни", "песен") + ".")
+            Hint(tr("Найдено обложек: {}. Без обложки: ", "\(found)") + plural(no, tr("песня"), tr("песни"), tr("песен")) + ".")
             if covers.left > 0 {
-                Hint("Идёт поиск, осталось \(covers.left). iTunes отвечает не чаще раза в 3 секунды, так что это займёт несколько минут.")
+                Hint(tr("Идёт поиск, осталось {}. iTunes отвечает не чаще раза в 3 секунды, так что это займёт несколько минут.", "\(covers.left)"))
             }
-            Button("Найти для всей библиотеки") { covers.findAll() }.buttonStyle(.glass)
+            Button(tr("Найти для всей библиотеки")) { covers.findAll() }.buttonStyle(.glass)
         }
     }
 }
@@ -548,24 +553,47 @@ private struct LyricsPage: View {
 
     var body: some View {
         Block {
-            SwitchRow(label: "Показывать текст вместо обложки", on: $settings.v.lyricsOn)
-            Hint("Текст открывается и кнопкой с облачком внизу главного экрана. Строки с временем подсвечиваются в такт песне, нажатие на строку перематывает к ней.")
+            SwitchRow(label: tr("Показывать текст вместо обложки"), on: $settings.v.lyricsOn)
+            Hint(tr("Текст открывается и кнопкой с облачком внизу главного экрана. Строки с временем подсвечиваются в такт песне, нажатие на строку перематывает к ней."))
         }
-        Block("Откуда берётся текст") {
-            Hint("Из самого файла, из файла .lrc с тем же именем, с сайта lrclib.net по вашему нажатию «Найти в интернете» или вставленный вручную. На lrclib.net отправляются название, исполнитель и длительность песни.")
+        Block(tr("Откуда берётся текст")) {
+            Hint(tr("Из самого файла, из файла .lrc с тем же именем, с сайта lrclib.net по вашему нажатию «Найти в интернете» или вставленный вручную. На lrclib.net отправляются название, исполнитель и длительность песни."))
         }
     }
 }
 
 // MARK: - Прочее
 
+private struct LanguagePage: View {
+    @EnvironmentObject private var settings: Settings
+    @EnvironmentObject private var player: Player
+
+    var body: some View {
+        Block {
+            Flow {
+                Chip(text: tr("Как в системе"), on: settings.v.language == "system") { choose("system") }
+                ForEach(Lang.allCases, id: \.self) { l in
+                    Chip(text: l.name, on: settings.v.language == l.rawValue) { choose(l.rawValue) }
+                }
+            }
+            Hint(tr("«Как в системе» берёт язык из настроек iPhone."))
+            Hint(tr("Названия песен и исполнителей не переводятся."))
+        }
+    }
+
+    private func choose(_ code: String) {
+        settings.v.language = code
+        player.publish() // the widget speaks the same language
+    }
+}
+
 private struct AboutPage: View {
     var body: some View {
-        Block("Волна " + AppInfo.version) {
-            Hint("Музыкальный плеер для файлов на вашем iPhone.")
+        Block(tr("Волна ") + AppInfo.version) {
+            Hint(tr("Музыкальный плеер для файлов на вашем iPhone."))
         }
-        Block("Что уходит в интернет") {
-            Hint("Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст. Сами файлы, статистика и плейлисты остаются на телефоне.")
+        Block(tr("Что уходит в интернет")) {
+            Hint(tr("Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст. Сами файлы, статистика и плейлисты остаются на телефоне."))
         }
     }
 }

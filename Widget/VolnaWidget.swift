@@ -8,10 +8,14 @@ struct VolnaEntry: TimelineEntry {
 }
 
 struct VolnaProvider: TimelineProvider {
-    private func entry() -> VolnaEntry { VolnaEntry(date: Date(), state: WidgetState.load(), cover: WidgetState.cover()) }
+    private func entry() -> VolnaEntry {
+        let s = WidgetState.load()
+        Lang.apply(s.lang ?? "system")
+        return VolnaEntry(date: Date(), state: s, cover: WidgetState.cover())
+    }
 
     func placeholder(in context: Context) -> VolnaEntry {
-        VolnaEntry(date: Date(), state: WidgetState(title: "Название песни", artist: "Исполнитель"), cover: nil)
+        VolnaEntry(date: Date(), state: WidgetState(title: tr("Название песни"), artist: tr("Исполнитель")), cover: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (VolnaEntry) -> Void) { completion(entry()) }

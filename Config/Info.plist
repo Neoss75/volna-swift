@@ -7,6 +7,8 @@
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>ru</string>
+		<string>uk</string>
+		<string>en</string>
 	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Волна</string>

@@ -144,23 +144,23 @@ struct ListPanel: View {
 
     private var tools: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Picker("Раздел", selection: Binding(get: { ui.listTab }, set: {
+            Picker(tr("Раздел"), selection: Binding(get: { ui.listTab }, set: {
                 ui.listTab = $0
                 if ui.collection.isGroup { ui.collection = .all }
             })) {
-                ForEach(ListTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                ForEach(ListTab.allCases, id: \.self) { Text(tr($0.rawValue)).tag($0) }
             }
             .pickerStyle(.segmented)
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
-                    TextField("Поиск по названию, артисту…", text: $query)
+                    TextField(tr("Поиск по названию, артисту…"), text: $query)
                         .font(.system(size: 15))
                         .autocorrectionDisabled()
                         .submitLabel(.search)
                     if !query.isEmpty {
                         Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted) }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("Очистить поиск")
+                            .accessibilityLabel(tr("Очистить поиск"))
                     }
                 }
                 .padding(.horizontal, 12)
@@ -171,16 +171,16 @@ struct ListPanel: View {
             if ui.listTab == .songs {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        Chip(text: "Все", count: library.tracks.count, on: ui.collection == .all) { ui.collection = .all }
-                        Chip(text: "♥ Избранное", count: library.tracks.filter { library.isFavourite($0.id) }.count, on: ui.collection == .favourites) { ui.collection = .favourites }
-                        Chip(text: "Без потерь", count: library.tracks.filter(\.isLossless).count, on: ui.collection == .lossless) { ui.collection = .lossless }
-                        Chip(text: "Недавние", on: ui.collection == .recent) { ui.collection = .recent }
-                        Chip(text: "Часто играют", on: ui.collection == .often) { ui.collection = .often }
-                        Chip(text: "Давно не слушали", on: ui.collection == .forgotten) { ui.collection = .forgotten }
+                        Chip(text: tr("Все"), count: library.tracks.count, on: ui.collection == .all) { ui.collection = .all }
+                        Chip(text: tr("♥ Избранное"), count: library.tracks.filter { library.isFavourite($0.id) }.count, on: ui.collection == .favourites) { ui.collection = .favourites }
+                        Chip(text: tr("Без потерь"), count: library.tracks.filter(\.isLossless).count, on: ui.collection == .lossless) { ui.collection = .lossless }
+                        Chip(text: tr("Недавние"), on: ui.collection == .recent) { ui.collection = .recent }
+                        Chip(text: tr("Часто играют"), on: ui.collection == .often) { ui.collection = .often }
+                        Chip(text: tr("Давно не слушали"), on: ui.collection == .forgotten) { ui.collection = .forgotten }
                         ForEach(library.playlists) { p in
                             Chip(text: p.name, count: p.keys.filter { library.track($0) != nil }.count, on: ui.collection == .playlist(p.id)) { ui.collection = .playlist(p.id) }
                         }
-                        Chip(text: "+ Плейлист", on: false) { ui.prompt = .newPlaylist(nil) }
+                        Chip(text: tr("+ Плейлист"), on: false) { ui.prompt = .newPlaylist(nil) }
                     }
                 }
             }
@@ -191,14 +191,14 @@ struct ListPanel: View {
 
     private var sortMenu: some View {
         Menu {
-            Picker("Сортировка", selection: $settings.v.sort) {
-                Text("По добавлению").tag("added")
-                Text("По названию").tag("title")
-                Text("По исполнителю").tag("artist")
+            Picker(tr("Сортировка"), selection: $settings.v.sort) {
+                Text(tr("По добавлению")).tag("added")
+                Text(tr("По названию")).tag("title")
+                Text(tr("По исполнителю")).tag("artist")
             }
         } label: {
             HStack(spacing: 5) {
-                Text(["title": "По названию", "artist": "По исполнителю"][settings.v.sort] ?? "По добавлению")
+                Text(["title": tr("По названию"), "artist": tr("По исполнителю")][settings.v.sort] ?? tr("По добавлению"))
                     .font(.system(size: 14))
                     .lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
@@ -228,14 +228,14 @@ struct ListPanel: View {
         }
         return order.compactMap { key -> SongGroup? in
             guard let list = byKey[key], let first = list.first else { return nil }
-            let n = plural(list.count, "песня", "песни", "песен")
+            let n = plural(list.count, tr("песня"), tr("песни"), tr("песен"))
             switch ui.listTab {
             case .albums:
                 let who = Set(list.map { Library.artistKey($0) })
-                let artist = who.count > 1 ? "Разные исполнители" : first.artist
-                return SongGroup(id: .album(key), title: key.isEmpty ? "Без альбома" : first.album, subtitle: artist.isEmpty ? n : artist + " · " + n, tracks: list)
+                let artist = who.count > 1 ? tr("Разные исполнители") : first.artist
+                return SongGroup(id: .album(key), title: key.isEmpty ? tr("Без альбома") : first.album, subtitle: artist.isEmpty ? n : artist + " · " + n, tracks: list)
             case .artists:
-                return SongGroup(id: .artist(key), title: key.isEmpty ? "Неизвестный исполнитель" : first.artist, subtitle: n, tracks: list)
+                return SongGroup(id: .artist(key), title: key.isEmpty ? tr("Неизвестный исполнитель") : first.artist, subtitle: n, tracks: list)
             default:
                 return SongGroup(id: .folder(key), title: key.components(separatedBy: " / ").last ?? key, subtitle: key.contains(" / ") ? key + " · " + n : n, tracks: list)
             }
@@ -251,7 +251,7 @@ struct ListPanel: View {
         let list = allGroups
         if list.isEmpty {
             Spacer()
-            Text(ui.listTab == .folders ? "Папок пока нет. Добавьте папку целиком, и новые песни из неё будут появляться сами." : "Список пуст. Добавьте файлы или папку.")
+            Text(ui.listTab == .folders ? tr("Папок пока нет. Добавьте папку целиком, и новые песни из неё будут появляться сами.") : tr("Список пуст. Добавьте файлы или папку."))
                 .foregroundStyle(Theme.muted)
                 .multilineTextAlignment(.center)
                 .padding(24)
@@ -308,8 +308,8 @@ struct ListPanel: View {
 
     private var addButtons: some View {
         HStack(spacing: 10) {
-            Button("Файлы", systemImage: "plus") { ui.add(.files) }
-            Button("Папку", systemImage: "folder.badge.plus") { ui.add(.folder) }
+            Button(tr("Файлы"), systemImage: "plus") { ui.add(.files) }
+            Button(tr("Папку"), systemImage: "folder.badge.plus") { ui.add(.folder) }
         }
         .font(.system(size: 15, weight: .semibold))
         .buttonStyle(.glass)
@@ -319,14 +319,14 @@ struct ListPanel: View {
         let title: String, subtitle: String
         switch ui.collection {
         case .album(let k):
-            title = k.isEmpty ? "Без альбома" : list.first?.album ?? ""
-            subtitle = Set(list.map { Library.artistKey($0) }).count > 1 ? "Разные исполнители" : list.first?.artist ?? ""
+            title = k.isEmpty ? tr("Без альбома") : list.first?.album ?? ""
+            subtitle = Set(list.map { Library.artistKey($0) }).count > 1 ? tr("Разные исполнители") : list.first?.artist ?? ""
         case .artist(let k):
-            title = k.isEmpty ? "Неизвестный исполнитель" : list.first?.artist ?? ""
-            subtitle = plural(Set(list.map { Library.albumKey($0) }.filter { !$0.isEmpty }).count, "альбом", "альбома", "альбомов")
+            title = k.isEmpty ? tr("Неизвестный исполнитель") : list.first?.artist ?? ""
+            subtitle = plural(Set(list.map { Library.albumKey($0) }.filter { !$0.isEmpty }).count, tr("альбом"), tr("альбома"), tr("альбомов"))
         case .folder(let f):
             title = f.components(separatedBy: " / ").last ?? f
-            subtitle = f.contains(" / ") ? f : "Папка"
+            subtitle = f.contains(" / ") ? f : tr("Папка")
         default:
             title = ""
             subtitle = ""
@@ -334,7 +334,7 @@ struct ListPanel: View {
         let ids = list.map(\.id), total = list.reduce(0) { $0 + $1.duration }
         return VStack(alignment: .leading, spacing: 12) {
             Button { ui.collection = .all } label: {
-                Label(ui.listTab.rawValue, systemImage: "chevron.left").font(.system(size: 14, weight: .semibold)).foregroundStyle(settings.accent)
+                Label(tr(ui.listTab.rawValue), systemImage: "chevron.left").font(.system(size: 14, weight: .semibold)).foregroundStyle(settings.accent)
             }
             .buttonStyle(.plain)
             HStack(spacing: 14) {
@@ -342,14 +342,14 @@ struct ListPanel: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(.display(17, .semibold)).foregroundStyle(Theme.fg).lineLimit(2)
                     if !subtitle.isEmpty { Text(subtitle).font(.system(size: 14)).foregroundStyle(Theme.muted).lineLimit(1) }
-                    Text(plural(list.count, "песня", "песни", "песен") + " · " + formatSpan(total)).font(.mono(11)).foregroundStyle(Theme.muted)
+                    Text(plural(list.count, tr("песня"), tr("песни"), tr("песен")) + " · " + formatSpan(total)).font(.mono(11)).foregroundStyle(Theme.muted)
                     HStack(spacing: 8) {
                         Button { if let f = ids.first { player.play(f, from: ids) } } label: { Image(systemName: "play.fill").foregroundStyle(Theme.accentInk) }
                             .buttonStyle(.glassProminent)
-                            .accessibilityLabel("Играть")
+                            .accessibilityLabel(tr("Играть"))
                         Button { player.playShuffled(ids) } label: { Image(systemName: "shuffle") }
                             .buttonStyle(.glass)
-                            .accessibilityLabel("Перемешать")
+                            .accessibilityLabel(tr("Перемешать"))
                     }
                     .padding(.top, 2)
                 }
@@ -364,15 +364,15 @@ struct ListPanel: View {
 
     private func footer(_ list: [Track], of total: Int) -> some View {
         HStack {
-            Text(list.count != total ? "Показано \(list.count) из \(total)" : plural(total, "песня", "песни", "песен"))
+            Text(list.count != total ? tr("Показано {} из {}", "\(list.count)", "\(total)") : plural(total, tr("песня"), tr("песни"), tr("песен")))
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.muted)
             Spacer()
             if let p = playlist, ui.listTab == .songs {
-                Button("Переименовать") { ui.prompt = .rename(p.id, p.name) }.buttonStyle(.glass)
-                Button("Удалить") { confirmPlaylist = true }.buttonStyle(.glass).tint(Theme.danger)
+                Button(tr("Переименовать")) { ui.prompt = .rename(p.id, p.name) }.buttonStyle(.glass)
+                Button(tr("Удалить")) { confirmPlaylist = true }.buttonStyle(.glass).tint(Theme.danger)
             } else {
-                Button(list.count == library.tracks.count ? "Удалить все" : "Удалить (\(list.count))") { confirmDelete = true }
+                Button(list.count == library.tracks.count ? tr("Удалить все") : tr("Удалить ({})", "\(list.count)")) { confirmDelete = true }
                     .buttonStyle(.glass)
                     .tint(Theme.danger)
                     .disabled(list.isEmpty)
@@ -382,11 +382,11 @@ struct ListPanel: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .overlay(alignment: .top) { Divider().overlay(Theme.line) }
-        .confirmationDialog("Убрать из плеера: \(plural(list.count, "песня", "песни", "песен"))? Файлы останутся на месте.", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Убрать из плеера", role: .destructive) { library.remove(Set(list.map(\.id))) }
+        .confirmationDialog(tr("Убрать из плеера: {}? Файлы останутся на месте.", "\(plural(list.count, tr("песня"), tr("песни"), tr("песен")))"), isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button(tr("Убрать из плеера"), role: .destructive) { library.remove(Set(list.map(\.id))) }
         }
-        .confirmationDialog("Удалить плейлист «\(playlist?.name ?? "")»? Песни останутся.", isPresented: $confirmPlaylist, titleVisibility: .visible) {
-            Button("Удалить плейлист", role: .destructive) {
+        .confirmationDialog(tr("Удалить плейлист «{}»? Песни останутся.", "\(playlist?.name ?? "")"), isPresented: $confirmPlaylist, titleVisibility: .visible) {
+            Button(tr("Удалить плейлист"), role: .destructive) {
                 if let p = playlist {
                     ui.collection = .all
                     library.deletePlaylist(p.id)
@@ -396,13 +396,13 @@ struct ListPanel: View {
     }
 
     private var emptyText: String {
-        if !search.isEmpty { return "Ничего не найдено" }
+        if !search.isEmpty { return tr("Ничего не найдено") }
         switch ui.collection {
-        case .favourites: return "В избранном пока пусто. Нажмите ♥ у песни, чтобы добавить её сюда."
-        case .playlist: return "Плейлист пуст. Добавьте песни через «⋯» → «Добавить в плейлист»."
-        case .lossless: return "Песен без потерь пока нет. Это файлы FLAC, ALAC, WAV и AIFF."
-        case .often: return "Здесь появятся песни, которые вы слушаете чаще всего."
-        default: return "Список пуст. Добавьте файлы или папку."
+        case .favourites: return tr("В избранном пока пусто. Нажмите ♥ у песни, чтобы добавить её сюда.")
+        case .playlist: return tr("Плейлист пуст. Добавьте песни через «⋯» → «Добавить в плейлист».")
+        case .lossless: return tr("Песен без потерь пока нет. Это файлы FLAC, ALAC, WAV и AIFF.")
+        case .often: return tr("Здесь появятся песни, которые вы слушаете чаще всего.")
+        default: return tr("Список пуст. Добавьте файлы или папку.")
         }
     }
 }
@@ -428,16 +428,16 @@ struct TrackEditor: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("Название") { TextField("Название", text: $title).multilineTextAlignment(.trailing) }
-                    LabeledContent("Исполнитель") { TextField("Исполнитель", text: $artist).multilineTextAlignment(.trailing) }
-                    LabeledContent("Альбом") { TextField("Альбом", text: $album).multilineTextAlignment(.trailing) }
+                    LabeledContent(tr("Название")) { TextField(tr("Название"), text: $title).multilineTextAlignment(.trailing) }
+                    LabeledContent(tr("Исполнитель")) { TextField(tr("Исполнитель"), text: $artist).multilineTextAlignment(.trailing) }
+                    LabeledContent(tr("Альбом")) { TextField(tr("Альбом"), text: $album).multilineTextAlignment(.trailing) }
                 } footer: {
-                    Text("Меняется только в плеере, сам файл «\(track.fileName)» остаётся как есть.")
+                    Text(tr("Меняется только в плеере, сам файл «{}» остаётся как есть.", "\(track.fileName)"))
                 }
                 Section {
-                    Button("Поменять местами название и исполнителя") { (title, artist) = (artist, title) }
+                    Button(tr("Поменять местами название и исполнителя")) { (title, artist) = (artist, title) }
                     if track.edited == true {
-                        Button("Вернуть из файла") {
+                        Button(tr("Вернуть из файла")) {
                             Task {
                                 await library.restoreTags(track.id)
                                 player.publish()
@@ -449,12 +449,12 @@ struct TrackEditor: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.surface.ignoresSafeArea())
-            .navigationTitle("Изменить")
+            .navigationTitle(tr("Изменить"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Отмена") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button(tr("Отмена")) { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Сохранить") {
+                    Button(tr("Сохранить")) {
                         func tidy(_ s: String) -> String { s.trimmingCharacters(in: .whitespaces) }
                         library.edit(track.id, title: tidy(title), artist: tidy(artist), album: tidy(album))
                         player.publish()

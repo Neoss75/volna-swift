@@ -118,7 +118,7 @@ final class Player: ObservableObject {
         let after = queue[qi]
         queue.insert(id, at: qi + 1)
         orig.insert(id, at: (orig.firstIndex(of: after) ?? orig.count - 1) + 1)
-        toast("Сыграет следующей")
+        toast(tr("Сыграет следующей"))
         save()
     }
 
@@ -126,7 +126,7 @@ final class Player: ObservableObject {
         dropChain()
         queue.append(id)
         orig.append(id)
-        toast("Добавлено в очередь")
+        toast(tr("Добавлено в очередь"))
         save()
     }
 
@@ -166,14 +166,14 @@ final class Player: ObservableObject {
             queue = orig
             qi = now.flatMap { orig.firstIndex(of: $0) } ?? -1
         }
-        toast(shuffle ? "Перемешивание включено" : "Перемешивание выключено")
+        toast(shuffle ? tr("Перемешивание включено") : tr("Перемешивание выключено"))
         save()
     }
 
     func cycleRepeat() {
         dropChain()
         repeatMode = repeatMode == .off ? .all : repeatMode == .all ? .one : .off
-        toast("Повтор: " + (repeatMode == .off ? "выключен" : repeatMode == .all ? "вся очередь" : "один трек"))
+        toast(tr("Повтор: ") + (repeatMode == .off ? tr("выключен") : repeatMode == .all ? tr("вся очередь") : tr("один трек")))
         save()
     }
 
@@ -207,7 +207,7 @@ final class Player: ObservableObject {
             if let first = library.tracks.first {
                 play(first.id, from: library.tracks.map(\.id))
             } else {
-                toast("Сначала добавьте музыку: «Песни» → «+»")
+                toast(tr("Сначала добавьте музыку: «Песни» → «+»"))
             }
             return
         }
@@ -225,7 +225,7 @@ final class Player: ObservableObject {
         forgetChain()
         if settings.v.matchRate, fadeTask == nil { graph.matchOutput(to: deck) }
         do { try graph.start() } catch {
-            toast("Не удалось включить звук: \(error.localizedDescription)")
+            toast(tr("Не удалось включить звук: {}", "\(error.localizedDescription)"))
             isPlaying = false
             publish()
             return
@@ -281,7 +281,7 @@ final class Player: ObservableObject {
     func previousTrack() -> Bool {
         guard !queue.isEmpty else { return false }
         if atStart {
-            toast("Это начало списка")
+            toast(tr("Это начало списка"))
             return false
         }
         qi = qi > 0 ? qi - 1 : queue.count - 1
@@ -352,7 +352,7 @@ final class Player: ObservableObject {
     private func markBad(_ t: Track, _ error: Error) {
         deck.halt()
         library.update(t.id) { $0.bad = true }
-        toast("«\(t.title)»: \(error is OpenError ? error.localizedDescription : "не удалось открыть файл")")
+        toast("«\(t.title)»: \(error is OpenError ? error.localizedDescription : tr("не удалось открыть файл"))")
         failures += 1
         let wasPlaying = isPlaying
         if wasPlaying, queue.count > 1, failures < queue.count, qi + 1 < queue.count {
@@ -377,7 +377,7 @@ final class Player: ObservableObject {
             pause()
             deck.rewind(to: 0)
             clock.time = 0
-            toast("Таймер сна: воспроизведение остановлено")
+            toast(tr("Таймер сна: воспроизведение остановлено"))
             return
         }
         advance(auto: true)
@@ -517,7 +517,7 @@ final class Player: ObservableObject {
             self.sleepFade = nil
             self.pause()
             self.graph.master = 1
-            toast("Таймер сна: воспроизведение остановлено")
+            toast(tr("Таймер сна: воспроизведение остановлено"))
         }
     }
 
@@ -553,6 +553,7 @@ final class Player: ObservableObject {
         s.artist = t?.artist ?? ""
         s.playing = isPlaying
         s.accent = settings.v.accent
+        s.lang = Lang.current.rawValue
         if let t, let image { s.coverVersion = "\(t.id) \(ObjectIdentifier(image).hashValue)" }
         guard s != widgetState else { return }
         if s.coverVersion != widgetState.coverVersion { WidgetState.saveCover(image) }

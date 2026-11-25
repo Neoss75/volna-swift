@@ -72,7 +72,7 @@ final class Stats: ObservableObject {
     func reset() {
         pending = Data()
         flush()
-        toast("Статистика сброшена")
+        toast(tr("Статистика сброшена"))
     }
 
     func entry(_ id: UUID) -> Entry? { data.songs[id.uuidString] }
@@ -81,8 +81,8 @@ final class Stats: ObservableObject {
     var today: Double { data.days[Self.dayKey()] ?? 0 }
 
     var summary: String {
-        if data.total < 1 { return "Пока ничего не прослушано. Статистика копится сама, пока играет музыка." }
-        return "Всего \(formatSpan(data.total)) · \(plural(plays, "прослушивание", "прослушивания", "прослушиваний")) · сегодня \(formatSpan(today))"
+        if data.total < 1 { return tr("Пока ничего не прослушано. Статистика копится сама, пока играет музыка.") }
+        return tr("Всего {} · {} · сегодня {}", "\(formatSpan(data.total))", "\(plural(plays, tr("прослушивание"), tr("прослушивания"), tr("прослушиваний")))", "\(formatSpan(today))")
     }
 
     var topSongs: [Entry] {
@@ -92,7 +92,7 @@ final class Stats: ObservableObject {
 
     var topArtists: [(name: String, seconds: Double)] {
         var sums: [String: Double] = [:]
-        for e in data.songs.values { sums[e.artist.isEmpty ? "Неизвестный исполнитель" : e.artist, default: 0] += e.seconds }
+        for e in data.songs.values { sums[e.artist.isEmpty ? tr("Неизвестный исполнитель") : e.artist, default: 0] += e.seconds }
         return Array(sums.map { (name: $0.key, seconds: $0.value) }.sorted { $0.seconds > $1.seconds }.prefix(5))
     }
 

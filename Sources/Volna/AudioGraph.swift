@@ -117,7 +117,7 @@ final class Deck {
 
 enum OpenError: LocalizedError {
     case notFound
-    var errorDescription: String? { "файл не найден: его переместили или удалили в «Файлах»" }
+    var errorDescription: String? { tr("файл не найден: его переместили или удалили в «Файлах»") }
 }
 
 @MainActor

@@ -20,6 +20,9 @@ jobs:
             echo "::error::the files above have Windows line endings (CRLF)"; exit 1
           fi
 
+      - name: Check that every text is translated
+        run: python3 scripts/check-texts.py
+
       - name: Generate the Xcode project
         run: |
           sudo xcode-select -s /Applications/Xcode_26.3.app

@@ -63,34 +63,34 @@ struct Track: Identifiable, Codable, Equatable {
 
     var sizeText: String {
         guard let size, size > 0 else { return "" }
-        return String(format: "%.1f МБ", Double(size) / 1_048_576)
+        return String(format: tr("%.1f МБ"), Double(size) / 1_048_576)
     }
 
     private static let standardRates: [Double] = [32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 192, 224, 256, 320]
 
     /// Exact where the file states it, otherwise the average: size ÷ duration.
     var bitrateText: String {
-        if let kbps, kbps > 0 { return "\(Int(kbps.rounded())) кбит/с" }
+        if let kbps, kbps > 0 { return tr("{} кбит/с", "\(Int(kbps.rounded()))") }
         guard let size, size > 0, duration > 0 else { return "" }
         let avg = Double(max(0, size - (tagBytes ?? 0))) * 8 / duration / 1000
-        if vbr == true { return "VBR ≈ \(Int(avg.rounded())) кбит/с" }
+        if vbr == true { return tr("VBR ≈ {} кбит/с", "\(Int(avg.rounded()))") }
         if ["MP3", "M4A", "AAC"].contains(kind), let s = Self.standardRates.first(where: { abs($0 - avg) / $0 < 0.03 }) {
-            return "\(Int(s)) кбит/с"
+            return tr("{} кбит/с", "\(Int(s))")
         }
-        return "≈ \(Int(avg.rounded())) кбит/с"
+        return tr("≈ {} кбит/с", "\(Int(avg.rounded()))")
     }
 
     /// Compact form for list rows: "MP3 320", "FLAC ≈912".
     var rowQuality: String {
-        let k = bitrateText.replacingOccurrences(of: " кбит/с", with: "").replacingOccurrences(of: "≈ ", with: "≈")
+        let k = bitrateText.replacingOccurrences(of: tr(" кбит/с"), with: "").replacingOccurrences(of: "≈ ", with: "≈")
         return k.isEmpty ? kind : kind + " " + k
     }
 
     var formatLine: String {
         var p = [kind]
         if let sr = sampleRate, sr > 0 {
-            let khz = String(format: "%g кГц", (sr / 100).rounded() / 10)
-            if let bits, bits > 0 { p.append("\(bits) бит / \(khz)") } else { p.append(khz) }
+            let khz = String(format: tr("%g кГц"), (sr / 100).rounded() / 10)
+            if let bits, bits > 0 { p.append(tr("{} бит / {}", "\(bits)", "\(khz)")) } else { p.append(khz) }
         }
         p.append(bitrateText)
         p.append(sizeText)
