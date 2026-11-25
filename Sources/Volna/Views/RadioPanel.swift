@@ -15,6 +15,8 @@ struct RadioPanel: View {
     @EnvironmentObject private var ui: UIState
     @State private var query = ""
     @State private var confirm = false
+    @State private var confirmCheck = false
+    @State private var confirmDead = false
 
     private var search: String { query.trimmingCharacters(in: .whitespaces) }
 
@@ -51,6 +53,7 @@ struct RadioPanel: View {
                 } else {
                     list(sections, ids)
                 }
+                if let c = stations.check { checkRow(c) }
                 footer(ids)
             }
         }
@@ -99,10 +102,57 @@ struct RadioPanel: View {
         }
     }
 
+    private func minutes(_ n: Int) -> Int {
+        max(1, Int((Double(n) * StationProbe.patience / Double(StationProbe.atOnce) / 60).rounded(.up)))
+    }
+
+    private func title(_ c: Stations.Check) -> String {
+        if c.running { return tr("Проверено {} из {}", "\(c.done)", "\(c.total)") }
+        if c.alive == 0 { return tr("Ни одна станция не ответила. Есть ли интернет?") }
+        return tr("Проверка закончена: {} из {}", "\(c.done)", "\(c.total)")
+    }
+
+    private func checkRow(_ c: Stations.Check) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if c.running {
+                ProgressView(value: Double(c.done), total: Double(max(1, c.total)))
+            }
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title(c))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.fg)
+                    Text(tr("отвечают: {} · молчат: {} · не тот формат: {}", "\(c.alive)", "\(c.dead.count)", "\(c.unsupported)"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 6)
+                if c.running {
+                    Button(tr("Стоп")) { stations.endCheck() }.buttonStyle(.glass)
+                } else {
+                    if !stations.removable.isEmpty {
+                        Button(tr("Убрать ({})", "\(stations.removable.count)")) { confirmDead = true }.buttonStyle(.glass).tint(Theme.danger)
+                    }
+                    Button { stations.check = nil } label: { Image(systemName: "xmark").foregroundStyle(Theme.muted) }
+                        .buttonStyle(.plain)
+                        .frame(width: 30, height: 36)
+                        .accessibilityLabel(tr("Закрыть"))
+                }
+            }
+            .font(.system(size: 14, weight: .semibold))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .overlay(alignment: .top) { Divider().overlay(Theme.line) }
+    }
+
     private func footer(_ ids: [UUID]) -> some View {
         HStack {
             Text(plural(ids.count, tr("станция"), tr("станции"), tr("станций"))).font(.system(size: 13)).foregroundStyle(Theme.muted)
             Spacer()
+            Button(tr("Проверить")) { confirmCheck = true }
+                .buttonStyle(.glass)
+                .disabled(ids.isEmpty || stations.check?.running == true)
             Button(ids.count == stations.all.count ? tr("Удалить все") : tr("Удалить ({})", "\(ids.count)")) { confirm = true }
                 .buttonStyle(.glass)
                 .tint(Theme.danger)
@@ -114,6 +164,14 @@ struct RadioPanel: View {
         .overlay(alignment: .top) { Divider().overlay(Theme.line) }
         .confirmationDialog(tr("Убрать станции из плеера: {}?", "\(ids.count)"), isPresented: $confirm, titleVisibility: .visible) {
             Button(tr("Убрать станции"), role: .destructive) { stations.remove(Set(ids)) }
+        }
+        .confirmationDialog(tr("Проверить, какие станции отвечают: {}? Займёт до {} мин и скачает до {} МБ, лучше по Wi-Fi. Не закрывайте плеер.", "\(ids.count)", "\(minutes(ids.count))", "\(max(1, ids.count / 20))"),
+                            isPresented: $confirmCheck, titleVisibility: .visible) {
+            Button(tr("Проверить станции")) { stations.startCheck(ids.compactMap { stations.station($0) }) }
+        }
+        .confirmationDialog(tr("Убрать из плеера неответившие станции: {}? Они могли не ответить и из-за вашей сети. Избранные останутся.", "\(stations.removable.count)"),
+                            isPresented: $confirmDead, titleVisibility: .visible) {
+            Button(tr("Убрать станции"), role: .destructive) { stations.removeDead() }
         }
     }
 }

@@ -48,8 +48,8 @@ final class TestServer: @unchecked Sendable {
             c.send(content: Data(head.utf8) + body, isComplete: true, completion: .contentProcessed { _ in c.cancel() })
         }
         switch path {
-        case "/live", "/drop":
-            let head = "HTTP/1.0 200 OK\r\nContent-Type: audio/aac\r\nicy-name: Тест FM\r\nicy-br: 128\r\nicy-metaint: 4000\r\n\r\n"
+        case "/live", "/drop", "/icy":
+            let head = (path == "/icy" ? "ICY" : "HTTP/1.0") + " 200 OK\r\nContent-Type: audio/aac\r\nicy-name: Тест FM\r\nicy-br: 128\r\nicy-metaint: 4000\r\n\r\n"
             c.send(content: Data(head.utf8), completion: .idempotent)
             pump(c, aac, perSecond, title: "Океан Ельзи - Обійми", limit: path == "/drop" ? 5 : .infinity)
         case "/mp3":
@@ -62,6 +62,8 @@ final class TestServer: @unchecked Sendable {
         case "/two.pls":
             whole("audio/x-scpls", Data("[playlist]\nFile1=\(url("/live?a"))\nTitle1=Перша\nFile2=\(url("/live?b"))\nTitle2=Друга\nNumberOfEntries=2\n".utf8))
         case "/hls": whole("application/vnd.apple.mpegurl", Data("#EXTM3U\n#EXT-X-VERSION:3\n#EXTINF:6,\na.ts\n".utf8))
+        case "/mute": break // says nothing at all
+        case "/ogg2": whole("audio/ogg", Data(count: 1000))
         case "/ogg": whole("application/ogg", Data(count: 1000))
         case "/page": whole("text/html", Data("<html></html>".utf8))
         default: whole("text/plain", Data("no".utf8), "404 Not Found")
@@ -212,6 +214,17 @@ extension Demo {
             player.play(s, from: ids + [s.id])
             check("radio error \(path)", await until(6) { !player.isPlaying } && stations.problems[s.id] == error.text, stations.problems[s.id] ?? "none")
         }
+        let mute = station("/mute"), gone = station("/gone"), kept = station("/none2"), ogg = station("/ogg2")
+        stations.toggleFavourite(kept.id)
+        stations.startCheck([a, mp3, list, mute, gone, kept, ogg])
+        check("station check", await until(25) { stations.check?.running == false } && stations.check?.alive == 3 && stations.check?.dead == [mute.id, gone.id, kept.id]
+            && stations.check?.unsupported == 1 && stations.problems[a.id] == nil, "\(String(describing: stations.check))")
+        stations.removeDead()
+        check("silent stations removed", stations.station(mute.id) == nil && stations.station(gone.id) == nil && stations.station(kept.id) != nil && stations.station(a.id) != nil, "")
+        let icyLine = station("/icy")
+        player.play(icyLine, from: [icyLine.id])
+        _ = await until(5) { live.state == .playing }
+        NSLog("SELFTEST old servers (ICY 200): %@ %@", "\(live.state)", stations.problems[icyLine.id] ?? "")
         check("link to a list", await stations.add(link: server.url("/two.pls"), name: "") && stations.all.suffix(2).map(\.name) == ["Перша", "Друга"], "\(stations.all.count)")
         check("link to a page", await stations.add(link: server.url("/page"), name: "") == false, "")
         player.play(a, from: ids)

@@ -63,6 +63,10 @@ enum Demo {
             server = await makeServer()
             if let server { showRadio(player, stations, server) }
         }
+        if args.contains("-stationcheck") {
+            stations.startCheck(stations.ordered)
+            try? await Task.sleep(for: .seconds(2))
+        }
         if args.contains("-newstation") { ui.stationSheet = StationSheet() }
         if args.contains("-still") { player.pause() }
         if args.contains("-eqrock") { settings.v.bands = EQPreset.all[2].bands }

@@ -97,6 +97,7 @@ struct VolnaApp: App {
             if phase == .active, settings.v.refreshFolders {
                 Task { await library.refreshFolders(quiet: true) }
             }
+            if phase == .background, !player.isPlaying, stations.check?.running == true { stations.endCheck() }
             if phase != .active {
                 player.save()
                 library.saveNow()

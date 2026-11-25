@@ -109,6 +109,7 @@ shot 57-saver-land-tiles -landscape -saver -viz tiles -colors fire
 shot 70-path -panel fx -page path
 shot 80-radio -radio
 shot 81-radio-list -radio -panel radio
+shot 87-radio-check -radio -stationcheck -panel radio
 shot 82-radio-land -landscape -radio
 shot 83-radio-empty -panel radio
 shot 84-radio-new -panel radio -newstation

@@ -169,6 +169,51 @@ enum StationLink {
     }
 }
 
+/// Asks many stations whether they answer, several at a time. Only the beginning of an answer is taken.
+enum StationProbe {
+    static let atOnce = 24
+    static let patience = 6.0
+
+    static func session() -> URLSession {
+        let c = URLSessionConfiguration.ephemeral
+        c.timeoutIntervalForRequest = patience
+        c.timeoutIntervalForResource = patience * 2
+        c.httpMaximumConnectionsPerHost = 4
+        c.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: c)
+    }
+
+    /// nil = it plays.
+    static func ask(_ s: Station, _ session: URLSession) async -> StreamError? {
+        if s.isHLS { return .hls }
+        guard let url = URL(string: s.url) else { return .notRadio }
+        var request = URLRequest(url: url)
+        request.setValue("1", forHTTPHeaderField: "Icy-MetaData")
+        do {
+            let (bytes, response) = try await session.bytes(for: request)
+            defer { bytes.task.cancel() }
+            let http = response as? HTTPURLResponse
+            if let code = http?.statusCode, !(200..<300).contains(code) { return .status(code) }
+            switch StreamKind.of(type: (http?.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased(), url: response.url ?? url) {
+            case .audio: return nil
+            case .ogg: return .ogg
+            case .video: return .video
+            case .page: return .notRadio
+            case .list:
+                var data = Data()
+                for try await b in bytes {
+                    data.append(b)
+                    if data.count > 50000 { break }
+                }
+                let text = StationList.text(data)
+                return StationList.isStream(text) ? .hls : StationList.parse(text).stations.isEmpty ? .notRadio : nil
+            }
+        } catch {
+            return .network(tr("не отвечает"))
+        }
+    }
+}
+
 /// The user's stations, in the order they were added.
 @MainActor
 final class Stations: ObservableObject {
@@ -178,6 +223,20 @@ final class Stations: ObservableObject {
     /// Stations that did not open the last time, and why.
     @Published var problems: [UUID: String] = [:]
     var onChange: (() -> Void)?
+
+    struct Check: Equatable {
+        var total = 0
+        var done = 0
+        /// Does not answer, or there is no radio at the link.
+        var dead: Set<UUID> = []
+        /// Answers, but cannot be played here.
+        var unsupported = 0
+        var running = true
+        var alive: Int { done - dead.count - unsupported }
+    }
+
+    @Published var check: Check?
+    private var checking: Task<Void, Never>?
 
     private let file: URL
 
@@ -274,6 +333,77 @@ final class Stations: ObservableObject {
             toast(tr("Не удалось открыть ссылку: {}", "\(why)"))
             return false
         }
+    }
+
+    // MARK: - Checking
+
+    func startCheck(_ list: [Station]) {
+        checking?.cancel()
+        check = Check(total: list.count)
+        UIApplication.shared.isIdleTimerDisabled = true // asleep, the phone would call every station dead
+        checking = Task { [weak self] in
+            let session = StationProbe.session()
+            await withTaskGroup(of: (UUID, StreamError?).self) { group in
+                var rest = list.makeIterator()
+                for _ in 0..<StationProbe.atOnce {
+                    if let s = rest.next() { group.addTask { (s.id, await StationProbe.ask(s, session)) } }
+                }
+                // shown in portions: thousands of redraws would slow the list down
+                var fresh: [(UUID, StreamError?)] = [], shown = Date()
+                while let answer = await group.next() {
+                    if Task.isCancelled { break }
+                    fresh.append(answer)
+                    if Date().timeIntervalSince(shown) > 0.5 {
+                        self?.take(fresh)
+                        fresh = []
+                        shown = Date()
+                    }
+                    if let s = rest.next() { group.addTask { (s.id, await StationProbe.ask(s, session)) } }
+                }
+                if !Task.isCancelled { self?.take(fresh) }
+                group.cancelAll()
+            }
+            session.invalidateAndCancel()
+            if !Task.isCancelled { self?.endCheck() }
+        }
+    }
+
+    private func take(_ answers: [(UUID, StreamError?)]) {
+        guard var c = check else { return }
+        var p = problems
+        for (id, error) in answers {
+            c.done += 1
+            p[id] = error?.text
+            switch error {
+            case nil: break
+            case .hls?, .ogg?, .video?, .format?: c.unsupported += 1
+            default: c.dead.insert(id)
+            }
+        }
+        problems = p
+        check = c
+    }
+
+    /// Keeps what is known so far.
+    func endCheck() {
+        checking?.cancel()
+        checking = nil
+        UIApplication.shared.isIdleTimerDisabled = false
+        check?.running = false
+        if check?.done == 0 { check = nil }
+    }
+
+    /// Favourites stay even when they do not answer.
+    var removable: Set<UUID> {
+        guard let c = check, c.alive > 0 else { return [] }
+        return c.dead.filter { station($0).map { $0.favourite != true } ?? false }
+    }
+
+    func removeDead() {
+        let gone = removable
+        remove(gone)
+        check = nil
+        toast(tr("Убрано станций: {}", "\(gone.count)"))
     }
 
     func toggleFavourite(_ id: UUID) { change(id) { $0.favourite = $0.favourite == true ? nil : true } }
