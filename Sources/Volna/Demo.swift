@@ -206,6 +206,7 @@ enum Demo {
         await wait(1)
         check("plays after removal", player.isPlaying && player.position > 0.4, "")
         await folderTest(library, player, settings, check, wait)
+        await radioTest(library, player, settings, stations, check, wait)
         let formats = await addFormats(library)
         check("formats added", formats.map(\.kind) == ["FLAC", "ALAC", "M4A"], "\(formats.map(\.formatLine))")
         check("lossless mark", formats.map(\.isLossless) == [true, true, false], "\(formats.map { $0.bits ?? 0 })")
@@ -379,7 +380,6 @@ enum Demo {
         settings.v.language = "ru"
         check("Russian", plural(5, tr("раз"), tr("раза"), tr("раз#мн")) == "5 раз" && tr("Песни") == "Песни", "")
         pathTest(check)
-        await radioTest(library, player, settings, stations, check, wait)
         let all = library.tracks.map(\.id)
         library.toggleFavourite(all[1])
         _ = try? await PlayFavouritesIntent().perform()

@@ -136,6 +136,17 @@ extension Demo {
             && m3u.stations.last?.url == "http://c.d:8000/stream", "\(m3u.stations.map(\.name)) \(m3u.skipped)")
         let old = "#EXTM3U\n#EXTINF:-1,Шансон\nhttp://a.b/1".data(using: .windowsCP1251) ?? Data()
         check("m3u in the Windows encoding", StationList.parse(StationList.text(old)).stations.first?.name == "Шансон", "")
+        let two = StationList.parse("#EXTM3U\n#EXTINF:-1 group-title=\"A\", Хит FM\nМосква\n107,0 FM\nhttp://a.b/1\n#EXTINF:-1,Два\nhttp://a.b/2\n")
+        check("a name on three lines", two.stations.map(\.name) == ["Хит FM Москва 107,0 FM", "Два"] && two.skipped == 0, "\(two.stations.map(\.name))")
+        let damaged = Data("#EXTINF:-1,Русское радио и ещё много других названий".utf8) + Data([0xD0]) + Data("\nhttp://a.b/1".utf8)
+        check("damaged letters", StationList.parse(StationList.text(damaged)).stations.first?.name == "Русское радио и ещё много других названий", "")
+        let big = (0..<3000).map { Station(name: "S\($0)", url: "http://a.b/\($0)") }
+        let t0 = Date()
+        stations.add(big)
+        let found = big.filter { stations.station($0.id) != nil }.count + stations.ordered.count
+        let took = Date().timeIntervalSince(t0)
+        stations.remove(Set(big.map(\.id)))
+        check("3000 stations", found == 6000 && took < 1, String(format: "%.2f s", took))
         check("pls", StationList.parse("[playlist]\r\nFile1=http://a.b/1\r\nTitle1=Одна\r\n").stations.first?.name == "Одна", "")
         check("header names", StreamReader.repair(String(data: Data("Тест FM".utf8), encoding: .isoLatin1) ?? "") == "Тест FM", "")
         var icy = IcySplitter(interval: 3)

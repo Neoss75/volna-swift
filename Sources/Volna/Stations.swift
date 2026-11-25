@@ -33,7 +33,12 @@ enum StationList {
 
     static func text(_ data: Data) -> String {
         let raw = data.starts(with: [0xEF, 0xBB, 0xBF]) ? data.dropFirst(3) : data[...]
-        return String(data: raw, encoding: .utf8) ?? String(data: raw, encoding: .windowsCP1251) ?? ""
+        if let s = String(data: raw, encoding: .utf8) { return s }
+        // a few damaged letters do not make a long list Windows text
+        let s = String(decoding: raw, as: UTF8.self)
+        let broken = s.unicodeScalars.lazy.filter { $0 == "\u{FFFD}" }.count, foreign = s.unicodeScalars.lazy.filter { $0.value > 127 }.count
+        if broken * 10 < foreign { return s.replacingOccurrences(of: "\u{FFFD}", with: "") }
+        return String(data: raw, encoding: .windowsCP1251) ?? s
     }
 
     /// A list of pieces of one broadcast (HLS), not a list of stations.
@@ -57,7 +62,12 @@ enum StationList {
                 }
                 continue
             }
-            if let url = link(l) {
+            let url = link(l)
+            if url == nil, !name.isEmpty, l.rangeOfCharacter(from: CharacterSet(charactersIn: "/\\")) == nil, !isFileName(l) {
+                name += " " + l // a name written on two lines
+                continue
+            }
+            if let url {
                 list.append(Station(name: name.isEmpty ? fallback(url) : name, url: url, logo: logo, group: group ?? groupLine))
             } else {
                 skipped += 1
@@ -65,6 +75,10 @@ enum StationList {
             (name, logo, group, groupLine) = ("", nil, nil, nil)
         }
         return (list, skipped)
+    }
+
+    private static func isFileName(_ s: String) -> Bool {
+        ["mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "wma", "mp4", "ts"].contains((s as NSString).pathExtension.lowercased())
     }
 
     /// #EXTINF:-1 tvg-logo="…" group-title="…",Name
@@ -158,7 +172,8 @@ enum StationLink {
 /// The user's stations, in the order they were added.
 @MainActor
 final class Stations: ObservableObject {
-    @Published private(set) var all: [Station] = []
+    @Published private(set) var all: [Station] = [] { didSet { index = nil } }
+    private var index: [UUID: Station]?
     @Published private(set) var loading = false
     /// Stations that did not open the last time, and why.
     @Published var problems: [UUID: String] = [:]
@@ -173,7 +188,12 @@ final class Stations: ObservableObject {
         if let data = try? Data(contentsOf: file), let list = try? JSONDecoder().decode([Station].self, from: data) { all = list }
     }
 
-    func station(_ id: UUID?) -> Station? { id.flatMap { id in all.first { $0.id == id } } }
+    /// Lists of thousands of stations are usual.
+    func station(_ id: UUID?) -> Station? {
+        guard let id else { return nil }
+        if index == nil { index = Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
+        return index?[id]
+    }
 
     /// The way they are shown: favourites first, then the groups.
     var sections: [(title: String?, stations: [Station])] {
@@ -311,7 +331,7 @@ final class Logos: ObservableObject {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try? d.write(to: file)
         }
-        guard let data, let full = UIImage(data: data) else { return }
+        guard let data, let full = UIImage(data: data), min(full.size.width, full.size.height) >= 40 else { return } // tiny site icons look bad
         images[link] = await full.byPreparingThumbnail(ofSize: Self.fit(full.size)) ?? full
         onChange?()
     }
