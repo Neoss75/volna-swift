@@ -23,7 +23,7 @@ t 120 xcrun simctl install "$DEV" "$APP"
 
 say self-test
 t 400 xcrun simctl launch --stdout="$PWD/shots/out.txt" --stderr="$PWD/shots/selftest.txt" "$DEV" $ID -demo -selftest
-for _ in $(seq 1 700); do
+for _ in $(seq 1 900); do
   grep -q 'SELFTEST done' shots/selftest.txt 2>/dev/null && break
   sleep 1
 done
@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(01|02e|72|75|76)-'
+ONLY='^(01|02e|60-uk|75|76|8[0-9])-'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -107,6 +107,13 @@ shot 55-saver-aurora -saver -viz aurora -colors rainbow
 shot 56-saver-land-kaleido -landscape -saver -viz kaleido -colors neon
 shot 57-saver-land-tiles -landscape -saver -viz tiles -colors fire
 shot 70-path -panel fx -page path
+shot 80-radio -radio
+shot 81-radio-list -radio -panel radio
+shot 82-radio-land -landscape -radio
+shot 83-radio-empty -panel radio
+shot 84-radio-new -panel radio -newstation
+shot 85-radio-path -radio -panel fx -page path
+shot 86-radio-light -radio -theme light -viz ring
 shot 74-siri -panel fx -page siri
 shot 71-path-usb -lossless -port usb -panel fx -page path
 shot 72-path-bt -port bt -panel fx -page path

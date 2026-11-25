@@ -243,6 +243,7 @@ struct RingCover: View {
     @State private var state = VizState()
     @State private var moving = true
     let track: Track?
+    var station: Station?
     let side: CGFloat
 
     var body: some View {
@@ -275,9 +276,17 @@ struct RingCover: View {
     }
 
     private var cover: some View {
-        CoverView(track: track, corner: side, letter: side * 0.16)
+        picture
             .frame(width: side * 0.58, height: side * 0.58)
             .drawingGroup()
+    }
+
+    @ViewBuilder private var picture: some View {
+        if let station {
+            StationLogo(station: station, corner: side, letter: side * 0.16)
+        } else {
+            CoverView(track: track, corner: side, letter: side * 0.16)
+        }
     }
 
     private func draw(_ g: GraphicsContext, _ size: CGSize, _ paint: VizPaint, _ live: Bool) {

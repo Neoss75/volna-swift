@@ -22,6 +22,11 @@ final class Player: ObservableObject {
     @Published private(set) var repeatMode = RepeatMode.off
     @Published private(set) var sleepAt: Date?
     @Published private(set) var sleepAfterTrack = false
+    /// Set while the radio is on (or paused); the queue of songs waits meanwhile.
+    @Published private(set) var radio: Station?
+    let live: Radio
+    private var radioList: [UUID] = []
+    private let stations: Stations
 
     let clock = PlaybackClock()
     let graph = AudioGraph()
@@ -50,7 +55,9 @@ final class Player: ObservableObject {
     private var deck: Deck { graph.decks[active] }
     private var spare: Deck { graph.decks[1 - active] }
 
-    init(library: Library, settings: Settings, stats: Stats, covers: CoverFinder) {
+    init(library: Library, settings: Settings, stats: Stats, covers: CoverFinder, stations: Stations) {
+        self.stations = stations
+        live = Radio(graph: graph)
         self.library = library
         self.settings = settings
         self.stats = stats
@@ -71,15 +78,22 @@ final class Player: ObservableObject {
                 self.chained()
             }
         }
+        live.onInfo = { [weak self] in self?.matchRadio($0) }
+        live.onTitle = { [weak self] in self?.radioTitleChanged() }
+        live.onEnd = { [weak self] in self?.radioEnded($0) }
+        stations.onChange = { [weak self] in self?.stationsChanged() }
+        Logos.shared.onChange = { [weak self] in if self?.radio != nil { self?.publish() } }
         observe()
         restore()
         PlayerBridge.toggle = { [weak self] in self?.toggle() }
         PlayerBridge.next = { [weak self] in self?.next() }
         PlayerBridge.previous = { [weak self] in self?.previous() }
-        updateWidget(current, current.flatMap { $0.hasArtwork ? ArtworkStore.image(for: $0.id) : nil })
+        publishWidget()
     }
 
-    var current: Track? { qi >= 0 && qi < queue.count ? library.track(queue[qi]) : nil }
+    /// The song; none while the radio is on.
+    var current: Track? { radio == nil ? queued : nil }
+    private var queued: Track? { qi >= 0 && qi < queue.count ? library.track(queue[qi]) : nil }
 
     /// Exact position, for the waveform that moves every frame.
     var position: Double { deck.file == nil ? savedTime : deck.position }
@@ -183,9 +197,11 @@ final class Player: ObservableObject {
         queue.removeAll { ids.contains($0) }
         orig.removeAll { ids.contains($0) }
         if let now, ids.contains(now) {
-            pause()
-            endFade()
-            deck.unload()
+            if radio == nil {
+                pause()
+                endFade()
+                deck.unload()
+            }
             qi = -1
             savedTime = 0
             duration = 0
@@ -203,6 +219,7 @@ final class Player: ObservableObject {
 
     func resume() {
         guard !isPlaying else { return }
+        if radio != nil { return startRadio() }
         guard current != nil else {
             if let first = library.tracks.first {
                 play(first.id, from: library.tracks.map(\.id))
@@ -242,16 +259,19 @@ final class Player: ObservableObject {
         endFade()
         forgetChain()
         guard isPlaying else { return }
+        live.stop()
         deck.halt()
         graph.engine.pause()
         isPlaying = false
         stopTimer()
-        clock.time = deck.position
+        if radio == nil { clock.time = position }
         publish()
         save()
     }
 
-    func next() { advance(auto: false) }
+    func next() {
+        if radio != nil { step(1) } else { advance(auto: false) }
+    }
 
     private func advance(auto: Bool) {
         guard !queue.isEmpty else { return }
@@ -279,6 +299,10 @@ final class Player: ObservableObject {
     /// The swipe. At the start of the queue the song goes on playing; returns false then.
     @discardableResult
     func previousTrack() -> Bool {
+        if radio != nil {
+            step(-1)
+            return true
+        }
         guard !queue.isEmpty else { return false }
         if atStart {
             toast(tr("Это начало списка"))
@@ -291,10 +315,12 @@ final class Player: ObservableObject {
 
     /// The button: back to the start of the song first, then to the previous one.
     func previous() {
+        if radio != nil { return step(-1) }
         if position > 3 || atStart { seek(to: 0) } else { previousTrack() }
     }
 
     func seek(to time: Double) {
+        guard radio == nil else { return }
         let t = max(0, min(time, max(0, duration)))
         endFade()
         forgetChain()
@@ -311,6 +337,7 @@ final class Player: ObservableObject {
     }
 
     private func load(play: Bool, at time: Double = 0) {
+        closeRadio()
         guard let t = current else { return }
         endFade()
         forgetChain()
@@ -381,6 +408,121 @@ final class Player: ObservableObject {
             return
         }
         advance(auto: true)
+    }
+
+    // MARK: - Radio
+
+    func play(_ s: Station, from list: [UUID]) {
+        if radio == nil {
+            // the song goes on from here later
+            savedTime = position
+            endFade()
+            forgetChain()
+            deck.unload()
+            stats.flush()
+        }
+        radio = s
+        radioList = list
+        startRadio()
+    }
+
+    private func startRadio() {
+        guard let s = radio else { return }
+        guard let url = URL(string: s.url), !s.isHLS else { return radioEnded(s.isHLS ? StreamError.hls.text : tr("Это не похоже на ссылку")) }
+        sleepFade?.cancel()
+        sleepFade = nil
+        graph.master = 1
+        live.stop()
+        applyGraph()
+        deck.fade = 1
+        deck.gainDb = 0
+        do { try graph.start() } catch {
+            return radioEnded(error.localizedDescription)
+        }
+        isPlaying = true
+        clock.time = 0
+        live.start(url, on: deck)
+        nowPlaying.registerCommands(for: self)
+        startTimer()
+        publish()
+        save()
+    }
+
+    /// Back to the songs: the last one stays paused where it was.
+    func leaveRadio() {
+        guard radio != nil else { return }
+        pause()
+        closeRadio()
+        duration = current?.duration ?? 0
+        clock.time = savedTime
+        publish()
+        save()
+    }
+
+    private func closeRadio() {
+        guard radio != nil else { return }
+        live.stop()
+        radio = nil
+        applyGraph()
+    }
+
+    private func step(_ by: Int) {
+        let list = radioList.filter { stations.station($0) != nil }
+        guard let now = radio, !list.isEmpty else { return }
+        let i = list.firstIndex(of: now.id) ?? 0
+        if let s = stations.station(list[(i + by + list.count) % list.count]) { play(s, from: radioList) }
+    }
+
+    /// The place of the station in its list, from 1.
+    var radioPlace: (Int, Int)? {
+        guard let now = radio else { return nil }
+        let list = radioList.filter { stations.station($0) != nil }
+        return list.firstIndex(of: now.id).map { ($0 + 1, list.count) }
+    }
+
+    private func matchRadio(_ rate: Double) {
+        guard settings.v.matchRate else { return }
+        graph.matchOutput(rate: rate)
+        try? graph.start()
+    }
+
+    private func radioTitleChanged() {
+        if sleepAfterTrack, live.state == .playing {
+            sleepAfterTrack = false
+            pause()
+            toast(tr("Таймер сна: воспроизведение остановлено"))
+        }
+        publish()
+    }
+
+    /// The station went silent for good; `why` is nil at the end of a file on a server.
+    private func radioEnded(_ why: String?) {
+        guard let s = radio else { return }
+        stations.problems[s.id] = why
+        if let why { toast("«\(s.name)»: \(why)") }
+        if isPlaying {
+            pause()
+        } else {
+            publish()
+            save()
+        }
+    }
+
+    private func stationsChanged() {
+        guard let now = radio else { return }
+        if let s = stations.station(now.id) {
+            if s != now { radio = s }
+            publish()
+        } else {
+            leaveRadio()
+        }
+    }
+
+    /// Radio cannot play faster than it comes.
+    private func applyGraph() {
+        var v = settings.v
+        if radio != nil { v.rate = 1 }
+        graph.apply(v)
     }
 
     // MARK: - No gaps
@@ -524,7 +666,7 @@ final class Player: ObservableObject {
     // MARK: - Settings, analysis, lock screen
 
     private func settingsChanged() {
-        graph.apply(settings.v)
+        applyGraph()
         if settings.v.crossfade > 0 || !settings.v.gapless { dropChain() }
         applyLoudness()
         publish()
@@ -539,25 +681,34 @@ final class Player: ObservableObject {
     }
 
     /// The decoded song, before anything else happens to it.
-    var sourceFormat: AVAudioFormat? { deck.file?.processingFormat }
+    var sourceFormat: AVAudioFormat? {
+        radio == nil ? deck.file?.processingFormat : AVAudioFormat(standardFormatWithSampleRate: live.info.rate, channels: AVAudioChannelCount(max(1, live.info.channels)))
+    }
 
     func publish() {
+        if let s = radio {
+            let song = live.artistAndSong, image = Logos.shared.image(s)
+            let title = song?.title ?? s.name, artist = song.map { $0.artist.isEmpty ? s.name : $0.artist } ?? tr("Радио")
+            nowPlaying.update(station: s.name, title: title, artist: artist, artwork: image, playing: isPlaying)
+            updateWidget(title, artist, image, "\(s.id)")
+            return
+        }
         let t = current
         let image = t.flatMap { $0.hasArtwork ? ArtworkStore.image(for: $0.id) : nil }
         nowPlaying.update(track: t, artwork: image, elapsed: position, duration: duration, rate: isPlaying ? settings.v.effectiveRate : 0)
-        updateWidget(t, image)
+        updateWidget(t?.title ?? "", t?.artist ?? "", image, t.map { "\($0.id)" } ?? "")
     }
 
     private var widgetState = WidgetState.load()
 
-    private func updateWidget(_ t: Track?, _ image: UIImage?) {
+    private func updateWidget(_ title: String, _ artist: String, _ image: UIImage?, _ key: String) {
         var s = WidgetState()
-        s.title = t?.title ?? ""
-        s.artist = t?.artist ?? ""
+        s.title = title
+        s.artist = artist
         s.playing = isPlaying
         s.accent = settings.v.accent
         s.lang = Lang.current.rawValue
-        if let t, let image { s.coverVersion = "\(t.id) \(ObjectIdentifier(image).hashValue)" }
+        if !key.isEmpty, let image { s.coverVersion = "\(key) \(ObjectIdentifier(image).hashValue)" }
         guard s != widgetState else { return }
         if s.coverVersion != widgetState.coverVersion { WidgetState.saveCover(image) }
         widgetState = s
@@ -565,10 +716,19 @@ final class Player: ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// At the start: the widget only, the lock screen still belongs to another app.
+    private func publishWidget() {
+        if let s = radio { return updateWidget(s.name, tr("Радио"), Logos.shared.image(s), "\(s.id)") }
+        let t = current
+        updateWidget(t?.title ?? "", t?.artist ?? "", t.flatMap { $0.hasArtwork ? ArtworkStore.image(for: $0.id) : nil }, t.map { "\($0.id)" } ?? "")
+    }
+
     // MARK: - Session
 
     func save() {
         let d = UserDefaults.standard
+        d.set(radio?.id.uuidString, forKey: "session.radio")
+        d.set(radioList.map(\.uuidString), forKey: "session.radioList")
         lastSave = Date()
         d.set(queue.map(\.uuidString), forKey: "session.queue")
         d.set(orig.map(\.uuidString), forKey: "session.orig")
@@ -594,6 +754,8 @@ final class Player: ObservableObject {
             clock.time = savedTime
             if let t = current { analyzer.request(t, first: true) }
         }
+        radioList = (d.stringArray(forKey: "session.radioList") ?? []).compactMap(UUID.init(uuidString:))
+        radio = stations.station(d.string(forKey: "session.radio").flatMap(UUID.init(uuidString:)))
     }
 
     // MARK: - Interruptions and the timer
@@ -636,6 +798,7 @@ final class Player: ObservableObject {
     /// The output changed (e.g. AirPods connected): the engine stopped, go on from the same place.
     private func outputChanged() {
         guard isPlaying, !graph.engine.isRunning else { return }
+        if radio != nil { return startRadio() }
         let t = clock.time
         endFade()
         deck.halt()
@@ -661,6 +824,12 @@ final class Player: ObservableObject {
 
     private func tick() {
         guard isPlaying else { return }
+        if radio != nil {
+            live.tick()
+            if live.state == .playing { clock.time += 0.2 }
+            checkSleep()
+            return
+        }
         clock.time = position
         if let t = current { stats.tick(t) }
         maybeCrossfade()

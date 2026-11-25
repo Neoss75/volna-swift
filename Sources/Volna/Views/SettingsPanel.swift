@@ -417,7 +417,7 @@ private struct VizPage: View {
             case .ring:
                 HStack {
                     Spacer()
-                    RingCover(track: player.current, side: 220)
+                    RingCover(track: player.current, station: player.radio, side: 220)
                     Spacer()
                 }
             default:
@@ -563,7 +563,7 @@ private struct LyricsPage: View {
 private struct SiriPage: View {
     private var phrases: [String] {
         [tr("Включи избранное в Волне"), tr("Перемешай музыку в Волне"), tr("Включи музыку в Волне"),
-         tr("Включи песню … в Волне"), tr("Включи исполнителя … в Волне"), tr("Включи плейлист … в Волне")]
+         tr("Включи песню … в Волне"), tr("Включи исполнителя … в Волне"), tr("Включи плейлист … в Волне"), tr("Включи радио … в Волне")]
     }
 
     var body: some View {

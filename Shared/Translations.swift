@@ -428,9 +428,6 @@ Bluetooth, режим звонка‖Bluetooth, режим дзвінка‖Blue
 скорость‖швидкість‖speed
 лимитер‖лімітер‖limiter
 Включите песню, чтобы увидеть весь путь.‖Увімкніть пісню, щоб побачити весь шлях.‖Play a song to see the whole path.
-Сам файл сжат с потерями, лучше него на выходе не станет.‖Сам файл стиснено з втратами, кращим за нього звук на виході не стане.‖The file itself is compressed with losses, the output cannot be better than that.
-Файл уже сжат с потерями, а по Bluetooth звук сжимается ещё раз. Каким способом, iPhone приложениям не сообщает (обычно AAC).‖Файл уже стиснутий із втратами, а по Bluetooth звук стискається ще раз. Яким способом, iPhone застосункам не повідомляє (зазвичай AAC).‖The file is already lossy, and over Bluetooth the sound is compressed once more. The iPhone does not tell apps how (usually AAC).
-Файл сжат с потерями, лучше него на выходе не станет. Динамики iPhone работают на своей частоте, для такого файла это почти не слышно.‖Файл стиснутий із втратами, кращим за нього звук на виході не стане. Динаміки iPhone працюють на своїй частоті, для такого файлу це майже не чутно.‖The file is lossy, the output cannot be better than it. The iPhone speakers have their own rate, for such a file it can hardly be heard.
 По Bluetooth звук сжимается ещё раз перед отправкой, поэтому без потерь он не дойдёт. Каким способом, iPhone приложениям не сообщает (обычно AAC).‖По Bluetooth звук стискається ще раз перед надсиланням, тому без втрат він не дійде. Яким способом, iPhone застосункам не повідомляє (зазвичай AAC).‖Over Bluetooth the sound is compressed once more before it is sent, so it cannot arrive lossless. The iPhone does not tell apps how (usually AAC).
 Наушники в режиме звонка: звук сильно упрощён. Закройте приложение, которое использует микрофон.‖Навушники в режимі дзвінка: звук сильно спрощено. Закрийте застосунок, який використовує мікрофон.‖The headphones are in call mode: the sound is much simpler. Close the app that uses the microphone.
 Динамики iPhone работают на своей частоте. Чтобы услышать файл без потерь, нужны наушники по проводу или ЦАП.‖Динаміки iPhone працюють на своїй частоті. Щоб почути файл без втрат, потрібні навушники по дроту або ЦАП.‖The iPhone speakers have their own rate. To hear a lossless file you need wired headphones or a DAC.
@@ -466,5 +463,55 @@ Siri и команды‖Siri та команди‖Siri and Shortcuts
 Фразы работают на языке Siri: русском или английском. Украинского у Siri пока нет.‖Фрази працюють мовою Siri: російською або англійською. Української в Siri поки немає.‖Phrases work in the language of Siri: Russian or English. Siri has no Ukrainian yet.
 Команды‖Команди‖Shortcuts
 Эти же действия есть в приложении «Команды»: там их можно повесить на кнопку «Действие» или в автоматизацию.‖Ці ж дії є в застосунку «Команди»: там їх можна призначити кнопці «Дія» або додати в автоматизацію.‖The same actions are in the Shortcuts app, where they can go on the Action button or into an automation.
+Исходный звук уже сжат с потерями, а по Bluetooth звук сжимается ещё раз. Каким способом, iPhone приложениям не сообщает (обычно AAC).‖Вихідний звук уже стиснутий із втратами, а по Bluetooth він стискається ще раз. Яким способом, iPhone застосункам не повідомляє (зазвичай AAC).‖The source is already lossy, and over Bluetooth the sound is compressed once more. The iPhone does not tell apps how (usually AAC).
+Исходный звук сжат с потерями, лучше него на выходе не станет. Динамики iPhone работают на своей частоте, в таком случае это почти не слышно.‖Вихідний звук стиснутий із втратами, кращим за нього звук на виході не стане. Динаміки iPhone працюють на своїй частоті, у такому разі це майже не чутно.‖The source is lossy, the output cannot be better than it. The iPhone speakers have their own rate, with such sound it can hardly be heard.
+Исходный звук сжат с потерями, лучше него на выходе не станет.‖Вихідний звук стиснутий із втратами, кращим за нього звук на виході не стане.‖The source is lossy, the output cannot be better than it.
+Радио‖Радіо‖Radio
+Избранное‖Обране‖Favourites
+Станции‖Станції‖Stations
+Вернуться к песням‖Повернутися до пісень‖Back to the songs
+Добавить по ссылке‖Додати за посиланням‖Add by link
+Добавить список станций‖Додати список станцій‖Add a list of stations
+Это поток HLS, а не список станций‖Це потік HLS, а не список станцій‖This is an HLS stream, not a list of stations
+В этом списке нет ссылок на станции‖У цьому списку немає посилань на станції‖There are no links to stations in this list
+Добавлено станций: {}‖Додано станцій: {}‖Stations added: {}
+пропущено строк: {}‖пропущено рядків: {}‖lines skipped: {}
+Это не похоже на ссылку‖Це не схоже на посилання‖This does not look like a link
+Станция «{}» добавлена‖Станцію «{}» додано‖Station “{}” added
+Эта станция уже есть‖Така станція вже є‖This station is already there
+Не удалось открыть ссылку: {}‖Не вдалося відкрити посилання: {}‖Could not open the link: {}
+станции по этой ссылке больше нет‖станції за цим посиланням більше немає‖there is no station at this link any more
+станция отвечает ошибкой {}‖станція відповідає помилкою {}‖the station answers with error {}
+потоки HLS (.m3u8) пока не поддерживаются‖потоки HLS (.m3u8) поки не підтримуються‖HLS streams (.m3u8) are not supported yet
+потоки OGG и Opus пока не поддерживаются‖потоки OGG і Opus поки не підтримуються‖OGG and Opus streams are not supported yet
+это видео, а не радио‖це відео, а не радіо‖this is video, not radio
+по этой ссылке не радиопоток‖за цим посиланням не радіопотік‖there is no radio stream at this link
+формат этого потока не распознан‖формат цього потоку не розпізнано‖the format of this stream is not recognised
+станция прервала передачу‖станція перервала передачу‖the station stopped sending
+Прямой эфир‖Прямий ефір‖Live
+Подключаюсь…‖Підключаюся…‖Connecting…
+Набираю запас звука…‖Набираю запас звуку…‖Buffering…
+Связь пропала, подключаюсь снова…‖Зв’язок зник, підключаюся знову…‖Connection lost, connecting again…
+На паузе‖На паузі‖Paused
+запас {} с‖запас {} с‖{} s in store
+Новая станция‖Нова станція‖New station
+Изменить станцию‖Змінити станцію‖Edit the station
+Ссылка‖Посилання‖Link
+Вставить из буфера‖Вставити з буфера‖Paste
+Подходит ссылка на поток (MP3, AAC) или на целый список .m3u или .pls. Название можно не писать.‖Підійде посилання на потік (MP3, AAC) або на цілий список .m3u чи .pls. Назву можна не писати.‖A link to a stream (MP3, AAC) or to a whole .m3u or .pls list will do. The name may be left empty.
+Открываю ссылку…‖Відкриваю посилання…‖Opening the link…
+Станций пока нет. Добавьте список .m3u или .pls из «Файлов» или вставьте ссылку.‖Станцій поки немає. Додайте список .m3u або .pls із «Файлів» чи вставте посилання.‖No stations yet. Add a .m3u or .pls list from Files, or paste a link.
+Поиск станции…‖Пошук станції…‖Search stations…
+станция‖станція‖station
+станции‖станції‖stations
+станций‖станцій‖stations
+HLS, пока не играет‖HLS, поки не грає‖HLS, not playable yet
+Изменить…‖Змінити…‖Edit…
+Убрать станции из плеера: {}?‖Прибрати станції з плеєра: {}?‖Remove stations from the player: {}?
+Убрать станции‖Прибрати станції‖Remove stations
+Список‖Список‖List
+Включи радио … в Волне‖Включи радио … в Волне‖Play the radio … in Volna
+Такой станции нет‖Такої станції немає‖There is no such station
+Станций в плеере пока нет‖Станцій у плеєрі поки немає‖There are no stations in the player yet
 """#
 }

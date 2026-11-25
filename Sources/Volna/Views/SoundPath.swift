@@ -81,7 +81,7 @@ struct SoundPath: Equatable {
     let clean: Bool
 
     /// `rate` is the rate of the decoded song, `graph` the rate the player works at.
-    static func build(_ t: Track?, rate: Double, channels: Int, graph: Double, _ v: Settings.Values, preset: String?, _ out: Output) -> SoundPath {
+    static func build(_ t: Track?, rate: Double, channels: Int, graph: Double, _ v: Settings.Values, preset: String?, _ out: Output, stream: Bool = false) -> SoundPath {
         var steps: [Step] = []
         let work = graph > 0 ? graph : out.rate
         let resampled = t != nil && rate > 0 && (abs(rate - work) > 1 || abs(work - out.rate) > 1)
@@ -91,7 +91,7 @@ struct SoundPath: Equatable {
             let depth = t.bits.map { tr("{} бит / ", "\($0)") } ?? ""
             let file = t.kind + " · " + depth + OutputInfo.khz(t.sampleRate ?? rate)
             let how = t.isLossless ? tr("без потерь") : tr("со сжатием")
-            steps.append(Step(icon: "doc", title: tr("Файл"), value: file, detail: [how, t.bitrateText].filter { !$0.isEmpty }.joined(separator: " · "),
+            steps.append(Step(icon: stream ? "dot.radiowaves.left.and.right" : "doc", title: stream ? tr("Радио") : tr("Файл"), value: file, detail: [how, t.bitrateText].filter { !$0.isEmpty }.joined(separator: " · "),
                               mark: t.isLossless ? .good : .plain))
             steps.append(Step(icon: "cpu", title: tr("Распаковка"), value: "PCM · " + OutputInfo.khz(rate) + " · " + Self.channels(channels),
                               detail: tr("внутри плеера звук 32-битный")))
@@ -128,15 +128,15 @@ struct SoundPath: Equatable {
 
     private static func verdict(_ t: Track?, _ out: Output, resampled: Bool, changed: Bool) -> String {
         guard let t else { return tr("Включите песню, чтобы увидеть весь путь.") }
-        let source = t.isLossless ? "" : " " + tr("Сам файл сжат с потерями, лучше него на выходе не станет.")
+        let source = t.isLossless ? "" : " " + tr("Исходный звук сжат с потерями, лучше него на выходе не станет.")
         switch out.port {
         case .bluetoothA2DP, .bluetoothLE:
-            guard t.isLossless else { return tr("Файл уже сжат с потерями, а по Bluetooth звук сжимается ещё раз. Каким способом, iPhone приложениям не сообщает (обычно AAC).") }
+            guard t.isLossless else { return tr("Исходный звук уже сжат с потерями, а по Bluetooth звук сжимается ещё раз. Каким способом, iPhone приложениям не сообщает (обычно AAC).") }
             return tr("По Bluetooth звук сжимается ещё раз перед отправкой, поэтому без потерь он не дойдёт. Каким способом, iPhone приложениям не сообщает (обычно AAC).")
         case .bluetoothHFP:
             return tr("Наушники в режиме звонка: звук сильно упрощён. Закройте приложение, которое использует микрофон.")
         case .builtInSpeaker, .builtInReceiver:
-            guard t.isLossless else { return tr("Файл сжат с потерями, лучше него на выходе не станет. Динамики iPhone работают на своей частоте, для такого файла это почти не слышно.") }
+            guard t.isLossless else { return tr("Исходный звук сжат с потерями, лучше него на выходе не станет. Динамики iPhone работают на своей частоте, в таком случае это почти не слышно.") }
             return tr("Динамики iPhone работают на своей частоте. Чтобы услышать файл без потерь, нужны наушники по проводу или ЦАП.")
         case .airPlay:
             return tr("По AirPlay звук передаётся по Wi-Fi. В каком виде он доходит, iPhone приложениям не сообщает.") + source
@@ -155,14 +155,25 @@ struct SoundPath: Equatable {
 extension SoundPath {
     @MainActor
     static func now(_ player: Player, _ settings: Settings) -> SoundPath {
-        let f = player.sourceFormat, t = player.current
+        let f = player.sourceFormat
+        var t = player.current
+        if player.radio != nil {
+            // a live stream is described like a compressed file
+            var s = Track(id: UUID(), bookmark: Data(), path: "", title: "", artist: "", album: "", duration: 0, hasArtwork: false)
+            s.ext = player.live.info.kind
+            s.kbps = player.live.info.kbps
+            s.sampleRate = player.live.info.rate
+            t = player.live.info.rate > 0 && player.isPlaying ? s : nil
+        }
         let out = Output.now()
         var graph = player.graph.rate
         #if DEBUG
             if Output.fake != nil { graph = out.rate }
         #endif
-        return build(t, rate: f?.sampleRate ?? t?.sampleRate ?? 0, channels: Int(f?.channelCount ?? 2), graph: graph, settings.v,
-                     preset: settings.preset?.name, out)
+        var v = settings.v
+        if player.radio != nil { v.rate = 1 }
+        return build(t, rate: f?.sampleRate ?? t?.sampleRate ?? 0, channels: Int(f?.channelCount ?? 2), graph: graph, v,
+                     preset: settings.preset?.name, out, stream: player.radio != nil)
     }
 }
 

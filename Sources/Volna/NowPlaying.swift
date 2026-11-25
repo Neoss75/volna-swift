@@ -37,8 +37,28 @@ final class NowPlaying {
         }
     }
 
+    func update(station: String, title: String, artist: String, artwork image: UIImage?, playing: Bool) {
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: title,
+            MPMediaItemPropertyArtist: artist,
+            MPMediaItemPropertyAlbumTitle: station,
+            MPNowPlayingInfoPropertyIsLiveStream: true,
+            MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0,
+            MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
+        ]
+        if artworkFor !== image {
+            artworkFor = image
+            artwork = image.map(makeArtwork)
+        }
+        if let artwork { info[MPMediaItemPropertyArtwork] = artwork }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        MPRemoteCommandCenter.shared().changePlaybackPositionCommand.isEnabled = false
+    }
+
     func update(track: Track?, artwork image: UIImage?, elapsed: Double, duration: Double, rate: Double) {
         let center = MPNowPlayingInfoCenter.default()
+        if registered { MPRemoteCommandCenter.shared().changePlaybackPositionCommand.isEnabled = true }
         guard let track else {
             center.nowPlayingInfo = nil
             return

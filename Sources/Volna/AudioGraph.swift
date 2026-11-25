@@ -77,6 +77,7 @@ final class Deck {
         rest = position
         generation += 1
         node.stop()
+        queued = 0
         running = false
         following = nil
     }
@@ -110,6 +111,30 @@ final class Deck {
         rest = 0
         onChained?()
     }
+
+    // MARK: Sound that comes in pieces (radio)
+
+    /// Seconds of sound given to the node and not heard yet.
+    private(set) var queued: Double = 0
+
+    func feed(_ b: AVAudioPCMBuffer) {
+        guard b.format == format else { return }
+        let gen = generation, seconds = Double(b.frameLength) / b.format.sampleRate
+        queued += seconds
+        node.scheduleBuffer(b, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.generation == gen else { return }
+                self.queued = max(0, self.queued - seconds)
+            }
+        }
+    }
+
+    func playStream() {
+        guard node.engine?.isRunning == true else { return }
+        node.play()
+    }
+
+    func pauseStream() { node.pause() }
 
     func unload() {
         halt()
@@ -215,6 +240,12 @@ final class AudioGraph {
         connect(d, f.processingFormat)
     }
 
+    /// The deck will get its sound in pieces of this format.
+    func openStream(_ format: AVAudioFormat, into d: Deck) {
+        d.unload()
+        connect(d, format)
+    }
+
     private var askedRate: (rate: Double, port: String)?
 
     /// Wired digital outputs (USB DAC, HDMI) can run at the song's own rate; the speaker and Bluetooth cannot.
@@ -224,7 +255,11 @@ final class AudioGraph {
 
     /// Asks the DAC for the song's sample rate, so that nothing is resampled on the way.
     func matchOutput(to d: Deck) {
-        guard let rate = d.file?.processingFormat.sampleRate, let port = Self.digitalPort else { return }
+        if let rate = d.file?.processingFormat.sampleRate { matchOutput(rate: rate) }
+    }
+
+    func matchOutput(rate: Double) {
+        guard let port = Self.digitalPort else { return }
         let session = AVAudioSession.sharedInstance()
         guard abs(session.sampleRate - rate) > 1 else { return }
         if let asked = askedRate, asked.rate == rate, asked.port == port.uid { return } // this DAC cannot do it

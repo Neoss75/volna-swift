@@ -6,7 +6,7 @@ import SwiftUI
 /// so the cloud Mac can check the app and take screenshots. Not part of the TestFlight build.
 @MainActor
 enum Demo {
-    static func run(library: Library, player: Player, settings: Settings, ui: UIState) async {
+    static func run(library: Library, player: Player, settings: Settings, ui: UIState, stations: Stations) async {
         let args = ProcessInfo.processInfo.arguments
         guard args.contains("-demo") else { return }
         func value(_ name: String) -> String? {
@@ -55,10 +55,15 @@ enum Demo {
         if let t = value("-tab") { ui.listTab = ListTab.allCases.first { "\($0)" == t } ?? .songs }
         if args.contains("-album"), let t = library.tracks.first(where: { !$0.album.isEmpty }) { ui.collection = .album(Library.albumKey(t)) }
         if args.contains("-selftest") {
-            await selfTest(library: library, player: player, settings: settings, ui: ui)
+            await selfTest(library: library, player: player, settings: settings, ui: ui, stations: stations)
             return
         }
         if !args.contains("-lossless"), !args.contains("-aac"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
+        if args.contains("-radio") {
+            server = await makeServer()
+            if let server { showRadio(player, stations, server) }
+        }
+        if args.contains("-newstation") { ui.stationSheet = StationSheet() }
         if args.contains("-still") { player.pause() }
         if args.contains("-eqrock") { settings.v.bands = EQPreset.all[2].bands }
         if args.contains("-landscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
@@ -70,7 +75,9 @@ enum Demo {
         if let page = value("-page").flatMap(SettingsPage.init(rawValue:)) { ui.settingsPath = [page] }
     }
 
-    private static func selfTest(library: Library, player: Player, settings: Settings, ui: UIState) async {
+    private static var server: TestServer?
+
+    private static func selfTest(library: Library, player: Player, settings: Settings, ui: UIState, stations: Stations) async {
         func log(_ s: String) { NSLog("SELFTEST %@", s) }
         func check(_ name: String, _ ok: Bool, _ info: String) { log((ok ? "ok   " : "FAIL ") + name + " " + info) }
         func wait(_ s: Double) async { try? await Task.sleep(for: .seconds(s)) }
@@ -372,6 +379,7 @@ enum Demo {
         settings.v.language = "ru"
         check("Russian", plural(5, tr("раз"), tr("раза"), tr("раз#мн")) == "5 раз" && tr("Песни") == "Песни", "")
         pathTest(check)
+        await radioTest(library, player, settings, stations, check, wait)
         let all = library.tracks.map(\.id)
         library.toggleFavourite(all[1])
         _ = try? await PlayFavouritesIntent().perform()
@@ -420,7 +428,7 @@ enum Demo {
         check("sound path: processing", !bass.clean && bass.steps[3].mark == .changed, bass.steps[3].value)
     }
 
-    private static func synth(_ url: URL, rate: Double, channels: Int, seconds: Double, format kind: AudioFormatID = kAudioFormatLinearPCM) {
+    static func synth(_ url: URL, rate: Double, channels: Int, seconds: Double, format kind: AudioFormatID = kAudioFormatLinearPCM) {
         guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: AVAudioChannelCount(channels)) else { return }
         var settings: [String: Any] = [AVFormatIDKey: kind, AVSampleRateKey: rate, AVNumberOfChannelsKey: channels]
         if kind == kAudioFormatLinearPCM {

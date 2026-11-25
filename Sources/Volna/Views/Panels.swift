@@ -5,6 +5,7 @@ struct PanelView: View {
     @EnvironmentObject private var settings: Settings
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var library: Library
+    @EnvironmentObject private var stations: Stations
     let panel: Panel
 
     var body: some View {
@@ -15,8 +16,13 @@ struct PanelView: View {
                 VStack(spacing: 0) {
                     HStack(alignment: .center, spacing: 10) {
                         Text(title).font(.display(18, .semibold)).foregroundStyle(Theme.fg)
+                        if panel == .radio { Text("\(stations.all.count)").font(.mono(12)).foregroundStyle(Theme.muted) }
                         if panel == .list { Text("\(library.tracks.count)").font(.mono(12)).foregroundStyle(Theme.muted) }
                         Spacer()
+                        if panel == .radio {
+                            addButton(tr("Добавить по ссылке"), "link") { ui.stationSheet = StationSheet() }
+                            addButton(tr("Добавить список станций"), "plus") { ui.add(.stations) }
+                        }
                         if panel == .list {
                             addButton(tr("Добавить папку"), "folder.badge.plus") { ui.add(.folder) }
                             addButton(tr("Добавить файлы"), "plus") { ui.add(.files) }
@@ -35,6 +41,7 @@ struct PanelView: View {
                     switch panel {
                     case .list: ListPanel()
                     case .queue: QueuePanel()
+                    case .radio: RadioPanel()
                     case .eq: EQPanel()
                     case .fx: EmptyView()
                     case .stats: StatsPanel()
@@ -65,6 +72,7 @@ struct PanelView: View {
         switch panel {
         case .list: tr("Список песен")
         case .queue: tr("Очередь")
+        case .radio: tr("Радио")
         case .eq: tr("Эквалайзер")
         case .fx: tr("Настройки")
         case .stats: tr("Статистика")

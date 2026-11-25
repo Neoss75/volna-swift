@@ -49,7 +49,7 @@ struct PlayerScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             TitleBlock().modifier(SwipeUp())
             VizStrip().modifier(SwipeUp(overButtons: false))
-            SeekBlock()
+            if player.radio == nil { SeekBlock() } else { LiveBlock() }
             Transport().modifier(SwipeUp())
             SleepNote()
             MenuBar()
@@ -71,7 +71,7 @@ struct PlayerScreen: View {
                 Spacer(minLength: 4)
                 VizStrip(compact: true).modifier(SwipeUp(overButtons: false))
                 Spacer(minLength: 4)
-                SeekBlock()
+                if player.radio == nil { SeekBlock() } else { LiveBlock() }
                 Spacer(minLength: 2)
                 Transport(compact: true).modifier(SwipeUp())
                 SleepNote()
@@ -187,16 +187,16 @@ struct CoverArea: View {
     @State private var fadeOut = false
 
     var body: some View {
-        if settings.v.lyricsOn {
+        if settings.v.lyricsOn, player.radio == nil {
             LyricsView()
         } else {
             GeometryReader { geo in
                 let side = max(60, min(geo.size.width, geo.size.height))
                 ZStack {
                     if settings.v.viz == .ring {
-                        RingCover(track: player.current, side: side)
+                        RingCover(track: player.current, station: player.radio, side: side)
                     } else {
-                        CoverView(track: player.current, corner: 24, letter: side * 0.27)
+                        cover(side)
                             .frame(width: side, height: side)
                             .shadow(color: .black.opacity(0.3), radius: 22, y: 14)
                     }
@@ -209,7 +209,7 @@ struct CoverArea: View {
                     .onEnded { g in
                         let dx = g.translation.width
                         if SwipeUp.isUp(g.translation) { return ui.panel = .fx }
-                        guard abs(dx) > 50, abs(dx) > abs(g.translation.height) * 1.4, !player.queue.isEmpty else { return }
+                        guard abs(dx) > 50, abs(dx) > abs(g.translation.height) * 1.4, player.radio != nil || !player.queue.isEmpty else { return }
                         if dx < 0 {
                             swipe(-1)
                             player.next()
@@ -220,6 +220,14 @@ struct CoverArea: View {
             }
             .accessibilityElement()
             .accessibilityLabel(tr("Обложка. Смахивание переключает песню"))
+        }
+    }
+
+    @ViewBuilder private func cover(_ side: CGFloat) -> some View {
+        if let s = player.radio {
+            StationLogo(station: s, corner: 24, letter: side * 0.27)
+        } else {
+            CoverView(track: player.current, corner: 24, letter: side * 0.27)
         }
     }
 
@@ -274,8 +282,12 @@ struct TitleBlock: View {
     var compact = false
 
     var body: some View {
+        if let s = player.radio { RadioTitle(station: s, compact: compact) } else { song }
+    }
+
+    private var song: some View {
         let t = player.current
-        VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 8) {
                 Text(t?.title ?? tr("Ничего не выбрано"))
                     .font(.display(compact ? 18 : 21, .semibold))
@@ -445,11 +457,16 @@ struct WaveCanvas: View {
 struct Transport: View {
     @EnvironmentObject private var player: Player
     @EnvironmentObject private var settings: Settings
+    @EnvironmentObject private var ui: UIState
     var compact = false
 
     var body: some View {
         HStack(spacing: 0) {
-            small(player.shuffle ? tr("Перемешивание включено") : tr("Перемешать"), "shuffle", on: player.shuffle) { player.toggleShuffle() }
+            if player.radio != nil {
+                small(tr("Станции"), "list.bullet", on: false) { ui.panel = .radio }
+            } else {
+                small(player.shuffle ? tr("Перемешивание включено") : tr("Перемешать"), "shuffle", on: player.shuffle) { player.toggleShuffle() }
+            }
             Spacer()
             side(tr("Предыдущий"), "backward.end.fill") { player.previous() }
             Spacer()
@@ -466,7 +483,11 @@ struct Transport: View {
             Spacer()
             side(tr("Следующий"), "forward.end.fill") { player.next() }
             Spacer()
-            small(tr("Повтор"), player.repeatMode == .one ? "repeat.1" : "repeat", on: player.repeatMode != .off) { player.cycleRepeat() }
+            if player.radio != nil {
+                small(tr("Вернуться к песням"), "music.note", on: false) { player.leaveRadio() }
+            } else {
+                small(tr("Повтор"), player.repeatMode == .one ? "repeat.1" : "repeat", on: player.repeatMode != .off) { player.cycleRepeat() }
+            }
         }
     }
 
@@ -529,6 +550,7 @@ struct MenuBar: View {
             HStack(spacing: 0) {
                 item(tr("Песни"), "music.note", count: library.tracks.count) { ui.panel = .list }
                 item(tr("Очередь"), "list.bullet", count: player.queue.count) { ui.panel = .queue }
+                item(tr("Радио"), "dot.radiowaves.left.and.right", on: player.radio != nil) { ui.panel = .radio }
                 item(tr("Текст песни"), "text.bubble", on: settings.v.lyricsOn) { settings.v.lyricsOn.toggle() }
                 item(tr("Эквалайзер"), "slider.vertical.3", dot: settings.eqActive) { ui.panel = .eq }
                 item(tr("Настройки"), "gearshape", dot: settings.fxActive) { ui.panel = .fx }
@@ -643,6 +665,7 @@ struct ToastView: View {
 /// only the one on top is active.
 struct Dialogs: ViewModifier {
     @EnvironmentObject private var library: Library
+    @EnvironmentObject private var stations: Stations
     @EnvironmentObject private var ui: UIState
     let active: Bool
     @State private var name = ""
@@ -651,10 +674,14 @@ struct Dialogs: ViewModifier {
         content
             .fileImporter(
                 isPresented: Binding(get: { active && ui.importing != nil }, set: { if !$0 { ui.importing = nil } }),
-                allowedContentTypes: ui.importing == .folder ? [.folder] : [.audio] + [UTType(filenameExtension: "lrc")].compactMap { $0 },
+                allowedContentTypes: types,
                 allowsMultipleSelection: true
             ) { result in
-                if case .success(let urls) = result { Task { await library.add(urls: urls) } }
+                guard case .success(let urls) = result else { return }
+                let lists = urls.filter { StationList.extensions.contains($0.pathExtension.lowercased()) }
+                if !lists.isEmpty { stations.add(files: lists) }
+                let songs = urls.filter { !lists.contains($0) }
+                if !songs.isEmpty { Task { await library.add(urls: songs) } }
             }
             .alert(promptTitle, isPresented: Binding(get: { active && ui.prompt != nil }, set: { if !$0 { ui.prompt = nil } }), presenting: ui.prompt) { prompt in
                 TextField(tr("Название"), text: $name)
@@ -684,6 +711,18 @@ struct Dialogs: ViewModifier {
             .sheet(isPresented: Binding(get: { active && ui.editing != nil }, set: { if !$0 { ui.editing = nil } })) {
                 if let t = library.track(ui.editing) { TrackEditor(track: t) }
             }
+            .sheet(item: Binding(get: { active ? ui.stationSheet : nil }, set: { if $0 == nil { ui.stationSheet = nil } })) { s in
+                StationEditor(station: stations.station(s.station))
+            }
+    }
+
+    private var types: [UTType] {
+        func ext(_ list: [String]) -> [UTType] { list.compactMap { UTType(filenameExtension: $0) } }
+        switch ui.importing {
+        case .folder?: return [.folder]
+        case .stations?: return [.m3uPlaylist] + ext(["m3u", "m3u8", "pls"])
+        default: return [.audio] + ext(["lrc"])
+        }
     }
 
     private var promptTitle: String {

@@ -7,6 +7,7 @@ import Foundation
 enum SiriBridge {
     static var library: Library?
     static var player: Player?
+    static var stations: Stations?
 }
 
 // MARK: - What can be named
@@ -99,6 +100,29 @@ struct PlaylistQuery: EntityStringQuery {
     func suggestedEntities() async throws -> [PlaylistEntity] { PlaylistEntity.all }
 }
 
+struct StationEntity: AppEntity {
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Радиостанция")
+    static let defaultQuery = StationQuery()
+    let id: UUID
+    let name: String
+
+    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
+
+    @MainActor
+    static var all: [StationEntity] { (SiriBridge.stations?.ordered ?? []).map { StationEntity(id: $0.id, name: $0.name) } }
+}
+
+struct StationQuery: EntityStringQuery {
+    @MainActor
+    func entities(for identifiers: [UUID]) async throws -> [StationEntity] { StationEntity.all.filter { identifiers.contains($0.id) } }
+
+    @MainActor
+    func entities(matching string: String) async throws -> [StationEntity] { Array(SiriSearch.best(StationEntity.all, string) { $0.name }.prefix(20)) }
+
+    @MainActor
+    func suggestedEntities() async throws -> [StationEntity] { Array(StationEntity.all.prefix(200)) }
+}
+
 enum SiriSearch {
     /// The closest names first; spelling, brackets and Cyrillic or Latin letters do not matter.
     static func best<T>(_ list: [T], _ words: String, _ name: (T) -> String) -> [T] {
@@ -186,6 +210,19 @@ struct PlayPlaylistIntent: AudioPlaybackIntent {
     }
 }
 
+struct PlayStationIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Включить радио"
+    @Parameter(title: "Радиостанция") var station: StationEntity
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let stations = SiriBridge.stations, let player = SiriBridge.player, !stations.all.isEmpty else { return .result(dialog: "\(tr("Станций в плеере пока нет"))") }
+        guard let s = stations.station(station.id) else { return .result(dialog: "\(tr("Такой станции нет"))") }
+        player.play(s, from: stations.ordered.map(\.id))
+        return .result(dialog: "\(tr("Играю «{}»", s.name))")
+    }
+}
+
 // MARK: - What to say
 
 struct VolnaShortcuts: AppShortcutsProvider {
@@ -214,5 +251,9 @@ struct VolnaShortcuts: AppShortcutsProvider {
             "Включи плейлист \(\.$playlist) в \(.applicationName)",
             "Включи плейлист в \(.applicationName)",
         ], shortTitle: "Плейлист", systemImageName: "music.note.list")
+        AppShortcut(intent: PlayStationIntent(), phrases: [
+            "Включи радио \(\.$station) в \(.applicationName)",
+            "Включи радио в \(.applicationName)",
+        ], shortTitle: "Радио", systemImageName: "dot.radiowaves.left.and.right")
     }
 }

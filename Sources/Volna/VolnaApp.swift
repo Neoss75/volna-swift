@@ -1,11 +1,11 @@
 import SwiftUI
 
 enum Panel: String, Identifiable {
-    case list, queue, eq, fx, stats
+    case list, queue, radio, eq, fx, stats
     var id: String { rawValue }
 }
 
-enum ImportKind { case files, folder }
+enum ImportKind { case files, folder, stations }
 
 enum Prompt: Equatable {
     case newPlaylist(UUID?)
@@ -21,6 +21,8 @@ final class UIState: ObservableObject {
     @Published var prompt: Prompt?
     @Published var coverFor: UUID?
     @Published var editing: UUID?
+    /// The sheet for a new station, or for changing one.
+    @Published var stationSheet: StationSheet?
     @Published var listTab = ListTab.songs
     @Published var collection = SongCollection.all
     /// The full-screen visualisation is shown.
@@ -28,7 +30,7 @@ final class UIState: ObservableObject {
     private(set) var lastTouch = Date()
     private(set) var touching = false
 
-    var nothingOpen: Bool { panel == nil && importing == nil && prompt == nil && coverFor == nil && editing == nil }
+    var nothingOpen: Bool { panel == nil && importing == nil && prompt == nil && coverFor == nil && editing == nil && stationSheet == nil }
 
     func touch(_ down: Bool) {
         touching = down
@@ -46,22 +48,25 @@ struct VolnaApp: App {
     @StateObject private var settings: Settings
     @StateObject private var stats: Stats
     @StateObject private var covers: CoverFinder
+    @StateObject private var stations: Stations
     @StateObject private var player: Player
     @StateObject private var ui = UIState()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
         let library = Library(), settings = Settings(), stats = Stats()
-        let covers = CoverFinder(library: library, settings: settings)
+        let covers = CoverFinder(library: library, settings: settings), stations = Stations()
+        _stations = StateObject(wrappedValue: stations)
         _library = StateObject(wrappedValue: library)
         _settings = StateObject(wrappedValue: settings)
         _stats = StateObject(wrappedValue: stats)
         _covers = StateObject(wrappedValue: covers)
         // made right now, not with the first screen: Siri and the widget may start the app without any screen
-        let player = Player(library: library, settings: settings, stats: stats, covers: covers)
+        let player = Player(library: library, settings: settings, stats: stats, covers: covers, stations: stations)
         _player = StateObject(wrappedValue: player)
         SiriBridge.library = library
         SiriBridge.player = player
+        SiriBridge.stations = stations
     }
 
     var body: some Scene {
@@ -74,15 +79,18 @@ struct VolnaApp: App {
                 .environmentObject(player)
                 .environmentObject(player.clock)
                 .environmentObject(player.analyzer)
+                .environmentObject(player.live)
+                .environmentObject(stations)
                 .environmentObject(ui)
                 .environmentObject(Toaster.shared)
                 .preferredColorScheme(settings.colorScheme)
                 .tint(settings.accent)
             #if DEBUG
-                .task { await Demo.run(library: library, player: player, settings: settings, ui: ui) }
+                .task { await Demo.run(library: library, player: player, settings: settings, ui: ui, stations: stations) }
             #endif
         }
         .onChange(of: library.tracks.count) { _, _ in VolnaShortcuts.updateAppShortcutParameters() }
+        .onChange(of: stations.all.count) { _, _ in VolnaShortcuts.updateAppShortcutParameters() }
         .onChange(of: library.playlists.count) { _, _ in VolnaShortcuts.updateAppShortcutParameters() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { VolnaShortcuts.updateAppShortcutParameters() }

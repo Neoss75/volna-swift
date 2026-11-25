@@ -50,7 +50,7 @@ struct SaverView: View {
         if mode.wholeScreen {
             VizStrip(mode: mode, height: s.height)
         } else if mode == .ring {
-            RingCover(track: player.current, side: min(s.width, s.height) - 20).offset(drift)
+            RingCover(track: player.current, station: player.radio, side: min(s.width, s.height) - 20).offset(drift)
         } else {
             VizStrip(mode: mode, height: s.height * (wide ? 0.82 : mode.tall ? 0.62 : 0.5))
                 .padding(.horizontal, wide ? 80 : 18)

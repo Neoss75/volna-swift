@@ -10,3 +10,5 @@
 "Включи исполнителя в ${applicationName}" = "Увімкни виконавця у ${applicationName}";
 "Включи плейлист ${playlist} в ${applicationName}" = "Увімкни плейлист ${playlist} у ${applicationName}";
 "Включи плейлист в ${applicationName}" = "Увімкни плейлист у ${applicationName}";
+"Включи радио ${station} в ${applicationName}" = "Увімкни радіо ${station} у ${applicationName}";
+"Включи радио в ${applicationName}" = "Увімкни радіо у ${applicationName}";
