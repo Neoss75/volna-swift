@@ -12,6 +12,9 @@ final class Deck {
     fileprivate(set) var file: AVAudioFile?
     fileprivate var access: FileAccess?
     fileprivate var format: AVAudioFormat?
+    /// The part of the file that is this song: all of it, or a piece named by a .cue sheet.
+    fileprivate(set) var first: AVAudioFramePosition = 0
+    fileprivate(set) var count: AVAudioFramePosition = 0
     private var startFrame: AVAudioFramePosition = 0
     private var generation = 0
     private(set) var scheduled = false
@@ -19,7 +22,7 @@ final class Deck {
     private var rest: Double = 0
     private var segment = 0
     private var framesQueued: AVAudioFramePosition = 0
-    private var following: (file: AVAudioFile, access: FileAccess)?
+    private var following: (file: AVAudioFile, access: FileAccess, first: AVAudioFramePosition, count: AVAudioFramePosition)?
 
     var onEnd: (() -> Void)?
     /// The song scheduled with `chain` has begun.
@@ -27,7 +30,7 @@ final class Deck {
 
     var duration: Double {
         guard let f = file else { return 0 }
-        return Double(f.length) / f.processingFormat.sampleRate
+        return Double(count) / f.processingFormat.sampleRate
     }
 
     var fade: Float = 1 { didSet { mixer.outputVolume = fade } }
@@ -53,18 +56,18 @@ final class Deck {
         }
         generation += 1
         let gen = generation
-        let frame = min(max(AVAudioFramePosition(time * f.processingFormat.sampleRate), 0), f.length)
+        let frame = min(max(AVAudioFramePosition(time * f.processingFormat.sampleRate), 0), count)
         startFrame = frame
         rest = time
-        let count = f.length - frame
-        framesQueued = count
+        let left = count - frame
+        framesQueued = left
         segment = 0
-        guard count > 0 else {
+        guard left > 0 else {
             Task { @MainActor [weak self] in self?.finished(gen, 0) }
             running = true
             return
         }
-        node.scheduleSegment(f, startingFrame: frame, frameCount: AVAudioFrameCount(count), at: nil,
+        node.scheduleSegment(f, startingFrame: first + frame, frameCount: AVAudioFrameCount(left), at: nil,
                              completionCallbackType: .dataPlayedBack) { [weak self] _ in
             Task { @MainActor in self?.finished(gen, 0) }
         }
@@ -85,15 +88,23 @@ final class Deck {
     func rewind(to time: Double) { rest = time }
 
     /// Puts the next song right behind the current one, with no gap. Only possible when both have the same format.
-    func chain(_ access: FileAccess, _ next: AVAudioFile) -> Bool {
-        guard running, following == nil, let f = file, next.length > 0, next.processingFormat == f.processingFormat else { return false }
-        following = (next, access)
+    func chain(_ access: FileAccess, _ next: AVAudioFile, _ t: Track) -> Bool {
+        let part = Self.part(of: next, t)
+        guard running, following == nil, let f = file, part.count > 0, next.processingFormat == f.processingFormat else { return false }
+        following = (next, access, part.first, part.count)
         let gen = generation, seg = segment + 1
-        node.scheduleSegment(next, startingFrame: 0, frameCount: AVAudioFrameCount(next.length), at: nil,
+        node.scheduleSegment(next, startingFrame: part.first, frameCount: AVAudioFrameCount(part.count), at: nil,
                              completionCallbackType: .dataPlayedBack) { [weak self] _ in
             Task { @MainActor in self?.finished(gen, seg) }
         }
         return true
+    }
+
+    static func part(of f: AVAudioFile, _ t: Track?) -> (first: AVAudioFramePosition, count: AVAudioFramePosition) {
+        guard let t, let from = t.cueStart else { return (0, f.length) }
+        let rate = f.processingFormat.sampleRate, first = min(AVAudioFramePosition((from * rate).rounded()), f.length)
+        let end = t.cueEnd.map { min(AVAudioFramePosition(($0 * rate).rounded()), f.length) } ?? f.length
+        return (first, max(0, end - first))
     }
 
     private func finished(_ gen: Int, _ seg: Int) {
@@ -105,8 +116,10 @@ final class Deck {
         following = nil
         segment += 1
         startFrame = -framesQueued
-        framesQueued += next.file.length
+        framesQueued += next.count
         file = next.file
+        first = next.first
+        count = next.count
         access = next.access
         rest = 0
         onChained?()
@@ -233,7 +246,7 @@ final class AudioGraph {
         d.format = format
     }
 
-    func load(_ access: FileAccess?, into d: Deck) throws {
+    func load(_ access: FileAccess?, _ t: Track, into d: Deck) throws {
         d.unload()
         guard let access else { throw OpenError.notFound }
         if !FileManager.default.fileExists(atPath: access.url.path) {
@@ -243,6 +256,7 @@ final class AudioGraph {
         let f = try AVAudioFile(forReading: access.url)
         d.access = access
         d.file = f
+        (d.first, d.count) = Deck.part(of: f, t)
         connect(d, f.processingFormat)
     }
 

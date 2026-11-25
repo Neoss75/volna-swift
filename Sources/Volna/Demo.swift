@@ -58,7 +58,7 @@ enum Demo {
             await selfTest(library: library, player: player, settings: settings, ui: ui, stations: stations, headphones: headphones)
             return
         }
-        if !args.contains("-lossless"), !args.contains("-aac"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
+        if !args.contains("-lossless"), !args.contains("-aac"), !args.contains("-cue"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
         if args.contains("-radio") {
             server = await makeServer()
             if let server { showRadio(player, stations, server) }
@@ -71,6 +71,14 @@ enum Demo {
             Headphones.fake = (.bluetoothA2DP, name, "test " + name)
             headphones.look()
             if args.contains("-profile"), let m = HeadphoneBase.guess(name).first { headphones.assign(headphones.add(m.profile), to: headphones.current.id) }
+        }
+        if args.contains("-cue") {
+            let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0], file = dir.appendingPathComponent("Концерт.wav"), cue = dir.appendingPathComponent("Концерт.cue")
+            synth(file, rate: 44100, channels: 2, seconds: 30)
+            try? "PERFORMER \"Океан Ельзи\"\nTITLE \"Земля\"\nFILE \"Концерт.wav\" WAVE\nTRACK 01 AUDIO\nTITLE \"Обійми\"\nINDEX 01 00:00:00\nTRACK 02 AUDIO\nTITLE \"Стріляй\"\nINDEX 01 00:12:00\n"
+                .write(to: cue, atomically: true, encoding: .utf8)
+            await library.add(urls: [cue, file])
+            if let t = library.tracks.last(where: { $0.cueStart != nil }) { player.play(t.id, from: library.tracks.map(\.id)) }
         }
         if args.contains("-newstation") { ui.stationSheet = StationSheet() }
         if args.contains("-still") { player.pause() }
@@ -216,6 +224,7 @@ enum Demo {
         check("plays after removal", player.isPlaying && player.position > 0.4, "")
         await folderTest(library, player, settings, check, wait)
         await radioTest(library, player, settings, stations, check, wait)
+        await cueTest(library, player, settings, check, wait)
         await headphoneTest(player, settings, headphones, check, wait)
         let formats = await addFormats(library)
         check("formats added", formats.map(\.kind) == ["FLAC", "ALAC", "M4A"], "\(formats.map(\.formatLine))")

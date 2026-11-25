@@ -37,6 +37,13 @@ struct Track: Identifiable, Codable, Equatable {
     /// Title, artist and album were corrected by hand: tags from the file do not replace them.
     var edited: Bool?
 
+    // a song inside one long file (.cue): where it begins and ends, in seconds; no end = to the end of the file
+    var cueStart: Double?
+    var cueEnd: Double?
+    var cueTitle: String?
+    var cueArtist: String?
+    var cueAlbum: String?
+
     static let currentMeta = 4
 
     /// Better than CD: more than 48 kHz or at least 24 bits.
@@ -94,6 +101,7 @@ struct Track: Identifiable, Codable, Equatable {
         }
         p.append(bitrateText)
         p.append(sizeText)
+        if cueStart != nil { p.append("CUE") }
         return p.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 }

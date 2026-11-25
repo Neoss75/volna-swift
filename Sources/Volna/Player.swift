@@ -357,7 +357,7 @@ final class Player: ObservableObject {
         savedTime = time
         clock.time = time
         do {
-            try graph.load(library.open(t), into: deck)
+            try graph.load(library.open(t), t, into: deck)
         } catch {
             markBad(t, error)
             return
@@ -547,7 +547,7 @@ final class Player: ObservableObject {
         chainTried = queue[qi]
         let ni = repeatMode == .one ? qi : qi + 1 < queue.count ? qi + 1 : repeatMode == .all ? 0 : -1
         guard ni >= 0, let t = library.track(queue[ni]), t.bad != true, let access = library.open(t),
-              let file = try? AVAudioFile(forReading: access.url), deck.chain(access, file) else { return }
+              let file = try? AVAudioFile(forReading: access.url), deck.chain(access, file, t) else { return }
         chainIndex = ni
         guard settings.v.effectiveNormalize, let gain = t.gainDb else { return }
         // the callback comes when the old song is heard to its end; the loudness has to change when the new one is mixed
@@ -604,7 +604,7 @@ final class Player: ObservableObject {
         guard ni >= 0, let t = library.track(queue[ni]), t.bad != true else { return }
 
         let old = deck, new = spare
-        do { try graph.load(library.open(t), into: new) } catch { return } // the song just ends normally
+        do { try graph.load(library.open(t), t, into: new) } catch { return } // the song just ends normally
         stats.flush()
         prepareNext(new, t, index: ni)
         new.fade = 0

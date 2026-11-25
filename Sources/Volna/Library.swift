@@ -67,10 +67,47 @@ final class Library: ObservableObject {
     func add(urls: [URL]) async {
         importing = true
         defer { importing = false; saveNow() }
-        var added = 0, duplicates = 0, failed = 0
+        var added = 0, duplicates = 0, failed = 0, cut = 0, lonely = 0
         var lyrics: [(String, String)] = []
 
-        for url in urls {
+        func count(_ r: AddResult) {
+            switch r {
+            case .added: added += 1
+            case .duplicate: duplicates += 1
+            case .failed: failed += 1
+            case .cut(let n):
+                added += n
+                cut += 1
+            }
+        }
+        // .cue sheets picked together with their files
+        var sheets: [String: (CueSheet, CueSheet.File)] = [:]
+        let names = urls.map(\.lastPathComponent).filter { !$0.lowercased().hasSuffix(".cue") }
+        for url in urls where url.pathExtension.lowercased() == "cue" {
+            let access = url.startAccessingSecurityScopedResource()
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            guard let d = try? Data(contentsOf: url) else {
+                failed += 1
+                continue
+            }
+            let sheet = CueSheet(CueSheet.text(d)), found = sheet.match(names, sheet: url.lastPathComponent)
+            for m in found { sheets[m.name] = (sheet, m.file) }
+            if found.isEmpty {
+                // the long file may be in the player already
+                let here = tracks.filter { $0.cueStart == nil }
+                let known = sheet.match(here.map(\.fileName), sheet: url.lastPathComponent)
+                if known.isEmpty { lonely += 1 }
+                for m in known {
+                    if let t = here.first(where: { $0.fileName == m.name }) {
+                        let file = open(t)
+                        if let file, let folder = t.folderID { count(await addCue(sheet, m.file, file.url, bookmark: Data(), folder: folder, relPath: t.relPath, label: t.folder)) }
+                        else if let file { count(await addCue(sheet, m.file, file.url, bookmark: t.bookmark, folder: nil, relPath: nil, label: nil)) }
+                    }
+                }
+            }
+        }
+
+        for url in urls where url.pathExtension.lowercased() != "cue" {
             let access = url.startAccessingSecurityScopedResource()
             defer { if access { url.stopAccessingSecurityScopedResource() } }
             let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
@@ -78,47 +115,103 @@ final class Library: ObservableObject {
             if isDir {
                 guard let folder = remember(folder: url) else { failed += 1; continue }
                 hidden = hidden.filter { !$0.hasPrefix(folder.id.uuidString) } // added again on purpose
-                let files = await Task.detached { Self.scan(url) }.value
-                for f in files {
+                let files = await Task.detached { Self.scan(url) }.value, cues = Self.cues(files)
+                for f in files where f.url.pathExtension.lowercased() != "cue" {
                     if f.url.pathExtension.lowercased() == "lrc" {
                         if let text = Self.readText(f.url) { lyrics.append((f.url.deletingPathExtension().lastPathComponent, text)) }
                         continue
                     }
                     let label = ([folder.name] + f.rel.split(separator: "/").dropLast().map(String.init)).joined(separator: " / ")
-                    switch await addFile(f.url, bookmark: Data(), folder: folder, relPath: f.rel, label: label) {
-                    case .added: added += 1
-                    case .duplicate: duplicates += 1
-                    case .failed: failed += 1
+                    if let (sheet, part) = cues[f.rel], sheet.songs(of: part) != nil {
+                        count(await addCue(sheet, part, f.url, bookmark: Data(), folder: folder.id, relPath: f.rel, label: label))
+                    } else {
+                        count(await addFile(f.url, bookmark: Data(), folder: folder, relPath: f.rel, label: label))
                     }
                 }
             } else if url.pathExtension.lowercased() == "lrc" {
                 if let text = Self.readText(url) { lyrics.append((url.deletingPathExtension().lastPathComponent, text)) }
             } else {
                 guard let bookmark = try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) else { failed += 1; continue }
-                switch await addFile(url, bookmark: bookmark, folder: nil, relPath: nil, label: nil) {
-                case .added: added += 1
-                case .duplicate: duplicates += 1
-                case .failed: failed += 1
+                if let (sheet, part) = sheets[url.lastPathComponent], sheet.songs(of: part) != nil {
+                    count(await addCue(sheet, part, url, bookmark: bookmark, folder: nil, relPath: nil, label: nil))
+                } else {
+                    count(await addFile(url, bookmark: bookmark, folder: nil, relPath: nil, label: nil))
                 }
             }
         }
 
         for (name, text) in lyrics {
-            for t in tracks where t.baseName.caseInsensitiveCompare(name) == .orderedSame {
+            for t in tracks where t.cueStart == nil && t.baseName.caseInsensitiveCompare(name) == .orderedSame {
                 LyricsStore.save(Lyrics(text: text, source: "файл .lrc"), id: t.id)
             }
         }
         var parts = [tr("Добавлено: ") + plural(added, tr("песня"), tr("песни"), tr("песен"))]
         if duplicates > 0 { parts.append(tr("уже в списке: {}", "\(duplicates)")) }
         if failed > 0 { parts.append(tr("не удалось: {}", "\(failed)")) }
+        if cut > 0 { parts.append(tr("разбито по .cue: {}", "\(cut)")) }
+        if lonely > 0, added == 0 { return toast(tr("Выберите вместе с .cue сам музыкальный файл или добавьте папку целиком")) }
         toast(parts.joined(separator: ", "))
     }
 
-    private enum AddResult { case added, duplicate, failed }
+    private enum AddResult: Equatable { case added, duplicate, failed, cut(Int) }
+
+    /// The .cue sheets of a folder: which file each of them describes.
+    private nonisolated static func cues(_ files: [(url: URL, rel: String)]) -> [String: (CueSheet, CueSheet.File)] {
+        func dir(_ rel: String) -> String { (rel as NSString).deletingLastPathComponent }
+        var out: [String: (CueSheet, CueSheet.File)] = [:]
+        for c in files where c.url.pathExtension.lowercased() == "cue" {
+            guard let d = try? Data(contentsOf: c.url), d.count < 1_000_000 else { continue }
+            let near = files.filter { audioExtensions.contains($0.url.pathExtension.lowercased()) && dir($0.rel) == dir(c.rel) }
+            let sheet = CueSheet(CueSheet.text(d))
+            for m in sheet.match(near.map(\.url.lastPathComponent), sheet: c.url.lastPathComponent) {
+                if let f = near.first(where: { $0.url.lastPathComponent == m.name }) { out[f.rel] = (sheet, m.file) }
+            }
+        }
+        return out
+    }
+
+    /// One long file becomes several songs. If the whole file was a song before, they take its place.
+    private func addCue(_ sheet: CueSheet, _ part: CueSheet.File, _ url: URL, bookmark: Data, folder: UUID?, relPath: String?, label: String?) async -> AddResult {
+        guard let songs = sheet.songs(of: part) else { return .failed }
+        let path = url.resolvingSymlinksInPath().path
+        if tracks.contains(where: { $0.path == path && $0.cueStart != nil }) { return .duplicate }
+        let meta = await MetadataReader.read(url: url)
+        guard meta.duration > 0, !tracks.contains(where: { $0.path == path && $0.cueStart != nil }) else { return meta.duration > 0 ? .duplicate : .failed }
+        let list = songs.filter { $0.start < meta.duration - 0.5 }
+        guard list.count > 1 else { return .failed }
+        var fresh: [Track] = []
+        for (i, s) in list.enumerated() {
+            let end = i + 1 < list.count ? list[i + 1].start : nil
+            var t = Track(id: UUID(), bookmark: bookmark, path: path, title: "", artist: "", album: "", duration: (end ?? meta.duration) - s.start, hasArtwork: false)
+            t.folderID = folder
+            t.relPath = relPath
+            t.folder = label
+            t.addedAt = Date()
+            t.cueStart = s.start
+            t.cueEnd = end
+            t.cueTitle = s.title.isEmpty ? tr("Дорожка {}", "\(s.number)") : TagCleaner.clean(s.title)
+            t.cueArtist = TagCleaner.clean(s.artist.isEmpty ? (sheet.artist.isEmpty ? meta.artist ?? "" : sheet.artist) : s.artist)
+            t.cueAlbum = TagCleaner.clean(sheet.title.isEmpty ? meta.album ?? "" : sheet.title)
+            t.trackNo = s.number
+            apply(meta, to: &t)
+            fresh.append(t)
+        }
+        let whole = Set(tracks.filter { $0.path == path && $0.cueStart == nil }.map(\.id))
+        let at = tracks.firstIndex { whole.contains($0.id) } ?? tracks.count
+        tracks.removeAll { whole.contains($0.id) }
+        tracks.insert(contentsOf: fresh, at: min(at, tracks.count))
+        reindex()
+        if !whole.isEmpty { onRemove?(whole) }
+        scheduleSave()
+        return .cut(fresh.count)
+    }
 
     private func addFile(_ url: URL, bookmark: Data, folder: FolderRef?, relPath: String?, label: String?) async -> AddResult {
         let path = url.resolvingSymlinksInPath().path
         if tracks.contains(where: { $0.path == path }) { return .duplicate }
+        if let sheet = await Task.detached(operation: { CueSheet.embedded(in: url) }).value, let part = sheet.files.first, sheet.songs(of: part) != nil {
+            return await addCue(sheet, part, url, bookmark: bookmark, folder: folder?.id, relPath: relPath, label: label)
+        }
         let meta = await MetadataReader.read(url: url)
         // the same file could have been added while its tags were being read
         if tracks.contains(where: { $0.path == path }) { return .duplicate }
@@ -143,16 +236,25 @@ final class Library: ObservableObject {
             t.album = meta.album ?? t.folder?.components(separatedBy: " / ").last ?? ""
             (t.title, t.artist) = SongReading.separate(title: t.title, artist: t.artist)
         }
-        t.trackNo = meta.trackNo
-        if meta.duration > 0 { t.duration = meta.duration }
+        if t.cueStart != nil {
+            // one song of a long file: the tags of the file are about all of it
+            if t.edited != true {
+                t.title = t.cueTitle ?? t.title
+                t.artist = t.cueArtist ?? ""
+                t.album = t.cueAlbum ?? ""
+            }
+        } else {
+            t.trackNo = meta.trackNo
+            if meta.duration > 0 { t.duration = meta.duration }
+        }
         if let art = meta.artwork { t.hasArtwork = ArtworkStore.save(art, id: t.id); t.artOnline = false }
         t.ext = meta.header.ext
-        t.size = meta.header.size
+        t.size = t.cueStart != nil && meta.duration > 0 ? Int(Double(meta.header.size) * t.duration / meta.duration) : meta.header.size
         t.sampleRate = meta.header.sampleRate
         t.bits = meta.header.bits
         t.kbps = meta.header.kbps
         t.vbr = meta.header.vbr
-        t.tagBytes = meta.header.tagBytes
+        t.tagBytes = t.cueStart != nil ? 0 : meta.header.tagBytes
         t.metaVersion = Track.currentMeta
     }
 
@@ -180,11 +282,25 @@ final class Library: ObservableObject {
             guard let root = try? URL(resolvingBookmarkData: folder.bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else { continue }
             let access = FileAccess(url: root, scope: root)
             let files = await Task.detached(priority: .utility) { Self.scan(access.url) }.value
-            let known = Set(tracks.filter { $0.folderID == folder.id }.compactMap(\.relPath))
-            for f in files where f.url.pathExtension.lowercased() != "lrc" {
-                if known.contains(f.rel) || hidden.contains(Self.hiddenKey(folder.id, f.rel)) { continue }
+            let known = Set(tracks.filter { $0.folderID == folder.id }.compactMap(\.relPath)), cues = Self.cues(files)
+            let cutAlready = Set(tracks.filter { $0.folderID == folder.id && $0.cueStart != nil }.compactMap(\.relPath))
+            for f in files where !["lrc", "cue"].contains(f.url.pathExtension.lowercased()) {
+                let sheet = cues[f.rel].flatMap { $0.0.songs(of: $0.1) != nil ? $0 : nil }
+                // a sheet has appeared next to a long file
+                let toCut = sheet != nil && !cutAlready.contains(f.rel)
+                if known.contains(f.rel) && !toCut || hidden.contains(Self.hiddenKey(folder.id, f.rel)) { continue }
                 let label = ([folder.name] + f.rel.split(separator: "/").dropLast().map(String.init)).joined(separator: " / ")
-                if await addFile(f.url, bookmark: Data(), folder: folder, relPath: f.rel, label: label) == .added { added += 1 }
+                let result: AddResult
+                if let sheet {
+                    result = await addCue(sheet.0, sheet.1, f.url, bookmark: Data(), folder: folder.id, relPath: f.rel, label: label)
+                } else {
+                    result = await addFile(f.url, bookmark: Data(), folder: folder, relPath: f.rel, label: label)
+                }
+                switch result {
+                case .added: added += 1
+                case .cut(let n): added += n
+                default: break
+                }
             }
             withExtendedLifetime(access) {}
         }
@@ -238,7 +354,7 @@ final class Library: ObservableObject {
         var out: [(url: URL, rel: String)] = []
         while let u = e.nextObject() as? URL {
             let ext = u.pathExtension.lowercased()
-            guard audioExtensions.contains(ext) || ext == "lrc" else { continue }
+            guard audioExtensions.contains(ext) || ext == "lrc" || ext == "cue" else { continue }
             let p = u.resolvingSymlinksInPath().path
             guard p.hasPrefix(base + "/") else { continue }
             out.append((u, String(p.dropFirst(base.count + 1))))

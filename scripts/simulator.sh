@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(04|05|80|9[0-9])-'
+ONLY='^(04|95|96|9[0-9])-'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -112,6 +112,8 @@ shot 91-phones-profile -buds 'Redmi Buds 6 Pro' -profile -panel fx -page headpho
 shot 92-phones-other -buds 'AirPods Pro (Андрей )' -profile -panel fx -page headphones
 shot 93-phones-path -buds 'AirPods Pro (Андрей )' -panel fx -page path
 shot 94-phones-editor -buds 'AirPods Pro (Андрей )' -panel fx -page headphones -editor
+shot 95-cue -cue
+shot 96-cue-list -cue -panel list
 shot 80-radio -radio
 shot 81-radio-list -radio -panel radio
 shot 87-radio-check -radio -stationcheck -panel radio

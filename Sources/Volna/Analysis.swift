@@ -11,10 +11,13 @@ enum Analysis {
     static let points = 180
     private static let target = -16.0 // gated RMS, dBFS — roughly −14 LUFS for typical music
 
-    static func run(_ url: URL) -> Result? {
+    /// `from` and `to` in seconds: one song of a long file.
+    static func run(_ url: URL, from: Double? = nil, to: Double? = nil) -> Result? {
         guard let file = try? AVAudioFile(forReading: url) else { return nil }
         let format = file.processingFormat
-        let total = Int(file.length)
+        let start = min(Int((from ?? 0) * format.sampleRate), Int(file.length))
+        let total = min(to.map { Int($0 * format.sampleRate) } ?? Int(file.length), Int(file.length)) - start
+        file.framePosition = AVAudioFramePosition(start)
         guard total > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 32768) else { return nil }
         let channels = Int(format.channelCount)
         let block = max(2, Int(format.sampleRate * 0.4))
@@ -26,7 +29,7 @@ enum Analysis {
 
         while pos < total {
             if Task.isCancelled { return nil }
-            do { try file.read(into: buffer) } catch { break }
+            do { try file.read(into: buffer, frameCount: AVAudioFrameCount(min(32768, total - pos))) } catch { break }
             let n = Int(buffer.frameLength)
             guard n > 0, let data = buffer.floatChannelData else { break }
             for c in 0..<channels {
@@ -104,7 +107,7 @@ final class Analyzer: ObservableObject {
             if let t = library.track(id), t.wave == nil || t.gainDb == nil {
                 var result: Analysis.Result?
                 if let access = library.open(t) {
-                    result = await Task.detached(priority: .userInitiated) { Analysis.run(access.url) }.value
+                    result = await Task.detached(priority: .userInitiated) { Analysis.run(access.url, from: t.cueStart, to: t.cueEnd) }.value
                 }
                 library.update(id) {
                     $0.wave = result?.wave ?? []

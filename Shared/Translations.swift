@@ -573,5 +573,8 @@ AirPods, Sony, Sennheiser…‖AirPods, Sony, Sennheiser…‖AirPods, Sony, Sen
 Колокол‖Дзвін‖Bell
 Высокая полка‖Висока полиця‖High shelf
 профиль «{}»‖профіль «{}»‖profile “{}”
+разбито по .cue: {}‖розбито за .cue: {}‖cut by .cue: {}
+Выберите вместе с .cue сам музыкальный файл или добавьте папку целиком‖Виберіть разом із .cue сам музичний файл або додайте папку цілком‖Pick the music file together with the .cue, or add the whole folder
+Дорожка {}‖Доріжка {}‖Track {}
 """#
 }

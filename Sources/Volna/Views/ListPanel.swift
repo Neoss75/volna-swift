@@ -63,7 +63,10 @@ extension Library {
                     : ($0.trackNo ?? .max, $0.title) < ($1.trackNo ?? .max, $1.title)
             }
         case .folder(let name):
-            return tracks.filter { $0.folder == name }.sorted { $0.fileName.localizedStandardCompare($1.fileName) == .orderedAscending }
+            return tracks.filter { $0.folder == name }.sorted {
+                let order = $0.fileName.localizedStandardCompare($1.fileName)
+                return order != .orderedSame ? order == .orderedAscending : ($0.cueStart ?? 0) < ($1.cueStart ?? 0)
+            }
         }
     }
 }
