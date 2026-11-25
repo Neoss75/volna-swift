@@ -337,6 +337,8 @@ enum Demo {
             let r = SongReading.separate(title: p.0, artist: p.1)
             check("title «\(p.0)»", r.title == p.2 && r.artist == p.3, "\(r.artist) | \(r.title)")
         }
+        let gone = try? JSONDecoder().decode([VizMode].self, from: Data(#"["falls","ring"]"#.utf8))
+        check("removed visualisation", gone == [.bars, .ring], "\(gone?.map(\.rawValue) ?? [])")
         check("old library opens", (try? JSONDecoder().decode([Track].self, from: Data(old.utf8)))?.count == 1, "")
         let oldStats = #"{"songs":{"x":{"plays":1,"seconds":5,"title":"T","artist":"A"}},"days":{},"total":5}"#
         check("old statistics open", (try? JSONDecoder().decode(Stats.Data.self, from: Data(oldStats.utf8)))?.songs.count == 1, "")

@@ -59,8 +59,12 @@ final class VizState {
     #if DEBUG
         static var frames = 0
     #endif
-    static let historySize = 150
-    static let historyBands = 96
+    struct Paper {
+        var x, y, vx, vy, angle, spin, age, life, size, tint: Double
+    }
+
+    static let historySize = 50
+    static let historyBands = 64
     static let pulseLife = 1.8
 
     let spectrum = SpectrumAnalyzer()
@@ -73,6 +77,7 @@ final class VizState {
     private(set) var sparks: [Spark] = []
     private(set) var pulses: [Pulse] = []
     private(set) var stars: [Star] = []
+    private(set) var papers: [Paper] = []
     private var rows: [[Float]] = []
     private var rowTime = 0.0
     private var owed = 0.0
@@ -148,9 +153,6 @@ final class VizState {
         return rows
     }
 
-    /// How far the newest row of the history has moved in, 0…1.
-    var rowShare: Double { min(1, rowTime * 30) }
-
     func moveSparks(live: Bool, many: Int) {
         for i in sparks.indices {
             sparks[i].age += dt
@@ -175,12 +177,46 @@ final class VizState {
     func movePulses(live: Bool, low: Double) {
         for i in pulses.indices { pulses[i].age += dt }
         pulses.removeAll { $0.age >= Self.pulseLife }
+        if beat(live, low), pulses.count < 8 { pulses.append(Pulse(age: 0, power: min(1, low))) }
+    }
+
+    /// The bass has just jumped above its usual level. Call once per frame.
+    private func beat(_ live: Bool, _ low: Double) -> Bool {
         sinceBeat += dt
-        if live, low > 0.12, low > calm * 1.12, sinceBeat > 0.22, pulses.count < 8 {
-            sinceBeat = 0
-            pulses.append(Pulse(age: 0, power: min(1, low)))
+        defer { calm += (low - calm) * min(1, dt * 4) }
+        guard live, low > 0.12, low > calm * 1.12, sinceBeat > 0.22 else { return false }
+        sinceBeat = 0
+        return true
+    }
+
+    func movePapers(live: Bool, low: Double, high: Double, many: Int) {
+        for i in papers.indices {
+            papers[i].age += dt
+            papers[i].vy += 0.42 * dt
+            papers[i].vx *= 1 - min(1, dt * 0.9)
+            papers[i].vy = min(papers[i].vy, 0.28)
+            papers[i].x += (papers[i].vx + 0.03 * sin(papers[i].age * 4 + papers[i].tint * 9)) * dt
+            papers[i].y += papers[i].vy * dt
+            papers[i].angle += papers[i].spin * dt
         }
-        calm += (low - calm) * min(1, dt * 4)
+        papers.removeAll { $0.age > $0.life || $0.y > 1.1 }
+        func add(_ x: Double, _ y: Double, _ vx: Double, _ vy: Double) {
+            guard papers.count < many else { return }
+            papers.append(Paper(x: x, y: y, vx: vx, vy: vy, angle: .random(in: 0...6), spin: .random(in: -5...5), age: 0,
+                                life: .random(in: 3...5), size: .random(in: 3...6), tint: .random(in: 0...1)))
+        }
+        if beat(live, low) {
+            for _ in 0..<(8 + Int(low * 16)) {
+                let left = Bool.random()
+                add(left ? -0.02 : 1.02, .random(in: 0.75...1), (left ? 1 : -1) * .random(in: 0.15...0.7), -.random(in: 0.35...0.85))
+            }
+        }
+        guard live else { return }
+        owed = min(3, owed + dt * 26 * high)
+        while owed >= 1 {
+            owed -= 1
+            add(.random(in: 0...1), -0.04, .random(in: -0.05...0.05), .random(in: 0.05...0.15))
+        }
     }
 
     func moveStars(live: Bool, speed: Double) {
@@ -282,7 +318,7 @@ struct VizGallery: View {
     var body: some View {
         let modes = VizMode.allCases.filter { $0 != .off && $0 != .ring }
         ScrollView {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 8) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 8) {
                 ForEach(Array(modes.enumerated()), id: \.1) { i, m in
                     VStack(alignment: .leading, spacing: 2) {
                         VizStrip(mode: m, colors: VizColors.allCases[i % VizColors.allCases.count])

@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(01|25|30|35|39|40)-'
+ONLY='^(01|25|26|35|5[0-9])-'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -90,7 +90,6 @@ shot 26-gallery-light -vizgallery -theme light
 shot 27-level-bars -viz bars -colors level -theme dark
 shot 28-level-ring -viz ring -colors level
 shot 29-rainbow-ring -viz ring -colors rainbow
-shot 30-saver-falls -saver -viz falls -colors level
 shot 31-saver-sparks -saver -viz sparks -colors fire
 shot 32-saver-pulse -saver -viz pulse -colors neon
 shot 33-saver-stars -saver -viz stars -colors level
@@ -99,10 +98,14 @@ shot 35-saver-ridges -saver -viz ridges -colors level
 shot 36-saver-scope -saver -viz scope -colors level
 shot 37-saver-land-ribbons -landscape -saver -viz ribbons -colors neon
 shot 38-saver-land-dots -landscape -saver -viz dots -colors level
-shot 39-falls-accent -viz falls -colors accent
-shot 40-falls-level -viz falls -colors level
-shot 41-saver-falls-rainbow -saver -viz falls -colors rainbow
-shot 42-falls-light -viz falls -colors level -theme light
+shot 50-saver-kaleido -saver -viz kaleido -colors level -theme dark
+shot 51-saver-flows -saver -viz flows -colors neon
+shot 52-saver-tiles -saver -viz tiles -colors level
+shot 53-saver-drop -saver -viz drop -colors neon
+shot 54-saver-confetti -saver -viz confetti -colors rainbow
+shot 55-saver-aurora -saver -viz aurora -colors rainbow
+shot 56-saver-land-kaleido -landscape -saver -viz kaleido -colors neon
+shot 57-saver-land-tiles -landscape -saver -viz tiles -colors fire
 for f in shots/*-land-*.png; do W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}'); [ "$W" -lt "$H" ] && sips -r 270 "$f" > /dev/null; done
 for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done
 exit $RESULT

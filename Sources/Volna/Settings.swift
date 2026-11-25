@@ -1,8 +1,14 @@
 import SwiftUI
 
 enum VizMode: String, Codable, CaseIterable, Identifiable {
-    case bars, peaks, mirror, led, dots, area, ribbons, wave, scope, ridges, falls, sparks, pulse, stars, flower, ring, vu, off
+    case bars, peaks, mirror, led, dots, area, ribbons, wave, scope, ridges, flows, kaleido, tiles, drop, aurora, sparks, confetti, pulse, stars, flower, ring, vu, off
     var id: String { rawValue }
+
+    /// A saved mode that no longer exists must not spoil the rest of the settings.
+    init(from decoder: Decoder) throws {
+        self = VizMode(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .bars
+    }
+
     var name: String {
         switch self {
         case .bars: "Столбики"
@@ -15,7 +21,12 @@ enum VizMode: String, Codable, CaseIterable, Identifiable {
         case .wave: "Осциллограф"
         case .scope: "Стереофигура"
         case .ridges: "Горы"
-        case .falls: "Водопад"
+        case .flows: "Потоки"
+        case .kaleido: "Калейдоскоп"
+        case .tiles: "Мозаика"
+        case .drop: "Капля"
+        case .aurora: "Сияние"
+        case .confetti: "Конфетти"
         case .sparks: "Искры"
         case .pulse: "Пульс"
         case .stars: "Звёзды"
@@ -27,9 +38,9 @@ enum VizMode: String, Codable, CaseIterable, Identifiable {
     }
 
     /// Needs a taller strip on the main screen.
-    var tall: Bool { [.vu, .scope, .ridges, .falls, .pulse, .flower].contains(self) }
+    var tall: Bool { [.vu, .scope, .ridges, .flows, .kaleido, .tiles, .drop, .aurora, .pulse, .flower].contains(self) }
     /// Takes the whole screen as the screensaver.
-    var wholeScreen: Bool { [.falls, .sparks, .pulse, .stars].contains(self) }
+    var wholeScreen: Bool { [.flows, .kaleido, .tiles, .aurora, .sparks, .confetti, .pulse, .stars].contains(self) }
 }
 
 struct EQPreset: Identifiable {

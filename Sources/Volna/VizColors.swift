@@ -4,6 +4,11 @@ import SwiftUI
 enum VizColors: String, Codable, CaseIterable, Identifiable {
     case accent, level, rainbow, fire, neon
     var id: String { rawValue }
+
+    init(from decoder: Decoder) throws {
+        self = VizColors(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .level
+    }
+
     var name: String {
         switch self {
         case .accent: "В тон плеера"

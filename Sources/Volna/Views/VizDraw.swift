@@ -9,7 +9,7 @@ struct VizDraw {
     /// The big picture of the screensaver.
     let big: Bool
 
-    private var line: CGFloat { big ? 3 : 2 }
+    var line: CGFloat { big ? 3 : 2 }
 
     func draw(_ mode: VizMode, _ g: GraphicsContext, _ size: CGSize) {
         guard size.width > 1, size.height > 1 else { return }
@@ -24,7 +24,12 @@ struct VizDraw {
         case .wave: wave(g, size)
         case .scope: scope(g, size)
         case .ridges: ridges(g, size)
-        case .falls: falls(g, size)
+        case .flows: flows(g, size)
+        case .kaleido: kaleido(g, size)
+        case .tiles: tiles(g, size)
+        case .drop: drop(g, size)
+        case .aurora: aurora(g, size)
+        case .confetti: confetti(g, size)
         case .sparks: sparks(g, size)
         case .pulse: pulse(g, size)
         case .stars: stars(g, size)
@@ -34,7 +39,7 @@ struct VizDraw {
         }
     }
 
-    private func fill(_ g: GraphicsContext, _ p: Path, _ s: GraphicsContext.Shading, _ alpha: Double) {
+    func fill(_ g: GraphicsContext, _ p: Path, _ s: GraphicsContext.Shading, _ alpha: Double) {
         var c = g
         c.opacity = alpha
         c.fill(p, with: s)
@@ -143,7 +148,7 @@ struct VizDraw {
         g.stroke(curve, with: paint.shade(bottom: z.height, top: 0, width: z.width), style: StrokeStyle(lineWidth: line, lineJoin: .round))
     }
 
-    private func smooth(_ pts: [CGPoint]) -> Path {
+    func smooth(_ pts: [CGPoint]) -> Path {
         var p = Path()
         guard let first = pts.first, let last = pts.last else { return p }
         p.move(to: first)
@@ -264,52 +269,6 @@ struct VizDraw {
             }
         }
     }
-
-    /// The newest spectrum is on top and falls down, low notes are on the left. Each note is compared with its own
-    /// average, so dense music does not turn into one solid block.
-    private func falls(_ g: GraphicsContext, _ z: CGSize) {
-        let hist = state.history(live: live), w = VizState.historyBands, h = VizState.historySize
-        guard !hist.isEmpty else { return }
-        var mean = [Float](repeating: 0, count: w), top = mean
-        for row in hist {
-            for k in 0..<w {
-                mean[k] += row[k]
-                top[k] = max(top[k], row[k])
-            }
-        }
-        let env = g.environment
-        let table = (0..<VizColors.steps).map { paint.at($0).resolve(in: env) }
-        var px = [UInt8](repeating: 0, count: w * h * 4)
-        for k in 0..<w {
-            let low = mean[k] / Float(hist.count) - 0.02, span = max(top[k] - low, 0.26)
-            let place = k * VizColors.steps / w
-            for y in 0..<hist.count {
-                let v = hist[hist.count - 1 - y][k]
-                var t = max(0, min(1, (v - low) / span))
-                t = t * sqrt(t) * min(1, v * 2)
-                let age = 1 - Float(y) / Float(h)
-                let c = table[paint.colors == .rainbow ? place : min(VizColors.steps - 1, Int(t * Float(VizColors.steps)))]
-                let white = paint.many && paint.colors != .rainbow ? 0 : max(0, (t - 0.75) / 0.25) * 0.6
-                let alpha = min(1, t * 1.5) * (0.35 + 0.65 * age)
-                let o = (y * w + k) * 4
-                px[o] = Self.byte((c.red + (1 - c.red) * white) * alpha)
-                px[o + 1] = Self.byte((c.green + (1 - c.green) * white) * alpha)
-                px[o + 2] = Self.byte((c.blue + (1 - c.blue) * white) * alpha)
-                px[o + 3] = Self.byte(alpha)
-            }
-        }
-        guard let space = CGColorSpace(name: CGColorSpace.sRGB), let data = CGDataProvider(data: Data(px) as CFData),
-              let image = CGImage(width: w, height: h, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: w * 4, space: space,
-                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-                                  provider: data, decode: nil, shouldInterpolate: true, intent: .defaultIntent) else { return }
-        var ctx = g
-        ctx.clip(to: Path(CGRect(origin: .zero, size: z)))
-        let step = z.height / CGFloat(h - 1)
-        let box = CGRect(x: 0, y: step * CGFloat(state.rowShare - 1), width: z.width, height: step * CGFloat(h))
-        ctx.draw(Image(decorative: image, scale: 1).interpolation(.high), in: box)
-    }
-
-    private static func byte(_ v: Float) -> UInt8 { UInt8(max(0, min(255, v * 255))) }
 
     // MARK: Moving things
 
