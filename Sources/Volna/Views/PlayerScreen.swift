@@ -84,28 +84,20 @@ struct PlayerScreen: View {
         .frame(width: size.width, height: size.height)
     }
 
-    /// With all the marks on there is not enough room for everything: the rate goes first, then the build number.
+    /// With all the marks on there may be not enough room for the rate.
     private var header: some View {
         ViewThatFits(in: .horizontal) {
-            headerRow(build: true, rate: true)
-            headerRow(build: true, rate: false)
-            headerRow(build: false, rate: false)
+            headerRow(rate: true)
+            headerRow(rate: false)
         }
     }
 
-    private func headerRow(build: Bool, rate: Bool) -> some View {
+    private func headerRow(rate: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(tr("Волна"))
                 .font(.display(18))
                 .foregroundStyle(Theme.fg)
                 .fixedSize()
-            if build {
-                Text(tr("СБОРКА {}", "\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")"))
-                    .font(.mono(11))
-                    .kerning(0.9)
-                    .foregroundStyle(Theme.muted)
-                    .fixedSize()
-            }
             Spacer(minLength: 0)
             OutputBadges(rate: rate)
         }
