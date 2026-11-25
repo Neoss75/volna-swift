@@ -1,0 +1,12 @@
+"Включи избранное в ${applicationName}" = "Увімкни обране у ${applicationName}";
+"Играй избранное в ${applicationName}" = "Грай обране у ${applicationName}";
+"Перемешай музыку в ${applicationName}" = "Перемішай музику у ${applicationName}";
+"Включи всё вперемешку в ${applicationName}" = "Увімкни все уперемішку у ${applicationName}";
+"Включи музыку в ${applicationName}" = "Увімкни музику у ${applicationName}";
+"Продолжи музыку в ${applicationName}" = "Продовж музику у ${applicationName}";
+"Включи песню ${song} в ${applicationName}" = "Увімкни пісню ${song} у ${applicationName}";
+"Включи песню в ${applicationName}" = "Увімкни пісню у ${applicationName}";
+"Включи исполнителя ${artist} в ${applicationName}" = "Увімкни виконавця ${artist} у ${applicationName}";
+"Включи исполнителя в ${applicationName}" = "Увімкни виконавця у ${applicationName}";
+"Включи плейлист ${playlist} в ${applicationName}" = "Увімкни плейлист ${playlist} у ${applicationName}";
+"Включи плейлист в ${applicationName}" = "Увімкни плейлист у ${applicationName}";

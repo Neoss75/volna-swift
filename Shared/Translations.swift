@@ -442,5 +442,28 @@ Bluetooth, режим звонка‖Bluetooth, режим дзвінка‖Blue
 Что получаем‖Що отримуємо‖What you get
 Выбрать устройство‖Вибрати пристрій‖Choose a device
 Музыка на паузе: ЦАП переключится на частоту песни, когда она заиграет.‖Музика на паузі: ЦАП перемкнеться на частоту пісні, коли вона заграє.‖The music is paused: the DAC switches to the rate of the song when it plays.
+Плеер ещё не готов‖Плеєр ще не готовий‖The player is not ready yet
+В избранном пока пусто‖В обраному поки порожньо‖There are no favourites yet
+Играю избранное‖Граю обране‖Playing favourites
+В плеере пока нет песен‖У плеєрі поки немає пісень‖There are no songs in the player yet
+Играю вперемешку‖Граю уперемішку‖Shuffling
+Продолжаю‖Продовжую‖Resuming
+Такой песни в плеере нет‖Такої пісні в плеєрі немає‖There is no such song in the player
+Играю «{}»‖Граю «{}»‖Playing “{}”
+Такого исполнителя в плеере нет‖Такого виконавця в плеєрі немає‖There is no such artist in the player
+Такого плейлиста нет‖Такого плейлиста немає‖There is no such playlist
+Плейлист пуст‖Плейлист порожній‖The playlist is empty
+Siri и команды‖Siri та команди‖Siri and Shortcuts
+Что можно сказать‖Що можна сказати‖What you can say
+Включи избранное в Волне‖Включи избранное в Волне‖Play favourites in Volna
+Перемешай музыку в Волне‖Перемешай музыку в Волне‖Shuffle music in Volna
+Включи музыку в Волне‖Включи музыку в Волне‖Play music in Volna
+Включи песню … в Волне‖Включи песню … в Волне‖Play the song … in Volna
+Включи исполнителя … в Волне‖Включи исполнителя … в Волне‖Play the artist … in Volna
+Включи плейлист … в Волне‖Включи плейлист … в Волне‖Play the playlist … in Volna
+Название плеера в фразе обязательно. Пауза, следующая песня и громкость работают и без него, для того, что уже играет.‖Назва плеєра у фразі обов’язкова. Пауза, наступна пісня та гучність працюють і без неї, для того, що вже грає.‖The name of the player has to be in the phrase. Pause, next song and volume work without it for what is already playing.
+Фразы работают на языке Siri: русском или английском. Украинского у Siri пока нет.‖Фрази працюють мовою Siri: російською або англійською. Української в Siri поки немає.‖Phrases work in the language of Siri: Russian or English. Siri has no Ukrainian yet.
+Команды‖Команди‖Shortcuts
+Эти же действия есть в приложении «Команды»: там их можно повесить на кнопку «Действие» или в автоматизацию.‖Ці ж дії є в застосунку «Команди»: там їх можна призначити кнопці «Дія» або додати в автоматизацію.‖The same actions are in the Shortcuts app, where they can go on the Action button or into an automation.
 """#
 }

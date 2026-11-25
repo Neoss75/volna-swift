@@ -12,6 +12,21 @@
 	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Волна</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Волне</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Волну</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Volna</string>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

@@ -107,6 +107,7 @@ shot 55-saver-aurora -saver -viz aurora -colors rainbow
 shot 56-saver-land-kaleido -landscape -saver -viz kaleido -colors neon
 shot 57-saver-land-tiles -landscape -saver -viz tiles -colors fire
 shot 70-path -panel fx -page path
+shot 74-siri -panel fx -page siri
 shot 71-path-usb -lossless -port usb -panel fx -page path
 shot 72-path-bt -port bt -panel fx -page path
 shot 73-path-en -lang en -port bt -panel fx -page path

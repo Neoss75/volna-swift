@@ -57,7 +57,11 @@ struct VolnaApp: App {
         _settings = StateObject(wrappedValue: settings)
         _stats = StateObject(wrappedValue: stats)
         _covers = StateObject(wrappedValue: covers)
-        _player = StateObject(wrappedValue: Player(library: library, settings: settings, stats: stats, covers: covers))
+        // made right now, not with the first screen: Siri and the widget may start the app without any screen
+        let player = Player(library: library, settings: settings, stats: stats, covers: covers)
+        _player = StateObject(wrappedValue: player)
+        SiriBridge.library = library
+        SiriBridge.player = player
     }
 
     var body: some Scene {
@@ -78,7 +82,10 @@ struct VolnaApp: App {
                 .task { await Demo.run(library: library, player: player, settings: settings, ui: ui) }
             #endif
         }
+        .onChange(of: library.tracks.count) { _, _ in VolnaShortcuts.updateAppShortcutParameters() }
+        .onChange(of: library.playlists.count) { _, _ in VolnaShortcuts.updateAppShortcutParameters() }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .active { VolnaShortcuts.updateAppShortcutParameters() }
             if phase == .active, settings.v.refreshFolders {
                 Task { await library.refreshFolders(quiet: true) }
             }

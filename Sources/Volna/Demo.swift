@@ -354,6 +354,22 @@ enum Demo {
         settings.v.language = "ru"
         check("Russian", plural(5, tr("раз"), tr("раза"), tr("раз#мн")) == "5 раз" && tr("Песни") == "Песни", "")
         pathTest(check)
+        let all = library.tracks.map(\.id)
+        library.toggleFavourite(all[1])
+        _ = try? await PlayFavouritesIntent().perform()
+        await wait(0.5)
+        check("Siri: favourites", player.current.map { library.isFavourite($0.id) } ?? false && player.isPlaying, player.current?.title ?? "")
+        var song = PlaySongIntent()
+        song.song = SongEntity(library.tracks[2])
+        _ = try? await song.perform()
+        await wait(0.5)
+        check("Siri: song", player.current?.id == all[2] && player.isPlaying, player.current?.title ?? "")
+        let found = (try? await SongQuery().entities(matching: "italodisko")) ?? []
+        let cyr = (try? await SongQuery().entities(matching: "Бас и бит")) ?? []
+        check("Siri: search", found.first?.title == "ITALODISCO" || cyr.first != nil, "\(found.map(\.title)) \(cyr.map(\.title))")
+        let artists = (try? await ArtistQuery().suggestedEntities()) ?? []
+        check("Siri: artists", artists.contains { $0.name == "The Kolors" }, "\(artists.map(\.name))")
+        player.pause()
         check("old library opens", (try? JSONDecoder().decode([Track].self, from: Data(old.utf8)))?.count == 1, "")
         let oldStats = #"{"songs":{"x":{"plays":1,"seconds":5,"title":"T","artist":"A"}},"days":{},"total":5}"#
         check("old statistics open", (try? JSONDecoder().decode(Stats.Data.self, from: Data(oldStats.utf8)))?.songs.count == 1, "")

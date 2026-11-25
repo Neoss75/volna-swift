@@ -1,3 +1,4 @@
+import AppIntents
 import AVFoundation
 import SwiftUI
 
@@ -6,7 +7,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
     case path, sound, eq, loudness, playback, hires
     case theme, viz
     case library, covers, lyrics
-    case language, stats, about
+    case siri, language, stats, about
 
     var title: String {
         switch self {
@@ -21,6 +22,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .library: tr("Библиотека и файлы")
         case .covers: tr("Обложки")
         case .lyrics: tr("Тексты песен")
+        case .siri: tr("Siri и команды")
         case .language: tr("Язык")
         case .stats: tr("Статистика")
         case .about: tr("О приложении")
@@ -40,6 +42,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .library: "folder"
         case .covers: "photo"
         case .lyrics: "text.bubble"
+        case .siri: "mic"
         case .language: "globe"
         case .stats: "chart.xyaxis.line"
         case .about: "info.circle"
@@ -50,7 +53,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         ("Аудио", [.path, .eq, .sound, .loudness, .playback, .hires]),
         ("Графика", [.theme, .viz]),
         ("Музыка", [.library, .covers, .lyrics]),
-        ("Прочее", [.language, .stats, .about]),
+        ("Прочее", [.siri, .language, .stats, .about]),
     ]
 }
 
@@ -162,6 +165,8 @@ private struct SettingsRoot: View {
             return v.onlineArt ? tr("Поиск в iTunes включён") : tr("Поиск выключен")
         case .lyrics:
             return v.lyricsOn ? tr("Показан вместо обложки") : tr("Открывается кнопкой на главном экране")
+        case .siri:
+            return tr("Включи избранное в Волне")
         case .language:
             return v.language == "system" ? tr("Как в системе") : Lang.current.name
         case .stats:
@@ -227,6 +232,7 @@ private struct SettingsPageView: View {
                         case .library: LibraryPage()
                         case .covers: CoversPage()
                         case .lyrics: LyricsPage()
+                        case .siri: SiriPage()
                         case .language: LanguagePage()
                         default: AboutPage()
                         }
@@ -553,6 +559,27 @@ private struct LyricsPage: View {
 }
 
 // MARK: - Прочее
+
+private struct SiriPage: View {
+    private var phrases: [String] {
+        [tr("Включи избранное в Волне"), tr("Перемешай музыку в Волне"), tr("Включи музыку в Волне"),
+         tr("Включи песню … в Волне"), tr("Включи исполнителя … в Волне"), tr("Включи плейлист … в Волне")]
+    }
+
+    var body: some View {
+        Block(tr("Что можно сказать")) {
+            ForEach(phrases, id: \.self) { p in
+                Text(p).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.fg)
+            }
+            Hint(tr("Название плеера в фразе обязательно. Пауза, следующая песня и громкость работают и без него, для того, что уже играет."))
+            Hint(tr("Фразы работают на языке Siri: русском или английском. Украинского у Siri пока нет."))
+        }
+        Block(tr("Команды")) {
+            Hint(tr("Эти же действия есть в приложении «Команды»: там их можно повесить на кнопку «Действие» или в автоматизацию."))
+            ShortcutsLink()
+        }
+    }
+}
 
 private struct LanguagePage: View {
     @EnvironmentObject private var settings: Settings
