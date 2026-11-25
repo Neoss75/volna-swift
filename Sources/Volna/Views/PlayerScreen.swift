@@ -551,7 +551,10 @@ struct MenuBar: View {
                 item(tr("Песни"), "music.note", count: library.tracks.count) { ui.panel = .list }
                 item(tr("Очередь"), "list.bullet", count: player.queue.count) { ui.panel = .queue }
                 item(tr("Радио"), "dot.radiowaves.left.and.right", on: player.radio != nil) { ui.panel = .radio }
-                item(tr("Текст песни"), "text.bubble", on: settings.v.lyricsOn) { settings.v.lyricsOn.toggle() }
+                // the radio has no lyrics
+                item(tr("Текст песни"), "text.bubble", on: settings.v.lyricsOn && player.radio == nil) { settings.v.lyricsOn.toggle() }
+                    .disabled(player.radio != nil)
+                    .opacity(player.radio != nil ? 0.35 : 1)
                 item(tr("Эквалайзер"), "slider.vertical.3", dot: settings.eqActive) { ui.panel = .eq }
                 item(tr("Настройки"), "gearshape", dot: settings.fxActive) { ui.panel = .fx }
                 item(tr("Громкость"), "speaker.wave.2") { showVolume() }

@@ -53,6 +53,7 @@ final class GestureTests: XCTestCase {
 
     func testButtonsAndSwipesStillWork() {
         start()
+        XCTAssertTrue(app.buttons["Текст песни"].isEnabled, "lyrics of a song")
         app.buttons["Следующий"].tap()
         XCTAssertTrue(app.staticTexts["Бас і біт"].waitForExistence(timeout: 5), "next")
         swipe(middle(cover), dx: -200)
@@ -81,6 +82,7 @@ final class GestureTests: XCTestCase {
         app.buttons["Закрыть"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Jazz Lounge"].firstMatch.waitForExistence(timeout: 5), "the station is on")
         let place = app.staticTexts.matching(NSPredicate(format: "label MATCHES '[0-9]+ из [0-9]+'")).firstMatch
+        XCTAssertFalse(app.buttons["Текст песни"].isEnabled, "lyrics while the radio is on")
         XCTAssertTrue(place.exists && place.label != "1 из 1", place.exists ? place.label : "no place")
     }
 
