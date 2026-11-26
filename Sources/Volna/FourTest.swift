@@ -29,7 +29,9 @@ extension Demo {
         LyricsStore.delete(t)
         library.update(t) { $0.lyricsTried = nil }
         var asked = 0
-        LyricsAuto.finder = { _ in
+        // other songs that start meanwhile are asked about too: only this one is counted
+        LyricsAuto.finder = { song in
+            guard song.id == t else { return nil }
             asked += 1
             return Lyrics(text: "Знайдений текст", source: "lrclib.net")
         }
@@ -48,7 +50,7 @@ extension Demo {
         check("lyrics asked once", asked == 1, "\(asked)")
         settings.v.lyricsAuto = false
         LyricsAuto.finder = { try await LyricsSearch.find($0) }
-        library.update(t) { $0.lyricsTried = nil }
+        for id in ids { library.update(id) { $0.lyricsTried = nil } }
         if let own { LyricsStore.save(own, id: t) }
         player.pause()
 
