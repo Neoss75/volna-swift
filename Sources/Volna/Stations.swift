@@ -219,7 +219,18 @@ enum StationProbe {
                 } catch {} // what has come is enough
                 facts = StationFacts.look(data)
                 return nil
-            case .ogg: return .ogg
+            case .ogg:
+                var data = Data()
+                do {
+                    for try await b in bytes {
+                        data.append(b)
+                        if data.count >= 16000 { break }
+                    }
+                } catch {}
+                guard let i = OggInfo.sniff(data) else { return .format }
+                let kbps = http?.value(forHTTPHeaderField: "icy-br")?.split(separator: ",").first.flatMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+                facts = StationFacts(kind: i.codec == .opus ? "Opus" : "Vorbis", kbps: kbps, total: nil, rate: i.rate)
+                return nil
             case .video: return .video
             case .page: return .notRadio
             case .list:
@@ -424,7 +435,7 @@ final class Stations: ObservableObject {
             if let f = a.facts { learnt[a.id] = f }
             switch a.error {
             case nil: break
-            case .hls?, .ogg?, .video?, .format?: c.unsupported += 1
+            case .hls?, .video?, .format?: c.unsupported += 1
             default: c.dead.insert(a.id)
             }
         }

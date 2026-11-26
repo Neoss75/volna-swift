@@ -21,6 +21,23 @@ xcrun simctl ui "$DEV" appearance dark
 xcrun simctl status_bar "$DEV" override --time 9:41 --batteryState charged --batteryLevel 100 || true
 t 120 xcrun simctl install "$DEV" "$APP"
 
+# Ogg Vorbis and Ogg Opus files for the self-test: three seconds of a tone, with a title
+say "ogg test files"
+export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_ENV_HINTS=1
+command -v oggenc > /dev/null && command -v opusenc > /dev/null || t 400 brew install --quiet vorbis-tools opus-tools > /dev/null 2>&1 || true
+mkdir -p build
+python3 - << 'PY'
+import math, struct, wave
+with wave.open("build/tone.wav", "wb") as w:
+    w.setnchannels(2); w.setsampwidth(2); w.setframerate(44100)
+    w.writeframes(b"".join(struct.pack("<hh", int(16000 * math.sin(2 * math.pi * 440 * i / 44100)), int(16000 * math.sin(2 * math.pi * 660 * i / 44100))) for i in range(44100 * 3)))
+PY
+DOCS="$(xcrun simctl get_app_container "$DEV" $ID data)/Documents"
+mkdir -p "$DOCS"
+oggenc -Q -q 3 -t "Тест Vorbis" -a "Волна" -o "$DOCS/Тест Vorbis.ogg" build/tone.wav || echo "::warning::no oggenc"
+opusenc --quiet --title "Тест Opus" --artist "Волна" build/tone.wav "$DOCS/Тест Opus.opus" || echo "::warning::no opusenc"
+ls -l "$DOCS"
+
 say self-test
 t 400 xcrun simctl launch --stdout="$PWD/shots/out.txt" --stderr="$PWD/shots/selftest.txt" "$DEV" $ID -demo -selftest
 for _ in $(seq 1 900); do
@@ -38,7 +55,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(05-settings|05h|05i)'
+ONLY='^(02-list|80-radio)'
 # The touch tests take 4-8 minutes: TOUCH=1 only when buttons or gestures change
 TOUCH=0
 shot() { # shot <name> <arguments…>

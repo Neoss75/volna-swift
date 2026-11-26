@@ -25,6 +25,7 @@ struct TrackMeta: Sendable {
 /// Reads tags and the embedded cover with AVFoundation, plus the format details from the file header.
 enum MetadataReader {
     static func read(url: URL) async -> TrackMeta {
+        if OggFile.handles(url.path), let m = OggInfo.meta(url) { return m }
         let asset = AVURLAsset(url: url)
         var meta = TrackMeta()
         meta.header = header(of: url)

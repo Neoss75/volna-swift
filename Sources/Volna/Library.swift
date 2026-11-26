@@ -36,7 +36,7 @@ final class Library: ObservableObject {
 
     var onRemove: ((Set<UUID>) -> Void)?
 
-    nonisolated static let audioExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "flac", "wav", "aif", "aiff", "alac", "caf", "opus", "ogg"]
+    nonisolated static let audioExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "flac", "wav", "aif", "aiff", "alac", "caf", "opus", "ogg", "oga"]
 
     /// Songs sent from a computer over Wi-Fi live inside the player, in «Files» → «On My iPhone» → «Volna» → «Wi-Fi».
     static let wifiID = UUID(uuidString: "5A1F0000-0000-4000-8000-00000000F1F1")!
@@ -339,7 +339,8 @@ final class Library: ObservableObject {
 
     /// Songs saved by an older build: read their tags again to fill in the format line and clean the titles.
     private func refreshOldEntries() async {
-        for t in tracks where t.metaVersion != Track.currentMeta {
+        // Ogg files added before the player could read them have no format yet
+        for t in tracks where t.metaVersion != Track.currentMeta || (OggFile.handles(t.path) && t.sampleRate == nil) {
             guard let access = open(t) else { continue }
             let meta = await MetadataReader.read(url: access.url)
             update(t.id) { self.apply(meta, to: &$0) }

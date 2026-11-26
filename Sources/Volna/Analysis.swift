@@ -107,7 +107,7 @@ final class Analyzer: ObservableObject {
             if let t = library.track(id), t.wave == nil || t.gainDb == nil {
                 var result: Analysis.Result?
                 if let access = library.open(t) {
-                    result = await Task.detached(priority: .userInitiated) { Analysis.run(access.url, from: t.cueStart, to: t.cueEnd) }.value
+                    result = await Task.detached(priority: .userInitiated) { Analysis.run((try? OggFile.playable(access.url, id: t.id)) ?? access.url, from: t.cueStart, to: t.cueEnd) }.value
                 }
                 library.update(id) {
                     $0.wave = result?.wave ?? []

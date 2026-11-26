@@ -253,7 +253,7 @@ final class AudioGraph {
             // an iCloud file that is not on the phone yet: ask for it, it will open next time
             try? FileManager.default.startDownloadingUbiquitousItem(at: access.url)
         }
-        let f = try AVAudioFile(forReading: access.url)
+        let f = try AVAudioFile(forReading: OggFile.playable(access.url, id: t.id))
         d.access = access
         d.file = f
         (d.first, d.count) = Deck.part(of: f, t)

@@ -12,6 +12,8 @@ final class TestServer: @unchecked Sendable {
     private let aac: Data
     private let perSecond: Int
     private var counts: [String: Int] = [:]
+    /// Ogg files sent as an endless station, by path.
+    var ogg: [String: Data] = [:]
     private let born = Date()
 
     init(aac: Data, seconds: Double) {
@@ -48,6 +50,14 @@ final class TestServer: @unchecked Sendable {
         func whole(_ type: String, _ body: Data, _ status: String = "200 OK") {
             let head = "HTTP/1.1 \(status)\r\nContent-Type: \(type)\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
             c.send(content: Data(head.utf8) + body, isComplete: true, completion: .contentProcessed { _ in c.cancel() })
+        }
+        if let file = ogg[path], !file.isEmpty {
+            c.send(content: Data("HTTP/1.0 200 OK
+Content-Type: application/ogg
+icy-name: Ogg FM
+
+".utf8), completion: .idempotent)
+            return pump(c, file, max(1, file.count / 3), title: nil, limit: .infinity)
         }
         switch path {
         case "/live", "/drop", "/icy", "/stall":
@@ -319,7 +329,7 @@ extension Demo {
         check("radio from a list", await until(10) { live.state == .playing } && live.info.kind == "AAC", "\(live.state)")
         player.next()
         check("stations go round", player.radio?.id == a.id, player.radio?.name ?? "")
-        for (path, error) in [("/hls", StreamError.hls), ("/ogg", .ogg), ("/page", .notRadio), ("/none", .status(404)), ("/x.m3u8", .status(404))] {
+        for (path, error) in [("/hls", StreamError.hls), ("/ogg", .format), ("/page", .notRadio), ("/none", .status(404)), ("/x.m3u8", .status(404))] {
             let s = station(path)
             player.play(s, from: ids + [s.id])
             check("radio error \(path)", await until(6) { !player.isPlaying } && stations.problems[s.id] == error.text, stations.problems[s.id] ?? "none")

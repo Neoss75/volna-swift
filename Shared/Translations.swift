@@ -669,5 +669,6 @@ AirPods, Sony, Sennheiser…‖AirPods, Sony, Sennheiser…‖AirPods, Sony, Sen
 Резервная копия‖Резервна копія‖Backup
 Сохранить копию‖Зберегти копію‖Save a backup
 Это не файл копии Волны‖Це не файл копії Волни‖This is not a Volna backup file
+не удалось разобрать файл OGG‖не вдалося розібрати файл OGG‖could not read the OGG file
 """#
 }

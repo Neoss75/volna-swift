@@ -768,7 +768,7 @@ struct Dialogs: ViewModifier {
         case .folder?: return [.folder]
         case .profile?: return [.plainText]
         case .stations?: return [.m3uPlaylist] + ext(["m3u", "m3u8", "pls"])
-        default: return [.audio] + ext(["lrc", "cue"])
+        default: return [.audio] + ext(["lrc", "cue", "ogg", "oga", "opus"])
         }
     }
 

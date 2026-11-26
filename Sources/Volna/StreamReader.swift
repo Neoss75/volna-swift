@@ -16,14 +16,13 @@ enum StreamKind {
 }
 
 enum StreamError: Error, Equatable {
-    case status(Int), hls, ogg, video, notRadio, format, network(String)
+    case status(Int), hls, video, notRadio, format, network(String)
 
     var text: String {
         switch self {
         case .status(404): tr("станции по этой ссылке больше нет")
         case .status(let c): tr("станция отвечает ошибкой {}", "\(c)")
         case .hls: tr("этот вид HLS не поддерживается")
-        case .ogg: tr("потоки OGG и Opus пока не поддерживаются")
         case .video: tr("это видео, а не радио")
         case .notRadio: tr("по этой ссылке не радиопоток")
         case .format: tr("формат этого потока не распознан")
@@ -80,7 +79,7 @@ final class StreamReader: NSObject, URLSessionDataDelegate, SoundSource, @unchec
 
     private var icy = IcySplitter(interval: 0)
 
-    private var decoder: SoundDecoder?
+    private var decoder: StreamDecoding?
     private var sniffing = true
     private var old = Data()
 
@@ -149,11 +148,10 @@ final class StreamReader: NSObject, URLSessionDataDelegate, SoundSource, @unchec
         let type = (header("Content-Type") ?? "").lowercased()
         kind = StreamKind.of(type: type, url: response.url ?? url)
         switch kind {
-        case .ogg: finish(.ogg)
         case .video: finish(.video)
         case .page: finish(.notRadio)
         case .list: break
-        case .audio:
+        case .audio, .ogg:
             finite = response.expectedContentLength > 0
             describe(header)
             open(type)
@@ -180,6 +178,8 @@ final class StreamReader: NSObject, URLSessionDataDelegate, SoundSource, @unchec
                 ended = true
                 send(.list(StationList.text(listData)))
             }
+        } else if decoder?.gotSound != true {
+            finish(.format)
         } else {
             finish(finite ? nil : .network(tr("станция прервала передачу")))
         }
@@ -194,7 +194,17 @@ final class StreamReader: NSObject, URLSessionDataDelegate, SoundSource, @unchec
     // MARK: - Sound
 
     private func open(_ type: String) {
-        let d = SoundDecoder(type: type)
+        let d: StreamDecoding
+        if StreamKind.of(type: type, url: url) == .ogg {
+            let o = OggDecoder()
+            // with Ogg the station sends the name of the song inside the sound, at the start of every song
+            o.onTags = { [weak self] tags in
+                if let title = OggTags.title(tags) { self?.send(.title(title)) }
+            }
+            d = o
+        } else {
+            d = SoundDecoder(type: type)
+        }
         d.onFormat = { [weak self] f in
             guard let self else { return }
             self.info.kind = f.kind

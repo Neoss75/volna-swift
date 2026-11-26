@@ -53,6 +53,8 @@ final class Player: ObservableObject {
     private var chainIndex: Int?
     private var chainTried: UUID?
     private var chainGain: Task<Void, Never>?
+    /// An Ogg song being decoded before it can play.
+    private var decoding: Task<Void, Never>?
 
     private var deck: Deck { graph.decks[active] }
     private var spare: Deck { graph.decks[1 - active] }
@@ -360,6 +362,17 @@ final class Player: ObservableObject {
         duration = t.duration
         savedTime = time
         clock.time = time
+        decoding?.cancel()
+        if OggFile.handles(t.path), OggFile.cached(t.id) == nil, let access = library.open(t) {
+            // the first time an Ogg song is decoded aside, so the screen does not stop meanwhile
+            let id = t.id
+            decoding = Task { [weak self] in
+                let ok = await Task.detached(priority: .userInitiated) { (try? OggFile.playable(access.url, id: id)) != nil }.value
+                guard let self, !Task.isCancelled, self.current?.id == id else { return }
+                if ok { self.load(play: play, at: time) } else { self.markBad(t, OggFile.Failure.unreadable) }
+            }
+            return
+        }
         do {
             try graph.load(library.open(t), t, into: deck)
         } catch {
@@ -388,7 +401,14 @@ final class Player: ObservableObject {
         if t.bad == true { library.update(t.id) { $0.bad = false } }
         analyzer.request(t, first: true)
         covers.auto(t)
-        if qi + 1 < queue.count, let n = library.track(queue[qi + 1]) { covers.auto(n) }
+        if qi + 1 < queue.count, let n = library.track(queue[qi + 1]) {
+            covers.auto(n)
+            // the next Ogg song is decoded in advance, then it follows without a gap
+            if OggFile.handles(n.path), OggFile.cached(n.id) == nil, let a = library.open(n) {
+                let id = n.id
+                Task.detached(priority: .utility) { _ = try? OggFile.playable(a.url, id: id) }
+            }
+        }
     }
 
     private func markBad(_ t: Track, _ error: Error) {
@@ -550,8 +570,8 @@ final class Player: ObservableObject {
               queue.indices.contains(qi), duration - deck.position < 10, chainTried != queue[qi] else { return }
         chainTried = queue[qi]
         let ni = repeatMode == .one ? qi : qi + 1 < queue.count ? qi + 1 : repeatMode == .all ? 0 : -1
-        guard ni >= 0, let t = library.track(queue[ni]), t.bad != true, let access = library.open(t),
-              let file = try? AVAudioFile(forReading: access.url), deck.chain(access, file, t) else { return }
+        guard ni >= 0, let t = library.track(queue[ni]), t.bad != true, let access = library.open(t), let url = OggFile.ready(access.url, id: t.id),
+              let file = try? AVAudioFile(forReading: url), deck.chain(access, file, t) else { return }
         chainIndex = ni
         guard settings.v.effectiveNormalize, let gain = t.gainDb else { return }
         // the callback comes when the old song is heard to its end; the loudness has to change when the new one is mixed
