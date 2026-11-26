@@ -26,6 +26,10 @@ final class Library: ObservableObject {
     /// Songs of a watched folder that the user took out of the player: a refresh must not bring them back.
     private var hidden: Set<String> = []
     @Published private(set) var refreshing = false
+    /// Songs from a backup whose files are not in the player yet: recognised when they are added.
+    @Published private(set) var waiting: [BackupSong] = []
+    /// Old marks of songs from a backup and their new ones.
+    var onAdopt: (([UUID: UUID]) -> Void)?
     private var index: [UUID: Int] = [:]
     private let dir: URL
     private var saveTask: Task<Void, Never>?
@@ -48,6 +52,7 @@ final class Library: ObservableObject {
         playlists = load("playlists.json") ?? []
         folders = load("folders.json") ?? []
         hidden = load("hidden.json") ?? []
+        waiting = load("waiting.json") ?? []
         reindex()
         Task { await refreshOldEntries() }
     }
@@ -65,6 +70,74 @@ final class Library: ObservableObject {
 
     private func reindex() {
         index = Dictionary(tracks.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { a, _ in a })
+        // new songs may be the ones a backup is waiting for
+        if !waiting.isEmpty { Task { [weak self] in self?.adopt() } }
+    }
+
+    // MARK: - Backup
+
+    /// Returns how many songs of the backup are in the player now.
+    func restore(favourites fav: [UUID], playlists list: [Playlist], songs: [BackupSong]) -> Int {
+        favourites.formUnion(fav)
+        for p in list {
+            if let i = playlists.firstIndex(where: { $0.id == p.id }) { playlists[i] = p } else { playlists.append(p) }
+        }
+        let fresh = Set(songs.map(\.id))
+        waiting = waiting.filter { !fresh.contains($0.id) } + songs
+        let before = waiting.count
+        adopt()
+        saveNow()
+        return before - waiting.count
+    }
+
+    func forgetWaiting() {
+        waiting = []
+        saveNow()
+    }
+
+    /// Gives the songs of a backup back their favourites, playlists, lyrics and corrected names.
+    func adopt() {
+        guard !waiting.isEmpty, !tracks.isEmpty else { return }
+        var byFile: [String: [Track]] = [:], byName: [String: [Track]] = [:]
+        for t in tracks {
+            byFile[t.fileName.lowercased(), default: []].append(t)
+            byName[SongReading.normal(t.artist) + "|" + SongReading.normal(t.title), default: []].append(t)
+        }
+        var map: [UUID: UUID] = [:], left: [BackupSong] = [], taken = Set<UUID>()
+        for s in waiting {
+            let t: Track? = {
+                if let t = track(s.id), !taken.contains(t.id) { return t }
+                let same = (byFile[s.file.lowercased()] ?? []).filter { !taken.contains($0.id) && $0.cueStart == s.cueStart }
+                if let t = same.first(where: { $0.size != nil && $0.size == s.size }) { return t }
+                if let t = same.first(where: { $0.size == nil || s.size == nil || abs($0.duration - s.duration) < 2 }) { return t }
+                // the file was renamed: the same artist and title, the same length
+                return (byName[SongReading.normal(s.artist) + "|" + SongReading.normal(s.title)] ?? [])
+                    .first { !taken.contains($0.id) && $0.cueStart == s.cueStart && abs($0.duration - s.duration) < 2 }
+            }()
+            guard let t else {
+                left.append(s)
+                continue
+            }
+            taken.insert(t.id)
+            if s.id != t.id { map[s.id] = t.id }
+            if let l = s.lyrics, LyricsStore.load(t.id) == nil { LyricsStore.save(l, id: t.id) }
+            if s.edited == true, t.edited != true {
+                update(t.id) {
+                    $0.title = s.title
+                    $0.artist = s.artist
+                    $0.album = s.album
+                    $0.edited = true
+                }
+            }
+        }
+        guard left.count != waiting.count else { return }
+        waiting = left
+        if !map.isEmpty {
+            favourites = Set(favourites.map { map[$0] ?? $0 })
+            for i in playlists.indices { playlists[i].keys = playlists[i].keys.map { map[$0] ?? $0 } }
+            onAdopt?(map)
+        }
+        scheduleSave()
     }
 
     // MARK: - Adding
@@ -561,5 +634,6 @@ final class Library: ObservableObject {
         write(playlists, "playlists.json")
         write(folders, "folders.json")
         write(hidden, "hidden.json")
+        write(waiting, "waiting.json")
     }
 }

@@ -492,6 +492,13 @@ final class Stations: ObservableObject {
         save()
     }
 
+    /// From a backup.
+    func replace(_ list: [Station]) {
+        all = list
+        problems = [:]
+        save()
+    }
+
     private func save() {
         if let data = try? JSONEncoder().encode(all) { try? data.write(to: file, options: .atomic) }
         onChange?()

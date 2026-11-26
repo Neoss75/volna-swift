@@ -122,17 +122,26 @@ final class Settings: ObservableObject {
 
     init() {
         // saved values are laid over the defaults, so new options can be added later
-        let base = Values()
-        var merged = Self.dictionary(try? JSONEncoder().encode(base))
-        for (k, x) in Self.dictionary(UserDefaults.standard.data(forKey: Self.key)) { merged[k] = x }
-        if let data = try? JSONSerialization.data(withJSONObject: merged),
-           let decoded = try? JSONDecoder().decode(Values.self, from: data), decoded.bands.count == 10 {
-            v = decoded
-        } else {
-            v = base
-        }
+        v = Self.merged(UserDefaults.standard.data(forKey: Self.key)) ?? Values()
         Lang.apply(v.language)
         Haptic.on = v.haptics
+    }
+
+    private static func merged(_ saved: Data?) -> Values? {
+        var merged = dictionary(try? JSONEncoder().encode(Values()))
+        for (k, x) in dictionary(saved) { merged[k] = x }
+        guard let data = try? JSONSerialization.data(withJSONObject: merged),
+              let decoded = try? JSONDecoder().decode(Values.self, from: data), decoded.bands.count == 10 else { return nil }
+        return decoded
+    }
+
+    /// For the backup file.
+    var exported: Data? { try? JSONEncoder().encode(v) }
+
+    /// Settings from a backup, possibly of an older build: what it does not know keeps its default.
+    func restore(_ data: Data) {
+        guard let values = Self.merged(data) else { return }
+        v = values
     }
 
     private static func dictionary(_ data: Data?) -> [String: Any] {

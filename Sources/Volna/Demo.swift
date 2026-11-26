@@ -36,6 +36,12 @@ enum Demo {
         if let m = value("-viz").flatMap(VizMode.init(rawValue:)) { settings.v.viz = m }
         if let t = value("-theme") { settings.v.themeMode = t }
         settings.v.lyricsOn = args.contains("-lyrics")
+        if args.contains("-waiting") {
+            _ = library.restore(favourites: [], playlists: [], songs: [
+                BackupSong(id: UUID(), file: "Тартак - Понад хмарами.flac", duration: 215, title: "Понад хмарами", artist: "Тартак", album: ""),
+                BackupSong(id: UUID(), file: "Kalush - Stefania.mp3", duration: 180, title: "Stefania", artist: "Kalush", album: ""),
+            ])
+        }
         // the simulator keeps the settings from the screenshot before
         settings.v.radioExtras = args.contains("-radioextras")
         if args.contains("-radioextras") {
@@ -232,6 +238,7 @@ enum Demo {
         sleepIntent.time = .off
         _ = try? await sleepIntent.perform()
         check("siri sleep timer off", !player.sleepAfterTrack && player.sleepAt == nil, "")
+        await backupTest(library: library, settings: settings, stations: stations, headphones: headphones, check: check)
         check("waveforms", library.tracks.allSatisfy { ($0.wave?.count ?? 0) == 180 && ($0.wave?.max() ?? 0) == 100 }, "\(library.tracks.map { $0.gainDb ?? 99 })")
         player.seek(to: 1)
         player.play(ids[0], from: ids)
@@ -539,4 +546,67 @@ struct WidgetGallery: View {
         .background(Color.gray)
     }
 }
+extension Demo {
+    /// A backup made here, then restored as if on a new phone where every song has a new mark.
+    static func backupTest(library: Library, settings: Settings, stations: Stations, headphones: Headphones, check: (String, Bool, String) -> Void) async {
+        let stats = Stats()
+        let t = library.tracks
+        guard t.count >= 4 else { return check("backup: songs", false, "\(t.count)") }
+        let lyrics = Lyrics(text: "Рядок один", source: "добавлен вручную")
+        LyricsStore.save(lyrics, id: t[0].id)
+        if !library.isFavourite(t[1].id) { library.toggleFavourite(t[1].id) }
+        let list = library.createPlaylist("Копия", with: [t[2].id, t[0].id])
+        let oldTitle = t[3].title, oldArtist = t[3].artist, oldAlbum = t[3].album
+        library.edit(t[3].id, title: "Исправлено", artist: oldArtist, album: oldAlbum)
+        settings.v.semitones = 2
+        let made = BackupFile.make(library: library, settings: settings, stations: stations, headphones: headphones, stats: stats)
+        var b: Backup
+        do {
+            b = try BackupFile.read(try BackupFile.write(made))
+        } catch {
+            return check("backup: file", false, "\(error)")
+        }
+        check("backup: file", b.songs?.count == t.count && b.stations?.count == stations.all.count && b.playlists?.contains { $0.id == list.id } == true, "\(b.songs?.count ?? -1)")
+
+        // a new phone: the same files under new marks
+        var map: [UUID: UUID] = [:]
+        for s in b.songs ?? [] { map[s.id] = UUID() }
+        b.songs = b.songs?.map { var s = $0; s.id = map[s.id] ?? s.id; return s }
+        b.favourites = b.favourites?.map { map[$0] ?? $0 }
+        b.playlists = b.playlists?.map { var p = $0; p.keys = p.keys.map { map[$0] ?? $0 }; return p }
+        LyricsStore.delete(t[0].id)
+        library.toggleFavourite(t[1].id)
+        library.deletePlaylist(list.id)
+        library.edit(t[3].id, title: oldTitle, artist: oldArtist, album: oldAlbum)
+        library.update(t[3].id) { $0.edited = nil }
+        settings.v.semitones = 0
+        let r = BackupFile.restore(b, library: library, settings: settings, stations: stations, headphones: headphones, stats: stats)
+        check("backup: songs recognised", r.found == r.total && library.waiting.isEmpty, "\(r.found) of \(r.total)")
+        check("backup: settings", settings.v.semitones == 2, "\(settings.v.semitones)")
+        check("backup: favourite", library.isFavourite(t[1].id) && !library.favourites.contains { map.values.contains($0) }, "")
+        check("backup: playlist", library.playlists.first { $0.id == list.id }?.keys == [t[2].id, t[0].id], "")
+        check("backup: lyrics", LyricsStore.load(t[0].id)?.text == lyrics.text, "")
+        check("backup: corrected name", library.track(t[3].id)?.title == "Исправлено", library.track(t[3].id)?.title ?? "-")
+
+        // a song whose file is not here yet waits, and is recognised once it comes
+        let gone = BackupSong(id: UUID(), file: t[2].fileName, size: t[2].size, cueStart: t[2].cueStart, duration: t[2].duration, title: t[2].title, artist: t[2].artist, album: t[2].album)
+        var later = Backup()
+        later.songs = [BackupSong(id: UUID(), file: "Нет такого.mp3", duration: 100, title: "Нет", artist: "Никто", album: ""), gone]
+        later.favourites = [gone.id]
+        let r2 = BackupFile.restore(later, library: library, settings: settings, stations: stations, headphones: headphones, stats: stats)
+        check("backup: waiting", r2.found == 1 && library.waiting.count == 1 && library.isFavourite(t[2].id), "\(r2.found) \(library.waiting.count)")
+        library.forgetWaiting()
+        check("backup: not a backup", (try? BackupFile.decode(Data("{\"a\":1}".utf8))) == nil && (try? BackupFile.decode(Data("{\"kind\":\"volna-backup\"}".utf8))) != nil, "")
+
+        // back as it was
+        settings.v.semitones = 0
+        library.toggleFavourite(t[2].id)
+        library.toggleFavourite(t[1].id)
+        library.deletePlaylist(list.id)
+        LyricsStore.delete(t[0].id)
+        library.edit(t[3].id, title: oldTitle, artist: oldArtist, album: oldAlbum)
+        library.update(t[3].id) { $0.edited = nil }
+    }
+}
+
 #endif

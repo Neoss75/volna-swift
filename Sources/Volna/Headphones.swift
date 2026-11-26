@@ -208,6 +208,16 @@ final class Headphones: ObservableObject {
         save()
     }
 
+    /// From a backup.
+    func replace(_ s: Saved) {
+        data = s
+        write()
+        // the device in use is looked up again with its profile from the backup
+        current = Device(id: "", name: "", port: current.port)
+        look()
+        onChange?()
+    }
+
     func turn(_ on: Bool) {
         data.on = on
         save()

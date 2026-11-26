@@ -69,6 +69,26 @@ final class Stats: ObservableObject {
         if let raw = try? JSONEncoder().encode(data) { UserDefaults.standard.set(raw, forKey: "stats") }
     }
 
+    /// From a backup.
+    func replace(_ d: Data) {
+        pending = d
+        flush()
+    }
+
+    /// Songs of a backup recognised under their new marks.
+    func rename(_ map: [UUID: UUID]) {
+        flush(keepTicking: true)
+        for (old, new) in map {
+            guard let e = pending.songs.removeValue(forKey: old.uuidString) else { continue }
+            var n = pending.songs[new.uuidString] ?? Entry(title: e.title, artist: e.artist)
+            n.plays += e.plays
+            n.seconds += e.seconds
+            n.last = [n.last, e.last].compactMap { $0 }.max()
+            pending.songs[new.uuidString] = n
+        }
+        flush(keepTicking: true)
+    }
+
     func reset() {
         pending = Data()
         flush()

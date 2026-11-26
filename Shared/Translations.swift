@@ -369,7 +369,7 @@ Hi-res и вывод‖Hi-res і вивід‖Hi-res and output
 Из самого файла, из файла .lrc с тем же именем, с сайта lrclib.net по вашему нажатию «Найти в интернете» или вставленный вручную. На lrclib.net отправляются название, исполнитель и длительность песни.‖Із самого файлу, з файлу .lrc з тим самим ім’ям, із сайту lrclib.net за вашим натисканням «Знайти в інтернеті» або вставлений вручну. На lrclib.net надсилаються назва, виконавець і тривалість пісні.‖From the file itself, from a .lrc file with the same name, from lrclib.net when you tap “Find online”, or pasted by hand. The title, artist and length of the song are sent to lrclib.net.
 Музыкальный плеер для файлов на вашем iPhone.‖Музичний плеєр для файлів на вашому iPhone.‖A music player for the files on your iPhone.
 Что уходит в интернет‖Що йде в інтернет‖What goes online
-Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст. Радио подключается к серверам станций. Сами файлы, статистика и плейлисты остаются на телефоне.‖Лише назви пісень і виконавців: в iTunes для пошуку обкладинок, якщо його увімкнено, і на lrclib.net, коли ви шукаєте текст. Радіо підключається до серверів станцій. Самі файли, статистика та плейлисти залишаються на телефоні.‖Only names of songs and artists: to iTunes for cover search, if it is on, and to lrclib.net when you look for lyrics. The radio connects to the servers of the stations. Files, statistics and playlists stay on the phone.
+Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст или включены тексты для радио. Радио подключается к серверам станций. Сами файлы, статистика и плейлисты остаются на телефоне.‖Лише назви пісень і виконавців: в iTunes для пошуку обкладинок, якщо його увімкнено, і на lrclib.net, коли ви шукаєте текст або увімкнено тексти для радіо. Радіо підключається до серверів станцій. Самі файли, статистика та плейлисти залишаються на телефоні.‖Only names of songs and artists: to iTunes for cover search, if it is on, and to lrclib.net when you look for lyrics or lyrics for the radio are on. The radio connects to the servers of the stations. Files, statistics and playlists stay on the phone.
 Ничего не играет‖Нічого не грає‖Nothing is playing
 Предыдущая‖Попередня‖Previous
 Следующая‖Наступна‖Next
@@ -646,5 +646,28 @@ AirPods, Sony, Sennheiser…‖AirPods, Sony, Sennheiser…‖AirPods, Sony, Sen
 Обложки и тексты для радио‖Обкладинки й тексти для радіо‖Covers and lyrics for the radio
 Станция не сообщает, какая песня сейчас играет.‖Станція не повідомляє, яка пісня зараз грає.‖The station does not say which song is playing.
 Текста для этой песни не нашлось.‖Тексту для цієї пісні не знайшлося.‖No lyrics found for this song.
+ из копии пока не найдены в плеере. Когда вы их добавите, Волна вернёт им избранное, плейлисты, тексты и исправленные названия.‖ з копії поки не знайдено в плеєрі. Коли ви їх додасте, Волна поверне їм обране, плейлисти, тексти та виправлені назви.‖ from the backup are not in the player yet. When you add them, Volna gives them back their favourites, playlists, lyrics and corrected names.
+Больше не ждать‖Більше не чекати‖Stop waiting
+В копию попадают настройки, эквалайзер, профили наушников, радиостанции, статистика, избранное, плейлисты, исправленные названия и тексты песен. Самой музыки в ней нет, поэтому файл маленький.‖До копії потрапляють налаштування, еквалайзер, профілі навушників, радіостанції, статистика, обране, плейлисти, виправлені назви та тексти пісень. Самої музики в ній немає, тому файл маленький.‖The backup holds the settings, the equaliser, headphone profiles, radio stations, statistics, favourites, playlists, corrected names and lyrics. The music itself is not in it, so the file is small.
+Волна, копия‖Волна, копія‖Volna backup
+Восстановить‖Відновити‖Restore
+Восстановить из копии‖Відновити з копії‖Restore from a backup
+Восстановить из копии?‖Відновити з копії?‖Restore from the backup?
+Восстановление‖Відновлення‖Restoring
+Всё, кроме музыки, в одном файле‖Усе, крім музики, в одному файлі‖Everything but the music in one file
+Выберите файл копии. Настройки, станции, профили наушников и статистика заменятся теми, что в копии. Избранное и плейлисты добавятся к нынешним.‖Виберіть файл копії. Налаштування, станції, профілі навушників і статистика заміняться тими, що в копії. Обране та плейлисти додадуться до теперішніх.‖Pick the backup file. The settings, stations, headphone profiles and statistics are replaced with those in the backup. Favourites and playlists are added to the ones you have.
+Ждут своих файлов‖Чекають на свої файли‖Waiting for their files
+Ждут своих файлов: ‖Чекають на свої файли: ‖Waiting for their files: 
+Копия восстановлена‖Копію відновлено‖Backup restored
+Копия восстановлена. Узнано песен: {} из {}‖Копію відновлено. Упізнано пісень: {} з {}‖Backup restored. Songs recognised: {} of {}
+Копия от {}.‖Копія від {}.‖Backup of {}.
+Копия сохранена‖Копію збережено‖Backup saved
+Лучше всего положить файл в iCloud Drive: тогда он не пропадёт вместе с телефоном.‖Найкраще покласти файл в iCloud Drive: тоді він не зникне разом із телефоном.‖iCloud Drive is the best place for the file: then it is not lost with the phone.
+На новом телефоне сначала добавьте музыку, потом восстановите копию. Можно и наоборот: Волна узнает песни, когда вы их добавите.‖На новому телефоні спершу додайте музику, потім відновіть копію. Можна й навпаки: Волна впізнає пісні, коли ви їх додасте.‖On a new phone add the music first, then restore the backup. The other way round works too: Volna recognises the songs when you add them.
+Настройки, станции, профили наушников и статистика будут заменены.‖Налаштування, станції, профілі навушників і статистику буде замінено.‖The settings, stations, headphone profiles and statistics will be replaced.
+Не удалось сохранить копию‖Не вдалося зберегти копію‖Could not save the backup
+Резервная копия‖Резервна копія‖Backup
+Сохранить копию‖Зберегти копію‖Save a backup
+Это не файл копии Волны‖Це не файл копії Волни‖This is not a Volna backup file
 """#
 }

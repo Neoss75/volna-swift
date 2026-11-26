@@ -71,6 +71,7 @@ struct VolnaApp: App {
         SiriBridge.player = player
         SiriBridge.stations = stations
         SiriBridge.settings = settings
+        library.onAdopt = { [weak stats] in stats?.rename($0) }
     }
 
     var body: some Scene {

@@ -1,13 +1,14 @@
 import AppIntents
 import AVFoundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Pages of the settings, grouped on the first screen by what they are about.
 enum SettingsPage: String, Hashable, CaseIterable {
     case path, headphones, sound, eq, loudness, playback, hires
     case theme, viz
     case library, wifi, covers, lyrics
-    case siri, language, stats, about
+    case siri, language, stats, backup, about
 
     var title: String {
         switch self {
@@ -27,6 +28,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .siri: tr("Siri и команды")
         case .language: tr("Язык")
         case .stats: tr("Статистика")
+        case .backup: tr("Резервная копия")
         case .about: tr("О приложении")
         }
     }
@@ -49,6 +51,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .siri: "mic"
         case .language: "globe"
         case .stats: "chart.xyaxis.line"
+        case .backup: "externaldrive"
         case .about: "info.circle"
         }
     }
@@ -57,7 +60,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         ("Аудио", [.path, .headphones, .eq, .sound, .loudness, .playback, .hires]),
         ("Графика", [.theme, .viz]),
         ("Музыка", [.library, .wifi, .covers, .lyrics]),
-        ("Прочее", [.siri, .language, .stats, .about]),
+        ("Прочее", [.siri, .language, .stats, .backup, .about]),
     ]
 }
 
@@ -181,6 +184,8 @@ private struct SettingsRoot: View {
             return v.language == "system" ? tr("Как в системе") : Lang.current.name
         case .stats:
             return stats.data.total < 1 ? tr("Пока ничего не прослушано") : tr("Всего ") + formatSpan(stats.data.total)
+        case .backup:
+            return library.waiting.isEmpty ? tr("Всё, кроме музыки, в одном файле") : tr("Ждут своих файлов: ") + plural(library.waiting.count, tr("песня"), tr("песни"), tr("песен"))
         case .about:
             return tr("Волна ") + AppInfo.version
         }
@@ -247,6 +252,7 @@ private struct SettingsPageView: View {
                         case .lyrics: LyricsPage()
                         case .siri: SiriPage()
                         case .language: LanguagePage()
+                        case .backup: BackupPage()
                         default: AboutPage()
                         }
                     }
@@ -654,6 +660,79 @@ private struct LanguagePage: View {
     }
 }
 
+private struct BackupPage: View {
+    @EnvironmentObject private var library: Library
+    @EnvironmentObject private var settings: Settings
+    @EnvironmentObject private var stations: Stations
+    @EnvironmentObject private var headphones: Headphones
+    @EnvironmentObject private var stats: Stats
+    @State private var file: URL?
+    @State private var saving = false
+    @State private var picking = false
+    @State private var found: Backup?
+
+    var body: some View {
+        Block {
+            Hint(tr("В копию попадают настройки, эквалайзер, профили наушников, радиостанции, статистика, избранное, плейлисты, исправленные названия и тексты песен. Самой музыки в ней нет, поэтому файл маленький."))
+            Button(tr("Сохранить копию"), systemImage: "square.and.arrow.down") { save() }
+                .buttonStyle(.glassProminent)
+                .foregroundStyle(Theme.accentInk)
+            Hint(tr("Лучше всего положить файл в iCloud Drive: тогда он не пропадёт вместе с телефоном."))
+        }
+        Block(tr("Восстановление")) {
+            Hint(tr("Выберите файл копии. Настройки, станции, профили наушников и статистика заменятся теми, что в копии. Избранное и плейлисты добавятся к нынешним."))
+            Button(tr("Восстановить из копии"), systemImage: "arrow.counterclockwise") { picking = true }
+                .buttonStyle(.glass)
+            Hint(tr("На новом телефоне сначала добавьте музыку, потом восстановите копию. Можно и наоборот: Волна узнает песни, когда вы их добавите."))
+        }
+        if !library.waiting.isEmpty {
+            Block(tr("Ждут своих файлов")) {
+                Hint(plural(library.waiting.count, tr("песня"), tr("песни"), tr("песен")) + tr(" из копии пока не найдены в плеере. Когда вы их добавите, Волна вернёт им избранное, плейлисты, тексты и исправленные названия."))
+                Button(tr("Больше не ждать")) { library.forgetWaiting() }.buttonStyle(.glass)
+            }
+        }
+        Color.clear.frame(height: 1)
+            .fileMover(isPresented: $saving, file: file) { result in
+                if case .success = result { toast(tr("Копия сохранена")) }
+            }
+            .fileImporter(isPresented: $picking, allowedContentTypes: [.json, .data]) { result in
+                guard case .success(let url) = result else { return }
+                do {
+                    found = try BackupFile.read(url)
+                } catch {
+                    toast(tr("Это не файл копии Волны"))
+                }
+            }
+            .alert(tr("Восстановить из копии?"), isPresented: Binding(get: { found != nil }, set: { if !$0 { found = nil } })) {
+                Button(tr("Восстановить"), role: .destructive) { restore() }
+                Button(tr("Отмена"), role: .cancel) { found = nil }
+            } message: {
+                Text(found.map { tr("Копия от {}.", $0.made.formatted(date: .long, time: .shortened)) + " " } ?? "")
+                    + Text(tr("Настройки, станции, профили наушников и статистика будут заменены."))
+            }
+    }
+
+    private func save() {
+        do {
+            file = try BackupFile.write(BackupFile.make(library: library, settings: settings, stations: stations, headphones: headphones, stats: stats))
+            saving = true
+        } catch {
+            toast(tr("Не удалось сохранить копию"))
+        }
+    }
+
+    private func restore() {
+        guard let b = found else { return }
+        found = nil
+        let r = BackupFile.restore(b, library: library, settings: settings, stations: stations, headphones: headphones, stats: stats)
+        if r.total == 0 || r.found == r.total {
+            toast(tr("Копия восстановлена"))
+        } else {
+            toast(tr("Копия восстановлена. Узнано песен: {} из {}", "\(r.found)", "\(r.total)"))
+        }
+    }
+}
+
 private struct AboutPage: View {
     var body: some View {
         Block(tr("Волна ") + AppInfo.version) {
@@ -661,7 +740,7 @@ private struct AboutPage: View {
             Hint(tr("Профили наушников: AutoEq, © Jaakko Pasanen, лицензия MIT."))
         }
         Block(tr("Что уходит в интернет")) {
-            Hint(tr("Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст. Радио подключается к серверам станций. Сами файлы, статистика и плейлисты остаются на телефоне."))
+            Hint(tr("Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст или включены тексты для радио. Радио подключается к серверам станций. Сами файлы, статистика и плейлисты остаются на телефоне."))
         }
     }
 }

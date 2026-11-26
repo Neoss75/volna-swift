@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(01-player|07-lyrics|80-radio|89|05g-covers)'
+ONLY='^(05-settings|05h|05i)'
 # The touch tests take 4-8 minutes: TOUCH=1 only when buttons or gestures change
 TOUCH=0
 shot() { # shot <name> <arguments…>
@@ -70,6 +70,8 @@ shot 05f-theme -panel fx -page theme
 shot 05d-viz -panel fx -page viz
 shot 05e-library -panel fx -page library
 shot 05g-covers -panel fx -page covers
+shot 05h-backup -panel fx -page backup
+shot 05i-backup-waiting -panel fx -page backup -waiting
 shot 06-stats -panel stats
 shot 07-lyrics -lyrics
 shot 08-ring -viz ring
