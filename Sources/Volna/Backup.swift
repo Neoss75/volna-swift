@@ -31,6 +31,34 @@ struct Backup: Codable {
     var favourites: [UUID]?
     var playlists: [Playlist]?
     var songs: [BackupSong]?
+
+    init(app: String? = nil, settings: Data? = nil, stations: [Station]? = nil, headphones: Headphones.Saved? = nil, stats: Stats.Data? = nil,
+         favourites: [UUID]? = nil, playlists: [Playlist]? = nil, songs: [BackupSong]? = nil) {
+        self.app = app
+        self.settings = settings
+        self.stations = stations
+        self.headphones = headphones
+        self.stats = stats
+        self.favourites = favourites
+        self.playlists = playlists
+        self.songs = songs
+    }
+
+    /// Only the mark of the file is required; a part that cannot be read is skipped, not the whole file.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decode(String.self, forKey: .kind)
+        version = (try? c.decodeIfPresent(Int.self, forKey: .version)) ?? 1
+        made = (try? c.decodeIfPresent(Date.self, forKey: .made)) ?? Date()
+        app = try? c.decodeIfPresent(String.self, forKey: .app)
+        settings = try? c.decodeIfPresent(Data.self, forKey: .settings)
+        stations = try? c.decodeIfPresent([Station].self, forKey: .stations)
+        headphones = try? c.decodeIfPresent(Headphones.Saved.self, forKey: .headphones)
+        stats = try? c.decodeIfPresent(Stats.Data.self, forKey: .stats)
+        favourites = try? c.decodeIfPresent([UUID].self, forKey: .favourites)
+        playlists = try? c.decodeIfPresent([Playlist].self, forKey: .playlists)
+        songs = try? c.decodeIfPresent([BackupSong].self, forKey: .songs)
+    }
 }
 
 @MainActor

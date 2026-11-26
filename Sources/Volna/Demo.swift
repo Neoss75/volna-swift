@@ -552,7 +552,7 @@ extension Demo {
         let stats = Stats()
         let t = library.tracks
         guard t.count >= 4 else { return check("backup: songs", false, "\(t.count)") }
-        let lyrics = Lyrics(text: "Рядок один", source: "добавлен вручную")
+        let lyrics = Lyrics(text: "Рядок один", source: "добавлен вручную"), ownLyrics = LyricsStore.load(t[0].id)
         LyricsStore.save(lyrics, id: t[0].id)
         if !library.isFavourite(t[1].id) { library.toggleFavourite(t[1].id) }
         let list = library.createPlaylist("Копия", with: [t[2].id, t[0].id])
@@ -603,7 +603,7 @@ extension Demo {
         library.toggleFavourite(t[2].id)
         library.toggleFavourite(t[1].id)
         library.deletePlaylist(list.id)
-        LyricsStore.delete(t[0].id)
+        if let ownLyrics { LyricsStore.save(ownLyrics, id: t[0].id) } else { LyricsStore.delete(t[0].id) }
         library.edit(t[3].id, title: oldTitle, artist: oldArtist, album: oldAlbum)
         library.update(t[3].id) { $0.edited = nil }
     }
