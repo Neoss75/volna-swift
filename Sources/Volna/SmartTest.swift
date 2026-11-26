@@ -35,20 +35,7 @@ extension Demo {
         // silence: two seconds, a three second tone, two seconds
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("тишина.wav")
         let rate = 44100.0
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2),
-              let file = try? AVAudioFile(forWriting: url, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: rate, AVNumberOfChannelsKey: 2,
-                                                                      AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false],
-                                          commonFormat: .pcmFormatFloat32, interleaved: false),
-              let b = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(rate * 7)), let data = b.floatChannelData else {
-            return check("silence file", false, "")
-        }
-        b.frameLength = AVAudioFrameCount(rate * 7)
-        for i in 0..<Int(rate * 7) {
-            let t = Double(i) / rate, s: Float = t >= 2 && t < 5 ? Float(0.4 * sin(2 * .pi * 440 * t)) : Float.random(in: -0.0005...0.0005)
-            data[0][i] = s
-            data[1][i] = s
-        }
-        try? file.write(from: b)
+        guard writeSilence(url, rate) else { return check("silence file", false, "") }
         let r = Analysis.run(url)
         check("silence found", abs((r?.soundStart ?? 0) - 2) < 0.05 && abs((r?.soundEnd ?? 0) - 5) < 0.05,
               String(format: "%.3f…%.3f", r?.soundStart ?? -1, r?.soundEnd ?? -1))
@@ -72,6 +59,24 @@ extension Demo {
         short.soundEnd = 6.9
         check("silence: only real pauses", Deck.part(of: opened, quiet).count == opened.length && Deck.part(of: opened, short).count == opened.length, "")
         try? FileManager.default.removeItem(at: url)
+    }
+
+    /// The file is closed when this returns, so it can be read.
+    private static func writeSilence(_ url: URL, _ rate: Double) -> Bool {
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 2),
+              let file = try? AVAudioFile(forWriting: url, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: rate, AVNumberOfChannelsKey: 2,
+                                                                      AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false],
+                                          commonFormat: .pcmFormatFloat32, interleaved: false),
+              let b = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(rate * 7)), let data = b.floatChannelData else {
+            return false
+        }
+        b.frameLength = AVAudioFrameCount(rate * 7)
+        for i in 0..<Int(rate * 7) {
+            let t = Double(i) / rate, s: Float = t >= 2 && t < 5 ? Float(0.4 * sin(2 * .pi * 440 * t)) : Float.random(in: -0.0005...0.0005)
+            data[0][i] = s
+            data[1][i] = s
+        }
+        return (try? file.write(from: b)) != nil
     }
 }
 #endif
