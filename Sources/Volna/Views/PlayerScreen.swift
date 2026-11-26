@@ -92,6 +92,19 @@ struct PlayerScreen: View {
         }
     }
 
+    @ViewBuilder private var airPlay: some View {
+        let look = ButtonLook.of(settings.v.buttons)
+        if look == .classic {
+            AirPlayButton(tint: UIColor(Theme.muted), active: UIColor(settings.accent))
+                .frame(width: 30, height: 30)
+        } else {
+            Orb(look: look, clearness: settings.v.glass, size: 32) {
+                AirPlayButton(tint: UIColor(look.ink), active: UIColor(settings.accent))
+                    .frame(width: 22, height: 22)
+            }
+        }
+    }
+
     private func headerRow(rate: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(tr("Волна"))
@@ -100,8 +113,7 @@ struct PlayerScreen: View {
                 .fixedSize()
             Spacer(minLength: 0)
             OutputBadges(rate: rate)
-            AirPlayButton(tint: UIColor(Theme.muted), active: UIColor(settings.accent))
-                .frame(width: 30, height: 30)
+            airPlay
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 6 }
                 .accessibilityLabel(tr("AirPlay и другие колонки"))
         }
@@ -148,7 +160,22 @@ struct OutputBadges: View {
         }
     }
 
-    private func badge(_ text: String, _ on: Bool) -> some View {
+    @ViewBuilder private func badge(_ text: String, _ on: Bool) -> some View {
+        let look = ButtonLook.of(settings.v.buttons)
+        if look == .classic {
+            plainBadge(text, on)
+        } else {
+            Text(text)
+                .font(.system(size: 10, weight: .heavy))
+                .kerning(0.5)
+                .foregroundStyle(on ? look.tintedInk(settings.v.glass) : look.ink.opacity(look == .chrome ? 1 : 0.75))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(GlassBody(look: look, clearness: settings.v.glass, shape: Capsule(), tint: on ? settings.accent : nil))
+        }
+    }
+
+    private func plainBadge(_ text: String, _ on: Bool) -> some View {
         Text(text)
             .font(.system(size: 10, weight: .heavy))
             .kerning(0.5)
@@ -708,7 +735,7 @@ struct MenuBar: View {
             }
         }
         .frame(height: 52)
-        .glassEffect(.regular, in: .capsule)
+        .modifier(PlayerGlass(shape: Capsule()))
     }
 
     private func showVolume() {
@@ -729,7 +756,8 @@ struct MenuBar: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 19, weight: .medium))
-                .foregroundStyle(on || dot ? settings.accent : Theme.fg.opacity(0.8))
+                .foregroundStyle(on || dot ? settings.accent : look == .classic ? Theme.fg.opacity(0.8) : look.ink)
+                .shadow(color: .black.opacity(look == .classic ? 0 : 0.2), radius: 0.8, y: 0.8)
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
                 .overlay(alignment: .top) {
@@ -748,9 +776,11 @@ struct MenuBar: View {
                 }
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DimPress())
         .accessibilityLabel(label)
     }
+
+    private var look: ButtonLook { ButtonLook.of(settings.v.buttons) }
 }
 
 /// The phone's own volume: follows the hardware buttons.

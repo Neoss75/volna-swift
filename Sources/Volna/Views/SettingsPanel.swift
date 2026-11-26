@@ -452,10 +452,12 @@ private struct ThemePage: View {
                 SliderRow(label: tr("Прозрачность"), value: $settings.v.glass, range: 0...1, step: 0.05) { "\(Int(($0 * 100).rounded())) %" }
                 Hint(tr("Если в настройках iPhone включено «Понижение прозрачности», кнопки становятся непрозрачными."))
             }
-            // the real buttons, to see the choice at once
+            // the real buttons and menu, to see the choice at once
             Transport()
                 .allowsHitTesting(false)
                 .padding(.vertical, 6)
+            MenuBar()
+                .allowsHitTesting(false)
         }
         Block(tr("Отклик")) {
             SwitchRow(label: tr("Лёгкая вибрация при нажатиях"), on: $settings.v.haptics)
