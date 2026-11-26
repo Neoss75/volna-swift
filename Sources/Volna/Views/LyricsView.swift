@@ -44,6 +44,9 @@ struct LyricsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.raise, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .task(id: player.current?.id) { reload() }
+        .onReceive(NotificationCenter.default.publisher(for: .lyricsChanged)) { n in
+            if (n.object as? UUID) == player.current?.id { reload() }
+        }
         .sheet(isPresented: $editing, onDismiss: reload) {
             if let t = player.current { LyricsEditor(id: t.id, text: lyrics?.text ?? "") }
         }

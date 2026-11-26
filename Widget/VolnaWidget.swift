@@ -49,6 +49,7 @@ struct VolnaWidgets: WidgetBundle {
         PlayPauseControl()
         NextSongControl()
         PresetControl()
+        LikeControl()
     }
 }
 

@@ -150,6 +150,7 @@ private struct SettingsRoot: View {
             var p: [String] = []
             if v.bass > 0 { p.append(tr("бас +") + String(format: "%g", v.bass) + tr(" дБ")) }
             if v.balance != 0 { p.append(FXFormat.balance(v.balance)) }
+            if v.mono { p.append(tr("моно")) }
             p.append(v.limiter ? tr("лимитер включён") : tr("лимитер выключен"))
             return p.joined(separator: " · ")
         case .loudness:
@@ -276,6 +277,8 @@ private struct SoundPage: View {
         }
         Block(tr("Стерео")) {
             SliderRow(label: tr("Баланс"), value: $settings.v.balance, range: -100...100, step: 5, format: FXFormat.balance)
+            SwitchRow(label: tr("Моно"), on: $settings.v.mono)
+            Hint(tr("Оба наушника играют одно и то же: удобно с одним наушником или когда одно ухо слышит хуже."))
         }
         Block(tr("Защита от искажений")) {
             SwitchRow(label: tr("Лимитер"), on: $settings.v.limiter)
@@ -284,6 +287,7 @@ private struct SoundPage: View {
         Button(tr("Сбросить обработку")) {
             settings.v.bass = 0
             settings.v.balance = 0
+            settings.v.mono = false
             settings.v.limiter = true
         }
         .buttonStyle(.glass)
@@ -593,6 +597,10 @@ private struct LyricsPage: View {
             SwitchRow(label: tr("Показывать текст вместо обложки"), on: $settings.v.lyricsOn)
             Hint(tr("Текст открывается и кнопкой с облачком внизу главного экрана. Строки с временем подсвечиваются в такт песне, нажатие на строку перематывает к ней."))
         }
+        Block(tr("Поиск")) {
+            SwitchRow(label: tr("Искать текст сам"), on: $settings.v.lyricsAuto)
+            Hint(tr("Когда начинается песня без текста, Волна один раз спрашивает о ней lrclib.net и сохраняет найденное. Отправляются название, исполнитель и длительность. По умолчанию выключено."))
+        }
         Block(tr("Откуда берётся текст")) {
             Hint(tr("Из самого файла, из файла .lrc с тем же именем, с сайта lrclib.net по вашему нажатию «Найти в интернете» или вставленный вручную. На lrclib.net отправляются название, исполнитель и длительность песни."))
         }
@@ -618,7 +626,7 @@ private struct SiriPage: View {
     private var phrases: [String] {
         [tr("Включи избранное в Волне"), tr("Перемешай музыку в Волне"), tr("Включи музыку в Волне"),
          tr("Включи песню … в Волне"), tr("Включи исполнителя … в Волне"), tr("Включи плейлист … в Волне"), tr("Включи радио … в Волне"),
-         tr("Таймер сна 30 минут в Волне"), tr("Эквалайзер Рок в Волне")]
+         tr("Таймер сна 30 минут в Волне"), tr("Эквалайзер Рок в Волне"), tr("Добавь в избранное в Волне")]
     }
 
     var body: some View {
@@ -742,7 +750,7 @@ private struct AboutPage: View {
             Hint(tr("Профили наушников: AutoEq, © Jaakko Pasanen, лицензия MIT."))
         }
         Block(tr("Что уходит в интернет")) {
-            Hint(tr("Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст или включены тексты для радио. Радио подключается к серверам станций. Сами файлы, статистика и плейлисты остаются на телефоне."))
+            Hint(tr("Только названия песен и исполнителей: в iTunes для поиска обложек, если он включён, и на lrclib.net, когда вы ищете текст, включён его автопоиск или тексты для радио. Радио подключается к серверам станций. Сами файлы, статистика и плейлисты остаются на телефоне."))
         }
     }
 }

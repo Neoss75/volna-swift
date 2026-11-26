@@ -87,6 +87,10 @@ final class Settings: ObservableObject {
         var viz = VizMode.bars
         var vizPalette = VizColors.level
         var lyricsOn = false
+        /// Look for the lyrics of every song that starts.
+        var lyricsAuto = false
+        /// The same sound in both ears.
+        var mono = false
         var sort = "added"
         var gapless = true
         var matchRate = true
@@ -170,7 +174,7 @@ final class Settings: ObservableObject {
     var preset: EQPreset? { EQPreset.all.first { $0.bands == v.bands } }
 
     /// Anything on the settings screen that changes the sound, for the mark under the icon.
-    var fxActive: Bool { v.direct || v.bass != 0 || v.balance != 0 || v.rate != 1 || v.semitones != 0 || v.normalize || v.crossfade > 0 }
+    var fxActive: Bool { v.direct || v.bass != 0 || v.balance != 0 || v.mono || v.rate != 1 || v.semitones != 0 || v.normalize || v.crossfade > 0 }
     var eqActive: Bool { v.eqOn && !v.direct && preset?.id != "flat" }
 
     /// The next preset of the equaliser, from the widget and the Control Centre.

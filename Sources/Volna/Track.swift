@@ -47,6 +47,8 @@ struct Track: Identifiable, Codable, Equatable {
     /// Where the sound begins and ends, in seconds from the start of the song; the rest is silence.
     var soundStart: Double?
     var soundEnd: Double?
+    /// lrclib.net was asked about this song by itself already.
+    var lyricsTried: Bool?
 
     static let currentMeta = 4
 

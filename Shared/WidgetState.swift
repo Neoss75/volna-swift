@@ -58,6 +58,7 @@ enum PlayerBridge {
     static var next: (() -> Void)?
     static var previous: (() -> Void)?
     static var nextPreset: (() -> Void)?
+    static var like: (() -> Void)?
 }
 
 struct ToggleIntent: AudioPlaybackIntent {
@@ -74,6 +75,15 @@ struct NextIntent: AudioPlaybackIntent {
 
     func perform() async throws -> some IntentResult {
         await MainActor.run { PlayerBridge.next?() }
+        return .result()
+    }
+}
+
+struct LikeIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "В избранное"
+
+    func perform() async throws -> some IntentResult {
+        await MainActor.run { PlayerBridge.like?() }
         return .result()
     }
 }

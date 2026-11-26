@@ -18,3 +18,6 @@
 "Эквалайзер ${preset} в ${applicationName}" = "Эквалайзер ${preset} в ${applicationName}";
 "Включи эквалайзер ${preset} в ${applicationName}" = "Включи эквалайзер ${preset} в ${applicationName}";
 "Эквалайзер в ${applicationName}" = "Эквалайзер в ${applicationName}";
+"Добавь в избранное в ${applicationName}" = "Добавь в избранное в ${applicationName}";
+"Мне нравится эта песня в ${applicationName}" = "Мне нравится эта песня в ${applicationName}";
+"Лайк в ${applicationName}" = "Лайк в ${applicationName}";

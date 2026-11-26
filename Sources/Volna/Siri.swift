@@ -341,5 +341,10 @@ struct VolnaShortcuts: AppShortcutsProvider {
             "Включи эквалайзер \(\.$preset) в \(.applicationName)",
             "Эквалайзер в \(.applicationName)",
         ], shortTitle: "Эквалайзер", systemImageName: "slider.vertical.3")
+        AppShortcut(intent: LikeIntent(), phrases: [
+            "Добавь в избранное в \(.applicationName)",
+            "Мне нравится эта песня в \(.applicationName)",
+            "Лайк в \(.applicationName)",
+        ], shortTitle: "В избранное", systemImageName: "heart")
     }
 }

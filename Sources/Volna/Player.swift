@@ -103,6 +103,10 @@ final class Player: ObservableObject {
         restore()
         PlayerBridge.toggle = { [weak self] in self?.toggle() }
         PlayerBridge.next = { [weak self] in self?.next() }
+        PlayerBridge.like = { [weak self] in
+            guard let self, self.radio == nil, let t = self.current else { return }
+            self.library.toggleFavourite(t.id)
+        }
         PlayerBridge.previous = { [weak self] in self?.previous() }
         PlayerBridge.nextPreset = { [weak self] in self?.settings.nextPreset() }
         publishWidget()
@@ -466,6 +470,7 @@ final class Player: ObservableObject {
         if t.bad == true { library.update(t.id) { $0.bad = false } }
         analyzer.request(t, first: true)
         covers.auto(t)
+        if settings.v.lyricsAuto { LyricsAuto.look(t, library: library) }
         if qi + 1 < queue.count, let n = library.track(queue[qi + 1]) {
             covers.auto(n)
             // its silence is found before it comes

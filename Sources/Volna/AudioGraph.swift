@@ -242,12 +242,30 @@ final class AudioGraph {
         engine.connect(correction, to: eq, format: format)
         engine.connect(eq, to: limiter, format: format)
         engine.connect(limiter, to: out, format: format)
-        engine.connect(out, to: engine.mainMixerNode, format: format)
+        connectOut(format)
         engine.connect(engine.mainMixerNode, to: engine.outputNode, format: format)
         busFormat = format
         tap.install(on: limiter)
         engine.prepare()
     }
+
+    /// Mono: the last link carries one channel, the output puts it into both ears.
+    private(set) var mono = false
+
+    func setMono(_ on: Bool) {
+        guard on != mono else { return }
+        mono = on
+        if let f = busFormat { connectOut(f) }
+    }
+
+    private func connectOut(_ format: AVAudioFormat) {
+        engine.disconnectNodeOutput(out)
+        let one = mono ? AVAudioFormat(standardFormatWithSampleRate: format.sampleRate, channels: 1) : nil
+        engine.connect(out, to: engine.mainMixerNode, format: one ?? format)
+    }
+
+    /// Channels on the way to the output now.
+    var outChannels: AVAudioChannelCount { out.outputFormat(forBus: 0).channelCount }
 
     private func connect(_ d: Deck, _ format: AVAudioFormat) {
         if let f = d.format, f == format { return }
@@ -334,6 +352,7 @@ final class AudioGraph {
         eq.bypass = v.direct
         limiter.bypass = !v.limiter || v.direct
         out.pan = v.direct ? 0 : Float(v.balance / 100)
+        setMono(v.mono && !v.direct)
         let cents = v.direct ? 0 : (v.keepPitch ? 0 : 1200 * log2(v.rate)) + v.semitones * 100
         for d in decks {
             d.pitch.rate = Float(v.effectiveRate)

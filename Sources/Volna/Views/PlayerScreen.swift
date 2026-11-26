@@ -100,6 +100,10 @@ struct PlayerScreen: View {
                 .fixedSize()
             Spacer(minLength: 0)
             OutputBadges(rate: rate)
+            AirPlayButton(tint: UIColor(Theme.muted), active: UIColor(settings.accent))
+                .frame(width: 30, height: 30)
+                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 6 }
+                .accessibilityLabel(tr("AirPlay и другие колонки"))
         }
     }
 }

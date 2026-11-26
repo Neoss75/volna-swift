@@ -27,6 +27,18 @@ struct NextSongControl: ControlWidget {
     }
 }
 
+struct LikeControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "com.neoss75.volna.swift.like") {
+            ControlWidgetButton(action: LikeIntent()) {
+                Label("В избранное", systemImage: "heart.fill")
+            }
+        }
+        .displayName("В избранное")
+        .description("Волна: песня, которая играет, в избранное или из него.")
+    }
+}
+
 struct PresetControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "com.neoss75.volna.swift.preset") {

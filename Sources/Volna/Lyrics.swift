@@ -65,6 +65,34 @@ enum LyricsParser {
     }
 }
 
+extension Notification.Name {
+    /// The lyrics of a song (its id is the object) were found or changed.
+    static let lyricsChanged = Notification.Name("lyricsChanged")
+}
+
+/// With the switch on, lrclib.net is asked once about every song that starts and has no lyrics.
+@MainActor
+enum LyricsAuto {
+    /// The test build puts its own answer here.
+    static var finder: (Track) async throws -> Lyrics? = { try await LyricsSearch.find($0) }
+
+    static func look(_ t: Track, library: Library) {
+        guard t.lyricsTried != true, LyricsStore.load(t.id) == nil else { return }
+        Task {
+            let found: Lyrics?
+            do {
+                found = try await finder(t)
+            } catch {
+                return // no internet: ask again next time
+            }
+            library.update(t.id) { $0.lyricsTried = true }
+            guard let found, LyricsStore.load(t.id) == nil else { return }
+            LyricsStore.save(found, id: t.id)
+            NotificationCenter.default.post(name: .lyricsChanged, object: t.id)
+        }
+    }
+}
+
 /// Search on lrclib.net; only the title, artist and duration are sent.
 enum LyricsSearch {
     private struct Hit: Decodable {
