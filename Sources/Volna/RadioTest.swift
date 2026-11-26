@@ -52,11 +52,7 @@ final class TestServer: @unchecked Sendable {
             c.send(content: Data(head.utf8) + body, isComplete: true, completion: .contentProcessed { _ in c.cancel() })
         }
         if let file = ogg[path], !file.isEmpty {
-            c.send(content: Data("HTTP/1.0 200 OK
-Content-Type: application/ogg
-icy-name: Ogg FM
-
-".utf8), completion: .idempotent)
+            c.send(content: Data("HTTP/1.0 200 OK\r\nContent-Type: application/ogg\r\nicy-name: Ogg FM\r\n\r\n".utf8), completion: .idempotent)
             return pump(c, file, max(1, file.count / 3), title: nil, limit: .infinity)
         }
         switch path {
