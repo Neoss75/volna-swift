@@ -36,8 +36,9 @@ enum Demo {
         if let m = value("-viz").flatMap(VizMode.init(rawValue:)) { settings.v.viz = m }
         if let t = value("-theme") { settings.v.themeMode = t }
         settings.v.lyricsOn = args.contains("-lyrics")
+        // the simulator keeps the settings from the screenshot before
+        settings.v.radioExtras = args.contains("-radioextras")
         if args.contains("-radioextras") {
-            settings.v.radioExtras = true
             let size = CGSize(width: 600, height: 600)
             let image = UIGraphicsImageRenderer(size: size).image { c in
                 let colors = [UIColor(red: 0.95, green: 0.45, blue: 0.2, alpha: 1).cgColor, UIColor(red: 0.35, green: 0.1, blue: 0.5, alpha: 1).cgColor]

@@ -60,50 +60,51 @@ struct RadioLyricsView: View {
     }
 
     @ViewBuilder private var content: some View {
-        switch extras.state {
-        case .off:
-            VStack(spacing: 14) {
-                Spacer()
-                Text(tr("Волна может найти текст и обложку песни, которая сейчас играет на радио."))
-                    .foregroundStyle(Theme.fg)
-                    .multilineTextAlignment(.center)
-                Button(tr("Включить")) { settings.v.radioExtras = true }
-                    .buttonStyle(.glassProminent)
-                    .foregroundStyle(Theme.accentInk)
-                Text(tr("В iTunes и на lrclib.net отправятся только исполнитель и название песни. Выключить можно в настройках, в разделе «Обложки»."))
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.muted)
-                    .multilineTextAlignment(.center)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-        case .unknown:
-            message(tr("Станция не сообщает, какая песня сейчас играет."))
-        case .searching:
-            Spacer()
-            ProgressView(tr("Ищу текст на lrclib.net…"))
-            Spacer()
-        case .failed:
-            message(tr("Не удалось связаться с lrclib.net. Проверьте интернет"))
-        case .done:
-            if let words = extras.lyrics {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if let song = extras.song {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(song.title).font(.display(19, .semibold)).foregroundStyle(Theme.fg)
-                                Text(song.artist).font(.system(size: 14)).foregroundStyle(Theme.muted)
-                            }
+        // the lyrics come before the cover: show them while the cover is still being looked for
+        if let words = extras.lyrics {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let song = extras.song {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(song.title).font(.display(19, .semibold)).foregroundStyle(Theme.fg)
+                            Text(song.artist).font(.system(size: 14)).foregroundStyle(Theme.muted)
                         }
-                        Text(words)
-                            .font(.system(size: 16))
-                            .lineSpacing(6)
-                            .foregroundStyle(Theme.fg)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
+                    Text(words)
+                        .font(.system(size: 16))
+                        .lineSpacing(6)
+                        .foregroundStyle(Theme.fg)
                 }
-            } else {
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+            }
+        } else {
+            switch extras.state {
+            case .off:
+                VStack(spacing: 14) {
+                    Spacer()
+                    Text(tr("Волна может найти текст и обложку песни, которая сейчас играет на радио."))
+                        .foregroundStyle(Theme.fg)
+                        .multilineTextAlignment(.center)
+                    Button(tr("Включить")) { settings.v.radioExtras = true }
+                        .buttonStyle(.glassProminent)
+                        .foregroundStyle(Theme.accentInk)
+                    Text(tr("В iTunes и на lrclib.net отправятся только исполнитель и название песни. Выключить можно в настройках, в разделе «Обложки»."))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.muted)
+                        .multilineTextAlignment(.center)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+            case .unknown:
+                message(tr("Станция не сообщает, какая песня сейчас играет."))
+            case .searching:
+                Spacer()
+                ProgressView(tr("Ищу текст на lrclib.net…"))
+                Spacer()
+            case .failed:
+                message(tr("Не удалось связаться с lrclib.net. Проверьте интернет"))
+            case .done:
                 message(tr("Текста для этой песни не нашлось."))
             }
         }
