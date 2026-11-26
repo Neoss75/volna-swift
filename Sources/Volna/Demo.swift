@@ -36,6 +36,9 @@ enum Demo {
         }
         if let m = value("-viz").flatMap(VizMode.init(rawValue:)) { settings.v.viz = m }
         if let t = value("-theme") { settings.v.themeMode = t }
+        // the simulator keeps the settings from the screenshot before
+        settings.v.buttons = value("-buttons") ?? "classic"
+        settings.v.glass = value("-glass").flatMap(Double.init) ?? 0.4
         settings.v.lyricsOn = args.contains("-lyrics")
         if args.contains("-waiting") {
             _ = library.restore(favourites: [], playlists: [], songs: [

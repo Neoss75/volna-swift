@@ -168,7 +168,8 @@ private struct SettingsRoot: View {
             return v.direct ? tr("Прямой вывод") : OutputInfo.now().rateText
         case .theme:
             let mode = ["dark": tr("Тёмная"), "light": tr("Светлая")][v.themeMode] ?? tr("Как в системе")
-            return mode + " · " + tr(Accent.all.first { $0.id == v.accent }?.name ?? "")
+            let look = ButtonLook.of(v.buttons)
+            return mode + " · " + tr(Accent.all.first { $0.id == v.accent }?.name ?? "") + (look == .classic ? "" : " · " + look.name.lowercased())
         case .viz:
             return v.viz == .off ? v.viz.name : v.viz.name + " · " + v.vizPalette.name.lowercased()
         case .library:
@@ -440,6 +441,21 @@ private struct ThemePage: View {
                     Chip(text: tr(a.name), dot: a.color, on: settings.v.accent == a.id) { settings.v.accent = a.id }
                 }
             }
+        }
+        Block(tr("Кнопки плеера")) {
+            Flow {
+                ForEach(ButtonLook.allCases) { l in
+                    Chip(text: l.name, on: settings.v.buttons == l.rawValue) { settings.v.buttons = l.rawValue }
+                }
+            }
+            if settings.v.buttons != ButtonLook.classic.rawValue {
+                SliderRow(label: tr("Прозрачность"), value: $settings.v.glass, range: 0...1, step: 0.05) { "\(Int(($0 * 100).rounded())) %" }
+                Hint(tr("Если в настройках iPhone включено «Понижение прозрачности», кнопки становятся непрозрачными."))
+            }
+            // the real buttons, to see the choice at once
+            Transport()
+                .allowsHitTesting(false)
+                .padding(.vertical, 6)
         }
         Block(tr("Отклик")) {
             SwitchRow(label: tr("Лёгкая вибрация при нажатиях"), on: $settings.v.haptics)

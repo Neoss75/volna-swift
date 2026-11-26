@@ -91,6 +91,10 @@ final class Settings: ObservableObject {
         var lyricsAuto = false
         /// The same sound in both ears.
         var mono = false
+        /// How the player buttons look, see `ButtonLook`.
+        var buttons = "classic"
+        /// How much one sees through the glass buttons, 0…1.
+        var glass: Double = 0.4
         var sort = "added"
         var gapless = true
         var matchRate = true

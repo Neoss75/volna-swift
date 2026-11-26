@@ -549,19 +549,7 @@ struct Transport: View {
                 player.previous()
             }
             Spacer()
-            Button {
-                Haptic.tap()
-                player.toggle()
-            } label: {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: compact ? 24 : 30))
-                    .foregroundStyle(Theme.accentInk)
-                    .contentTransition(.symbolEffect(.replace))
-                    .frame(width: compact ? 58 : 76, height: compact ? 58 : 76)
-                    .glassEffect(.regular.tint(settings.accent).interactive(), in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(player.isPlaying ? tr("Пауза") : tr("Играть"))
+            play
             Spacer()
             side(tr("Следующий"), "forward.end.fill") {
                 Haptic.tap()
@@ -576,7 +564,68 @@ struct Transport: View {
         }
     }
 
-    private func small(_ label: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+    private var look: ButtonLook { ButtonLook.of(settings.v.buttons) }
+
+    /// The ink of the icons on glass: dark on chrome, the usual text colour on clear and frosted glass.
+    private var ink: Color { look == .chrome ? Color(white: 0.16) : Theme.fg }
+
+    @ViewBuilder private var play: some View {
+        let icon = player.isPlaying ? "pause.fill" : "play.fill"
+        let label = player.isPlaying ? tr("Пауза") : tr("Играть")
+        if look == .classic {
+            Button {
+                Haptic.tap()
+                player.toggle()
+            } label: {
+                Image(systemName: icon)
+                    .font(.system(size: compact ? 24 : 30))
+                    .foregroundStyle(Theme.accentInk)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: compact ? 58 : 76, height: compact ? 58 : 76)
+                    .glassEffect(.regular.tint(settings.accent).interactive(), in: .circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(label)
+        } else {
+            // a strongly coloured body takes the ink made for the accent colour, a clear one the usual ink
+            let strong = look != .chrome && settings.v.glass < 0.5
+            orb(label, icon, size: compact ? 58 : 76, iconSize: compact ? 24 : 30, tint: settings.accent,
+                color: look == .chrome ? ink : strong ? Theme.accentInk : Theme.fg) {
+                Haptic.tap()
+                player.toggle()
+            }
+        }
+    }
+
+    private func orb(_ label: String, _ icon: String, size: CGFloat, iconSize: CGFloat, tint: Color? = nil, color: Color,
+                     _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: iconSize, weight: .semibold))
+                .foregroundStyle(color)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(OrbButtonStyle(look: look, clearness: settings.v.glass, size: size, tint: tint))
+        .accessibilityLabel(label)
+    }
+
+    @ViewBuilder private func small(_ label: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        if look != .classic {
+            orb(label, icon, size: compact ? 42 : 48, iconSize: compact ? 15 : 17, color: on ? settings.accent : ink, action)
+        } else {
+            smallPlain(label, icon, on: on, action)
+        }
+    }
+
+    @ViewBuilder private func side(_ label: String, _ icon: String, _ action: @escaping () -> Void) -> some View {
+        if look != .classic {
+            orb(label, icon, size: compact ? 48 : 56, iconSize: compact ? 18 : 21, color: ink, action)
+        } else {
+            sidePlain(label, icon, action)
+        }
+    }
+
+    private func smallPlain(_ label: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 20, weight: .medium))
@@ -588,7 +637,7 @@ struct Transport: View {
         .accessibilityLabel(label)
     }
 
-    private func side(_ label: String, _ icon: String, _ action: @escaping () -> Void) -> some View {
+    private func sidePlain(_ label: String, _ icon: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 25))
