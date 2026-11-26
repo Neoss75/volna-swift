@@ -2,6 +2,7 @@
 import AVFoundation
 import Foundation
 import Network
+import UIKit
 
 /// A tiny radio station inside the app, for the test builds only.
 final class TestServer: @unchecked Sendable {
@@ -260,6 +261,16 @@ extension Demo {
         check("radio plays AAC", await until(10) { live.state == .playing } && player.isPlaying && live.info.kind == "AAC" && live.info.rate == 44100,
               "\(live.state) \(live.info)")
         check("song name from the radio", await until(5) { live.artistAndSong?.title == "Обійми" } && live.info.name == "Тест FM", "\(live.title) \(live.info.name ?? "")")
+        let extras = player.extras
+        check("radio extras off by default", !Settings.Values().radioExtras && extras.state == .off && extras.cover == nil, "\(extras.state)")
+        RadioExtras.fake = (UIImage(systemName: "music.note"), "[ar:X]\n[00:01.00]Один\n[00:02.50] Два")
+        settings.v.radioExtras = true
+        check("radio extras: cover and lyrics", await until(5) { extras.state == .done } && extras.cover != nil && extras.lyrics == "Один\nДва" && extras.song?.title == "Обійми",
+              "\(extras.state) \(extras.lyrics ?? "-")")
+        check("radio extras: no artist, no ads", RadioExtras.isNotSong(("Реклама", "Скидки")) && !RadioExtras.isNotSong(("Океан Ельзи", "Обійми")), "")
+        settings.v.radioExtras = false
+        check("radio extras switched off", extras.state == .off && extras.cover == nil && extras.lyrics == nil, "\(extras.state)")
+        RadioExtras.fake = nil
         await wait(4)
         check("radio goes on", live.state == .playing && live.stored > 0.5 && live.stored < 6, String(format: "%.1f s in store", live.stored))
         check("radio ignores the speed", player.graph.decks.allSatisfy { $0.pitch.rate == 1 }, "")

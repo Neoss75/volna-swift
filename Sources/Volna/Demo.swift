@@ -36,6 +36,19 @@ enum Demo {
         if let m = value("-viz").flatMap(VizMode.init(rawValue:)) { settings.v.viz = m }
         if let t = value("-theme") { settings.v.themeMode = t }
         settings.v.lyricsOn = args.contains("-lyrics")
+        if args.contains("-radioextras") {
+            settings.v.radioExtras = true
+            let size = CGSize(width: 600, height: 600)
+            let image = UIGraphicsImageRenderer(size: size).image { c in
+                let colors = [UIColor(red: 0.95, green: 0.45, blue: 0.2, alpha: 1).cgColor, UIColor(red: 0.35, green: 0.1, blue: 0.5, alpha: 1).cgColor]
+                if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors as CFArray, locations: [0, 1]) {
+                    c.cgContext.drawLinearGradient(g, start: .zero, end: CGPoint(x: 600, y: 600), options: [])
+                }
+                UIColor.white.withAlphaComponent(0.85).setFill()
+                UIBezierPath(ovalIn: CGRect(x: 150, y: 150, width: 300, height: 300)).fill()
+            }
+            RadioExtras.fake = (image, "Перший рядок пісні\nДругий рядок\n\nПриспів, перший рядок\nПриспів, другий рядок")
+        }
         if args.contains("-folder"), library.folders.isEmpty {
             await library.add(urls: [makeFolder()])
             if let t = library.tracks.first { library.edit(t.id, title: t.title, artist: t.artist, album: "Земля") }

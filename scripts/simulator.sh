@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(01-player|04-eq|05b-playback|05f-theme|11-widgets|74-siri)'
+ONLY='^(01-player|07-lyrics|80-radio|89|05g-covers)'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -67,6 +67,7 @@ shot 05c-hires -panel fx -page hires
 shot 05f-theme -panel fx -page theme
 shot 05d-viz -panel fx -page viz
 shot 05e-library -panel fx -page library
+shot 05g-covers -panel fx -page covers
 shot 06-stats -panel stats
 shot 07-lyrics -lyrics
 shot 08-ring -viz ring
@@ -130,6 +131,10 @@ shot 80-radio -radio
 shot 81-radio-list -radio -panel radio
 shot 87-radio-check -radio -stationcheck -panel radio
 shot 88-radio-uk -lang uk -radio
+shot 89a-radio-cover -radio -radioextras
+shot 89b-radio-lyrics -radio -radioextras -lyrics
+shot 89c-radio-lyrics-off -radio -lyrics
+shot 89d-radio-ring -radio -radioextras -viz ring
 shot 82-radio-land -landscape -radio
 shot 83-radio-empty -panel radio
 shot 84-radio-new -panel radio -newstation

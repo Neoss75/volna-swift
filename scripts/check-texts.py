@@ -28,7 +28,7 @@ for line in body.split("\n"):
         bad.append("Russian letters in Ukrainian: " + line)
 
 # these are Russian on purpose: data, regular expressions, names translated where they are shown
-DATA = {"Siri.swift", "CueTest.swift", "HeadphoneTest.swift", "WifiTest.swift", "RadioTest.swift", "MetadataReader.swift", "Demo.swift", "Covers.swift", "Translations.swift", "Lang.swift", "WidgetState.swift", "Controls.swift"}
+DATA = {"Siri.swift", "CueTest.swift", "HeadphoneTest.swift", "WifiTest.swift", "RadioTest.swift", "MetadataReader.swift", "Demo.swift", "Covers.swift", "Translations.swift", "Lang.swift", "WidgetState.swift", "Controls.swift", "RadioExtras.swift"}
 LINES = re.compile(r'EQPreset\(id|Accent\(id|case songs = |"я"|"волна"|source: "|"синхр"|lyrics\?\.source|configurationDisplayName|\.description\(|^\s+\("(Аудио|Графика|Музыка|Прочее)"')
 used = set()
 for top in ("Sources", "Shared", "Widget"):

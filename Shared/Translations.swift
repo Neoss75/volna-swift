@@ -639,5 +639,12 @@ AirPods, Sony, Sennheiser…‖AirPods, Sony, Sennheiser…‖AirPods, Sony, Sen
 Эквалайзер Рок в Волне‖Еквалайзер Рок у Волні‖Equaliser Rock in Volna
 Пункт управления‖Пункт керування‖Control Centre
 Кнопки «Волны» можно добавить в Пункт управления и на экран блокировки: играть или пауза, следующая песня, эквалайзер. Откройте Пункт управления, нажмите «+», затем «Добавить элемент» и найдите «Волна».‖Кнопки «Волни» можна додати в Пункт керування та на екран блокування: грати або пауза, наступна пісня, еквалайзер. Відкрийте Пункт керування, натисніть «+», потім «Додати елемент» і знайдіть «Волна».‖Volna buttons can be added to Control Centre and the Lock Screen: play or pause, next song, equaliser. Open Control Centre, tap «+», then Add a Control, and look for Volna.
+В iTunes и на lrclib.net отправятся только исполнитель и название песни. Выключить можно в настройках, в разделе «Обложки».‖До iTunes і на lrclib.net підуть лише виконавець і назва пісні. Вимкнути можна в налаштуваннях, у розділі «Обкладинки».‖Only the artist and the song title go to iTunes and lrclib.net. You can turn this off in the settings, under “Covers”.
+Включить‖Увімкнути‖Turn on
+Волна может найти текст и обложку песни, которая сейчас играет на радио.‖Волна може знайти текст і обкладинку пісні, що зараз грає на радіо.‖Volna can find the lyrics and the cover of the song playing on the radio now.
+Когда станция сообщает, какая песня играет, Волна ищет её обложку в iTunes и текст на lrclib.net. Отправляются только исполнитель и название. Текст открывается кнопкой с облачком. По умолчанию выключено.‖Коли станція повідомляє, яка пісня грає, Волна шукає її обкладинку в iTunes і текст на lrclib.net. Надсилаються лише виконавець і назва. Текст відкривається кнопкою з хмаринкою. Типово вимкнено.‖When the station says which song is playing, Volna looks for its cover on iTunes and its lyrics on lrclib.net. Only the artist and the title are sent. The lyrics open with the speech bubble button. Off by default.
+Обложки и тексты для радио‖Обкладинки й тексти для радіо‖Covers and lyrics for the radio
+Станция не сообщает, какая песня сейчас играет.‖Станція не повідомляє, яка пісня зараз грає.‖The station does not say which song is playing.
+Текста для этой песни не нашлось.‖Тексту для цієї пісні не знайшлося.‖No lyrics found for this song.
 """#
 }

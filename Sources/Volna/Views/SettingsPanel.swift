@@ -573,6 +573,7 @@ private struct CoversPage: View {
             }
             Button(tr("Найти для всей библиотеки")) { covers.findAll() }.buttonStyle(.glass)
         }
+        RadioExtrasBlock()
     }
 }
 
@@ -586,6 +587,19 @@ private struct LyricsPage: View {
         }
         Block(tr("Откуда берётся текст")) {
             Hint(tr("Из самого файла, из файла .lrc с тем же именем, с сайта lrclib.net по вашему нажатию «Найти в интернете» или вставленный вручную. На lrclib.net отправляются название, исполнитель и длительность песни."))
+        }
+        RadioExtrasBlock()
+    }
+}
+
+/// The same switch on the covers page and on the lyrics page.
+private struct RadioExtrasBlock: View {
+    @EnvironmentObject private var settings: Settings
+
+    var body: some View {
+        Block(tr("Радио")) {
+            SwitchRow(label: tr("Обложки и тексты для радио"), on: $settings.v.radioExtras)
+            Hint(tr("Когда станция сообщает, какая песня играет, Волна ищет её обложку в iTunes и текст на lrclib.net. Отправляются только исполнитель и название. Текст открывается кнопкой с облачком. По умолчанию выключено."))
         }
     }
 }

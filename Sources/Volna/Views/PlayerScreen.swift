@@ -190,7 +190,9 @@ struct CoverArea: View {
     @State private var heart: Bool?
 
     var body: some View {
-        if settings.v.lyricsOn, player.radio == nil {
+        if settings.v.lyricsOn, player.radio != nil {
+            RadioLyricsView()
+        } else if settings.v.lyricsOn {
             LyricsView()
         } else {
             GeometryReader { geo in
@@ -255,7 +257,7 @@ struct CoverArea: View {
 
     @ViewBuilder private func cover(_ side: CGFloat) -> some View {
         if let s = player.radio {
-            StationLogo(station: s, corner: 24, letter: side * 0.27)
+            RadioCover(station: s, corner: 24, letter: side * 0.27, badge: true)
         } else {
             CoverView(track: player.current, corner: 24, letter: side * 0.27)
         }
@@ -590,10 +592,7 @@ struct MenuBar: View {
                 item(tr("Песни"), "music.note", count: library.tracks.count) { ui.panel = .list }
                 item(tr("Очередь"), "list.bullet", count: player.queue.count) { ui.panel = .queue }
                 item(tr("Радио"), "dot.radiowaves.left.and.right", on: player.radio != nil) { ui.panel = .radio }
-                // the radio has no lyrics
-                item(tr("Текст песни"), "text.bubble", on: settings.v.lyricsOn && player.radio == nil) { settings.v.lyricsOn.toggle() }
-                    .disabled(player.radio != nil)
-                    .opacity(player.radio != nil ? 0.35 : 1)
+                item(tr("Текст песни"), "text.bubble", on: settings.v.lyricsOn) { settings.v.lyricsOn.toggle() }
                 item(tr("Эквалайзер"), "slider.vertical.3", dot: settings.eqActive) { ui.panel = .eq }
                 item(tr("Настройки"), "gearshape", dot: settings.fxActive) { ui.panel = .fx }
                 item(tr("Громкость"), "speaker.wave.2") { showVolume() }

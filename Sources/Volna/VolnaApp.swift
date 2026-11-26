@@ -84,6 +84,7 @@ struct VolnaApp: App {
                 .environmentObject(player.clock)
                 .environmentObject(player.analyzer)
                 .environmentObject(player.live)
+                .environmentObject(player.extras)
                 .environmentObject(stations)
                 .environmentObject(headphones)
                 .environmentObject(ui)

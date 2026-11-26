@@ -25,6 +25,7 @@ final class Player: ObservableObject {
     /// Set while the radio is on (or paused); the queue of songs waits meanwhile.
     @Published private(set) var radio: Station?
     let live: Radio
+    let extras: RadioExtras
     private var radioList: [UUID] = []
     private let stations: Stations
     private let headphones: Headphones
@@ -60,6 +61,7 @@ final class Player: ObservableObject {
         self.stations = stations
         self.headphones = headphones
         live = Radio(graph: graph)
+        extras = RadioExtras(covers: covers, settings: settings)
         self.library = library
         self.settings = settings
         self.stats = stats
@@ -91,6 +93,7 @@ final class Player: ObservableObject {
             self.stations.learn(s.id, f)
         }
         live.onTitle = { [weak self] in self?.radioTitleChanged() }
+        extras.onChange = { [weak self] in if self?.radio != nil { self?.publish() } }
         live.onEnd = { [weak self] in self?.radioEnded($0) }
         stations.onChange = { [weak self] in self?.stationsChanged() }
         Logos.shared.onChange = { [weak self] in if self?.radio != nil { self?.publish() } }
@@ -702,8 +705,9 @@ final class Player: ObservableObject {
     }
 
     func publish() {
+        extras.update(radio == nil ? nil : live.artistAndSong)
         if let s = radio {
-            let song = live.artistAndSong, image = Logos.shared.image(s)
+            let song = live.artistAndSong, image = extras.cover ?? Logos.shared.image(s)
             let title = song?.title ?? s.name, artist = song.map { $0.artist.isEmpty ? s.name : $0.artist } ?? tr("Радио")
             nowPlaying.update(station: s.name, title: title, artist: artist, artwork: image, playing: isPlaying)
             updateWidget(title, artist, image, "\(s.id)")

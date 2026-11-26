@@ -78,6 +78,8 @@ final class Settings: ObservableObject {
         var semitones: Double = 0
         var haptics = true
         var onlineArt = true
+        /// Cover and lyrics of the song on the radio, from the internet.
+        var radioExtras = false
         var themeMode = "system"
         var accent = "amber"
         var viz = VizMode.bars

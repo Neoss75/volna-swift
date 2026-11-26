@@ -283,7 +283,7 @@ struct RingCover: View {
 
     @ViewBuilder private var picture: some View {
         if let station {
-            StationLogo(station: station, corner: side, letter: side * 0.16)
+            RadioCover(station: station, corner: side, letter: side * 0.16)
         } else {
             CoverView(track: track, corner: side, letter: side * 0.16)
         }
