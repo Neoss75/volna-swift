@@ -48,44 +48,59 @@ struct DuplicatesView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if groups.isEmpty {
-                    Text(tr("Одинаковых песен не нашлось.")).foregroundStyle(Theme.muted)
-                } else {
-                    Section {
-                        Text(tr("Отмечена копия, которая останется. Волна выбрала лучшую: без потерь, с большим битрейтом. Можно отметить другую."))
-                            .font(.system(size: 13))
-                            .foregroundStyle(Theme.muted)
-                    }
+            list
+                .scrollContentBackground(.hidden)
+                .background(Theme.surface)
+                .navigationTitle(tr("Дубликаты"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { toolbar }
+                .confirmationDialog(question, isPresented: $asking, titleVisibility: .visible) {
+                    Button(tr("Убрать лишние"), role: .destructive) { clean() }
+                } message: {
+                    Text(tr("Файлы останутся в «Файлах» (кроме присланных по Wi-Fi). Лайки, плейлисты и статистика лишних копий перейдут к оставленной."))
                 }
-                ForEach(Array(groups.enumerated()), id: \.offset) { i, group in
-                    Section(group[0].artist.isEmpty ? group[0].title : group[0].artist + " — " + group[0].title) {
-                        ForEach(group) { t in
-                            Button { keep[i] = t.id } label: { row(t, on: (keep[i] ?? group[0].id) == t.id) }
-                                .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(Theme.surface)
-            .navigationTitle(tr("Дубликаты"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button(tr("Закрыть")) { dismiss() } }
-                if !groups.isEmpty {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(tr("Убрать лишние")) { asking = true }
-                    }
-                }
-            }
-            .confirmationDialog(tr("Убрать из плеера: ") + plural(dropCount, tr("песня"), tr("песни"), tr("песен")) + "?", isPresented: $asking, titleVisibility: .visible) {
-                Button(tr("Убрать лишние"), role: .destructive) { clean() }
-            } message: {
-                Text(tr("Файлы останутся в «Файлах» (кроме присланных по Wi-Fi). Лайки, плейлисты и статистика лишних копий перейдут к оставленной."))
-            }
         }
         .onAppear { groups = library.duplicates() }
+    }
+
+    private var question: String {
+        tr("Убрать из плеера: ") + plural(dropCount, tr("песня"), tr("песни"), tr("песен")) + "?"
+    }
+
+    @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) { Button(tr("Закрыть")) { dismiss() } }
+        ToolbarItem(placement: .confirmationAction) {
+            Button(tr("Убрать лишние")) { asking = true }.disabled(groups.isEmpty)
+        }
+    }
+
+    private var list: some View {
+        List {
+            if groups.isEmpty {
+                Text(tr("Одинаковых песен не нашлось.")).foregroundStyle(Theme.muted)
+            } else {
+                Section {
+                    Text(tr("Отмечена копия, которая останется. Волна выбрала лучшую: без потерь, с большим битрейтом. Можно отметить другую."))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+            ForEach(groups.indices, id: \.self) { i in section(i) }
+        }
+    }
+
+    private func title(_ t: Track) -> String {
+        t.artist.isEmpty ? t.title : t.artist + " — " + t.title
+    }
+
+    private func section(_ i: Int) -> some View {
+        let group = groups[i], chosen = keep[i] ?? group[0].id
+        return Section(title(group[0])) {
+            ForEach(group) { t in
+                Button { keep[i] = t.id } label: { row(t, on: chosen == t.id) }
+                    .buttonStyle(.plain)
+            }
+        }
     }
 
     private func row(_ t: Track, on: Bool) -> some View {
