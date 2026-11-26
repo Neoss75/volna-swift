@@ -17,7 +17,8 @@ enum Demo {
         settings.v.language = value("-lang") ?? "ru"
         settings.v.saverOn = false
         settings.v.vizPalette = value("-colors").flatMap(VizColors.init(rawValue:)) ?? .accent
-        if library.tracks.isEmpty {
+        let store = args.contains("-store")
+        if library.tracks.isEmpty, !store {
             let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let specs: [(String, Double, Int, Double)] = [
                 ("Океан Ельзи - Обійми", 44100, 2, 24), ("Хіти - Бас і біт", 48000, 2, 14), ("The Kolors - ITALODISCO", 32000, 1, 14),
@@ -78,7 +79,8 @@ enum Demo {
             await selfTest(library: library, player: player, settings: settings, ui: ui, stations: stations, headphones: headphones)
             return
         }
-        if !args.contains("-lossless"), !args.contains("-aac"), !args.contains("-cue"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
+        if store { await StoreDemo.build(library: library, player: player, settings: settings) }
+        if !store, !args.contains("-lossless"), !args.contains("-aac"), !args.contains("-cue"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
         if args.contains("-loop") {
             player.seek(to: 3)
             player.markLoop()
@@ -87,8 +89,12 @@ enum Demo {
             player.seek(to: 5)
         }
         if args.contains("-radio") {
+            if store {
+                TestServer.stationName = "Волна FM"
+                TestServer.songTitle = "Северный Ветер - Над морем"
+            }
             server = await makeServer()
-            if let server { showRadio(player, stations, server) }
+            if let server, store { StoreDemo.radio(player, stations, settings, server) } else if let server { showRadio(player, stations, server) }
         }
         if args.contains("-stationcheck") {
             stations.startCheck(stations.ordered)

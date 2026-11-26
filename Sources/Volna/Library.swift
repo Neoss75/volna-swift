@@ -105,6 +105,18 @@ final class Library: ObservableObject {
         scheduleSave()
     }
 
+    #if DEBUG
+    /// The App Store screenshots start from an empty player.
+    func clearForDemo() {
+        tracks = []
+        favourites = []
+        playlists = []
+        waiting = []
+        reindex()
+        saveNow()
+    }
+    #endif
+
     func forgetWaiting() {
         waiting = []
         saveNow()

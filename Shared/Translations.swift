@@ -702,5 +702,6 @@ AirPlay и другие колонки‖AirPlay та інші колонки‖
 Лишних копий: {}.‖Зайвих копій: {}.‖Extra copies: {}.
 Найти дубликаты‖Знайти дублікати‖Find duplicates
 Одинаковые — это те же исполнитель, название и длина. Волна предложит оставить лучшую копию, лишние уберёт из плеера, а их лайки, плейлисты и статистику передаст оставленной.‖Однакові — це ті самі виконавець, назва й тривалість. Волна запропонує залишити найкращу копію, зайві прибере з плеєра, а їхні лайки, плейлисти та статистику передасть залишеній.‖Identical means the same artist, title and length. Volna offers to keep the best copy, removes the extra ones from the player and gives their likes, playlists and statistics to the one that stays.
+В дорогу‖У дорогу‖On the road
 """#
 }

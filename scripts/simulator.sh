@@ -55,7 +55,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(05j-lyrics)'
+ONLY='^store'
 # The touch tests take 4-8 minutes: TOUCH=1 only when buttons or gestures change
 TOUCH=0
 shot() { # shot <name> <arguments…>
@@ -69,6 +69,19 @@ shot() { # shot <name> <arguments…>
 }
 # the first start after installing is slow: warm up
 t 60 xcrun simctl launch "$DEV" $ID -demo > /dev/null; sleep 25; t 30 xcrun simctl terminate "$DEV" $ID > /dev/null 2>&1
+# App Store screenshots: a showcase with made-up songs, full size 1320 x 2868
+if [[ "store" =~ $ONLY ]]; then
+  say "store showcase"
+  t 120 xcrun simctl launch "$DEV" $ID -demo -store > /dev/null; sleep 60; t 30 xcrun simctl terminate "$DEV" $ID > /dev/null 2>&1 || true
+fi
+for l in ru uk en; do
+  shot store-$l-1-player -store -lang $l
+  shot store-$l-2-list -store -lang $l -panel list
+  shot store-$l-3-eq -store -lang $l -panel eq -eqrock -buds "AirPods Pro" -profile
+  shot store-$l-4-radio -store -lang $l -radio
+  shot store-$l-5-lyrics -store -lang $l -lyrics
+  shot store-$l-6-path -store -lang $l -panel fx -page path -port usb
+done
 shot 01-player
 shot 01b-loop -loop
 shot 01c-loop-uk -loop -lang uk
@@ -190,5 +203,5 @@ else
   echo "touch tests skipped (TOUCH=0)" > shots/uitest.txt
 fi
 for f in shots/*-land-*.png; do W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}'); [ "$W" -lt "$H" ] && sips -r 270 "$f" > /dev/null; done
-for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done
+for f in shots/*.png; do [[ "$(basename "$f")" == store-* ]] || sips -Z 1100 "$f" > /dev/null; done
 exit $RESULT

@@ -37,6 +37,9 @@ final class Player: ObservableObject {
     private let library: Library
     private let settings: Settings
     private let stats: Stats
+    #if DEBUG
+    var demoStats: Stats { stats }
+    #endif
     private let covers: CoverFinder
     private let nowPlaying = NowPlaying()
 

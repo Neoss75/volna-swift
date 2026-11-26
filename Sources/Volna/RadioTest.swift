@@ -12,6 +12,9 @@ final class TestServer: @unchecked Sendable {
     private let aac: Data
     private let perSecond: Int
     private var counts: [String: Int] = [:]
+    /// What the station says about itself and its song; the App Store screenshots use made-up names.
+    nonisolated(unsafe) static var stationName = "Тест FM"
+    nonisolated(unsafe) static var songTitle = "Океан Ельзи - Обійми"
     /// Ogg files sent as an endless station, by path.
     var ogg: [String: Data] = [:]
     private let born = Date()
@@ -57,9 +60,9 @@ final class TestServer: @unchecked Sendable {
         }
         switch path {
         case "/live", "/drop", "/icy", "/stall":
-            let head = (path == "/icy" ? "ICY" : "HTTP/1.0") + " 200 OK\r\nContent-Type: audio/aac\r\nicy-name: Тест FM\r\nicy-br: 128\r\nicy-metaint: 4000\r\n\r\n"
+            let head = (path == "/icy" ? "ICY" : "HTTP/1.0") + " 200 OK\r\nContent-Type: audio/aac\r\nicy-name: \(Self.stationName)\r\nicy-br: 128\r\nicy-metaint: 4000\r\n\r\n"
             c.send(content: Data(head.utf8), completion: .idempotent)
-            pump(c, aac, perSecond, title: "Океан Ельзи - Обійми", limit: path == "/drop" ? 5 : path == "/stall" ? 4 : .infinity, hang: path == "/stall")
+            pump(c, aac, perSecond, title: Self.songTitle, limit: path == "/drop" ? 5 : path == "/stall" ? 4 : .infinity, hang: path == "/stall")
         case "/mp3":
             // a valid MPEG-1 Layer III frame of silence, 128 kbit/s, 44.1 kHz
             let frame = Data([0xFF, 0xFB, 0x90, 0x64]) + Data(count: 413)
