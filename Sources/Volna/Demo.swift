@@ -81,6 +81,7 @@ enum Demo {
             if let t = library.tracks.last(where: { $0.cueStart != nil }) { player.play(t.id, from: library.tracks.map(\.id)) }
         }
         if args.contains("-newstation") { ui.stationSheet = StationSheet() }
+        if args.contains("-wifisent") { Task { await wifiShow() } }
         if args.contains("-still") { player.pause() }
         if args.contains("-eqrock") { settings.v.bands = EQPreset.all[2].bands }
         if args.contains("-landscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
@@ -226,6 +227,7 @@ enum Demo {
         await radioTest(library, player, settings, stations, check, wait)
         await cueTest(library, player, settings, check, wait)
         await headphoneTest(player, settings, headphones, check, wait)
+        await wifiTest(library, settings, check, wait)
         let formats = await addFormats(library)
         check("formats added", formats.map(\.kind) == ["FLAC", "ALAC", "M4A"], "\(formats.map(\.formatLine))")
         check("lossless mark", formats.map(\.isLossless) == [true, true, false], "\(formats.map { $0.bits ?? 0 })")

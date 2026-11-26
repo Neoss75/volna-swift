@@ -576,5 +576,48 @@ AirPods, Sony, Sennheiser…‖AirPods, Sony, Sennheiser…‖AirPods, Sony, Sen
 разбито по .cue: {}‖розбито за .cue: {}‖cut by .cue: {}
 Выберите вместе с .cue сам музыкальный файл или добавьте папку целиком‖Виберіть разом із .cue сам музичний файл або додайте папку цілком‖Pick the music file together with the .cue, or add the whole folder
 Дорожка {}‖Доріжка {}‖Track {}
+Передача по Wi-Fi‖Передача через Wi-Fi‖Transfer over Wi-Fi
+Музыка с компьютера через браузер‖Музика з комп’ютера через браузер‖Music from a computer in a browser
+Как это работает‖Як це працює‖How it works
+1. Откройте адрес выше в браузере на компьютере: Chrome, Edge, Safari или Firefox.‖1. Відкрийте адресу вище в браузері на комп’ютері: Chrome, Edge, Safari або Firefox.‖1. Open the address above in a browser on the computer: Chrome, Edge, Safari or Firefox.
+2. Перетащите в окно браузера файлы или целые папки с музыкой.‖2. Перетягніть у вікно браузера файли або цілі папки з музикою.‖2. Drag files or whole music folders into the browser window.
+3. Песни появятся в списке, в разделе «Папки» → «Wi-Fi».‖3. Пісні з’являться у списку, в розділі «Папки» → «Wi-Fi».‖3. The songs appear in the list, under Folders → Wi-Fi.
+Приём работает, пока открыт этот экран, телефон при этом не гаснет.‖Приймання працює, поки відкритий цей екран, телефон при цьому не гасне.‖Receiving works while this screen is open, and the phone screen stays on.
+Файлы лежат в «Файлах»: «На iPhone» → «Волна» → «Wi-Fi». Если убрать такую песню из плеера, её файл тоже удалится.‖Файли лежать у «Файлах»: «На iPhone» → «Волна» → «Wi-Fi». Якщо прибрати таку пісню з плеєра, її файл теж видалиться.‖The files are in Files: On My iPhone → Volna → Wi-Fi. Removing such a song from the player deletes its file too.
+Адрес для браузера‖Адреса для браузера‖Address for the browser
+Запускаю приём…‖Запускаю приймання…‖Starting…
+Приём не запустился. Закройте этот экран и откройте снова.‖Приймання не запустилося. Закрийте цей екран і відкрийте знову.‖Receiving did not start. Close this screen and open it again.
+Нет Wi-Fi‖Немає Wi-Fi‖No Wi-Fi
+Подключите телефон к той же сети Wi-Fi, что и компьютер. Адрес появится сам.‖Підключіть телефон до тієї самої мережі Wi-Fi, що й комп’ютер. Адреса з’явиться сама.‖Connect the phone to the same Wi-Fi network as the computer. The address will appear by itself.
+Принимаю: {}‖Приймаю: {}‖Receiving: {}
+Жду файлы с компьютера‖Чекаю файли з комп’ютера‖Waiting for files from the computer
+Телефон и компьютер должны быть в одной сети Wi-Fi.‖Телефон і комп’ютер мають бути в одній мережі Wi-Fi.‖The phone and the computer must be on the same Wi-Fi network.
+Принято‖Отримано‖Received
+Файлов: {}‖Файлів: {}‖Files: {}
+Уже были на телефоне: {}‖Вже були на телефоні: {}‖Already on the phone: {}
+Неподходящее имя файла‖Невідповідна назва файлу‖Unsuitable file name
+Это не музыка‖Це не музика‖This is not music
+на телефоне нет места‖на телефоні немає місця‖no room on the phone
+На телефоне нет места‖На телефоні немає місця‖No room on the phone
+Не получилось сохранить файл‖Не вдалося зберегти файл‖The file could not be saved
+не получилось сохранить‖не вдалося зберегти‖could not be saved
+связь оборвалась‖зв’язок обірвався‖the connection broke
+Волна: передача музыки‖Волна: передача музики‖Volna: music transfer
+Файлы попадут на iPhone и сразу появятся в списке песен.‖Файли потраплять на iPhone і одразу з’являться у списку пісень.‖The files go to the iPhone and appear in the song list right away.
+Перетащите сюда файлы или папки с музыкой‖Перетягніть сюди файли або папки з музикою‖Drop music files or folders here
+Выбрать файлы‖Вибрати файли‖Choose files
+Выбрать папку‖Вибрати папку‖Choose a folder
+Не закрывайте на телефоне экран передачи, пока идёт отправка. Телефон и компьютер должны быть в одной сети Wi-Fi.‖Не закривайте на телефоні екран передачі, поки триває надсилання. Телефон і комп’ютер мають бути в одній мережі Wi-Fi.‖Keep the transfer screen open on the phone while sending. The phone and the computer must be on the same Wi-Fi network.
+ждёт‖чекає‖waiting
+Отправляю: {}‖Надсилаю: {}‖Sending: {}
+на телефоне‖на телефоні‖on the phone
+уже было‖вже було‖already there
+не отправлено‖не надіслано‖not sent
+нет связи с телефоном‖немає зв’язку з телефоном‖no connection to the phone
+Пропущено, не музыка: {}‖Пропущено, не музика: {}‖Skipped, not music: {}
+Уже на телефоне: {}‖Вже на телефоні: {}‖Already on the phone: {}
+МБ‖МБ‖MB
+ГБ‖ГБ‖GB
+Отправка ещё идёт‖Надсилання ще триває‖Still sending
 """#
 }

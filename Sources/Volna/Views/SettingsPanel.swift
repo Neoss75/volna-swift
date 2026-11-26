@@ -6,7 +6,7 @@ import SwiftUI
 enum SettingsPage: String, Hashable, CaseIterable {
     case path, headphones, sound, eq, loudness, playback, hires
     case theme, viz
-    case library, covers, lyrics
+    case library, wifi, covers, lyrics
     case siri, language, stats, about
 
     var title: String {
@@ -21,6 +21,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .theme: tr("Оформление")
         case .viz: tr("Визуализация")
         case .library: tr("Библиотека и файлы")
+        case .wifi: tr("Передача по Wi-Fi")
         case .covers: tr("Обложки")
         case .lyrics: tr("Тексты песен")
         case .siri: tr("Siri и команды")
@@ -42,6 +43,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .theme: "paintpalette"
         case .viz: "chart.bar.fill"
         case .library: "folder"
+        case .wifi: "wifi"
         case .covers: "photo"
         case .lyrics: "text.bubble"
         case .siri: "mic"
@@ -54,7 +56,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
     static let groups: [(title: String, pages: [SettingsPage])] = [
         ("Аудио", [.path, .headphones, .eq, .sound, .loudness, .playback, .hires]),
         ("Графика", [.theme, .viz]),
-        ("Музыка", [.library, .covers, .lyrics]),
+        ("Музыка", [.library, .wifi, .covers, .lyrics]),
         ("Прочее", [.siri, .language, .stats, .about]),
     ]
 }
@@ -166,6 +168,8 @@ private struct SettingsRoot: View {
             return v.viz == .off ? v.viz.name : v.viz.name + " · " + v.vizPalette.name.lowercased()
         case .library:
             return plural(library.tracks.count, tr("песня"), tr("песни"), tr("песен")) + " · " + plural(library.playlists.count, tr("плейлист"), tr("плейлиста"), tr("плейлистов"))
+        case .wifi:
+            return tr("Музыка с компьютера через браузер")
         case .covers:
             return v.onlineArt ? tr("Поиск в iTunes включён") : tr("Поиск выключен")
         case .lyrics:
@@ -236,6 +240,7 @@ private struct SettingsPageView: View {
                         case .theme: ThemePage()
                         case .viz: VizPage()
                         case .library: LibraryPage()
+                        case .wifi: WifiPage()
                         case .covers: CoversPage()
                         case .lyrics: LyricsPage()
                         case .siri: SiriPage()

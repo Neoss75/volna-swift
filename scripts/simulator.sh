@@ -38,7 +38,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(92|95)-'
+ONLY='^(97|98)-'
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -114,6 +114,17 @@ shot 93-phones-path -buds 'AirPods Pro (Андрей )' -panel fx -page path
 shot 94-phones-editor -buds 'AirPods Pro (Андрей )' -panel fx -page headphones -editor
 shot 95-cue -cue
 shot 96-cue-list -cue -panel list
+shot 97-wifi -panel fx -page wifi -wifisent
+# the same page as the computer sees it: Safari in the simulator, while the app keeps receiving
+if [[ "97-wifi" =~ $ONLY ]]; then
+  say 98-wifi-browser
+  t 60 xcrun simctl launch "$DEV" $ID -demo -panel fx -page wifi -wifisent > /dev/null
+  sleep 12
+  t 30 xcrun simctl openurl "$DEV" "http://127.0.0.1:8080/" || true
+  sleep 10
+  t 30 xcrun simctl io "$DEV" screenshot "shots/98-wifi-browser.png" > /dev/null 2>&1
+  t 30 xcrun simctl terminate "$DEV" $ID > /dev/null 2>&1 || true
+fi
 shot 80-radio -radio
 shot 81-radio-list -radio -panel radio
 shot 87-radio-check -radio -stationcheck -panel radio

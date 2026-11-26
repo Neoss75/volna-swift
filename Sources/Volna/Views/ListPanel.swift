@@ -313,6 +313,10 @@ struct ListPanel: View {
         HStack(spacing: 10) {
             Button(tr("Файлы"), systemImage: "plus") { ui.add(.files) }
             Button(tr("Папку"), systemImage: "folder.badge.plus") { ui.add(.folder) }
+            Button("Wi-Fi", systemImage: "wifi") {
+                ui.panel = .fx
+                ui.settingsPath = [.wifi]
+            }
         }
         .font(.system(size: 15, weight: .semibold))
         .buttonStyle(.glass)

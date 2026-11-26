@@ -32,7 +32,13 @@ final class Library: ObservableObject {
 
     var onRemove: ((Set<UUID>) -> Void)?
 
-    private nonisolated static let audioExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "flac", "wav", "aif", "aiff", "alac", "caf", "opus", "ogg"]
+    nonisolated static let audioExtensions: Set<String> = ["mp3", "m4a", "m4b", "aac", "flac", "wav", "aif", "aiff", "alac", "caf", "opus", "ogg"]
+
+    /// Songs sent from a computer over Wi-Fi live inside the player, in «Files» → «On My iPhone» → «Volna» → «Wi-Fi».
+    static let wifiID = UUID(uuidString: "5A1F0000-0000-4000-8000-00000000F1F1")!
+    nonisolated static var wifiFolder: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Wi-Fi", isDirectory: true)
+    }
 
     init() {
         dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -268,18 +274,19 @@ final class Library: ObservableObject {
         }
     }
 
-    /// Looks for new songs in the folders added earlier.
-    func refreshFolders(quiet: Bool) async {
+    /// Looks for new songs in the folders added earlier (or only in one of them); says how many were added.
+    @discardableResult
+    func refreshFolders(quiet: Bool, only: UUID? = nil) async -> Int {
         guard !refreshing, !importing, !folders.isEmpty else {
             if !quiet, folders.isEmpty { toast(tr("Папок пока нет. Добавьте папку целиком")) }
-            return
+            return 0
         }
         refreshing = true
         defer { refreshing = false }
         var added = 0
-        for folder in folders {
+        for folder in folders where only == nil || folder.id == only {
             var stale = false
-            guard let root = try? URL(resolvingBookmarkData: folder.bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else { continue }
+            guard let root = folderURL(folder, stale: &stale) else { continue }
             let access = FileAccess(url: root, scope: root)
             let files = await Task.detached(priority: .utility) { Self.scan(access.url) }.value
             let known = Set(tracks.filter { $0.folderID == folder.id }.compactMap(\.relPath)), cues = Self.cues(files)
@@ -306,10 +313,32 @@ final class Library: ObservableObject {
         }
         if added > 0 {
             saveNow()
-            toast(tr("Новые песни в папках: {}", "\(added)"))
+            if only == nil { toast(tr("Новые песни в папках: {}", "\(added)")) }
         } else if !quiet {
             toast(tr("Новых песен в папках нет"))
         }
+        return added
+    }
+
+    /// Takes the songs that came over Wi-Fi into the list: their folder is watched like any other.
+    @discardableResult
+    func addReceived() async -> Int {
+        if !folders.contains(where: { $0.id == Self.wifiID }) {
+            folders.append(FolderRef(id: Self.wifiID, bookmark: Data(), path: Self.wifiFolder.path, name: "Wi-Fi"))
+            saveNow()
+        }
+        while refreshing || importing { try? await Task.sleep(for: .milliseconds(300)) }
+        return await refreshFolders(quiet: true, only: Self.wifiID)
+    }
+
+    /// A song removed earlier is sent again: it comes back.
+    func unhideReceived(_ rel: String) {
+        hidden.remove(Self.hiddenKey(Self.wifiID, rel))
+    }
+
+    private func folderURL(_ folder: FolderRef, stale: inout Bool) -> URL? {
+        if folder.id == Self.wifiID { return Self.wifiFolder }
+        return try? URL(resolvingBookmarkData: folder.bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
     }
 
     private static func hiddenKey(_ folder: UUID, _ rel: String) -> String { folder.uuidString + "/" + rel }
@@ -374,7 +403,7 @@ final class Library: ObservableObject {
         var stale = false
         if let fid = track.folderID, let rel = track.relPath {
             guard let i = folders.firstIndex(where: { $0.id == fid }),
-                  let root = try? URL(resolvingBookmarkData: folders[i].bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+                  let root = folderURL(folders[i], stale: &stale) else { return nil }
             let access = FileAccess(url: root.appendingPathComponent(rel), scope: root)
             if stale, let fresh = try? root.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) {
                 folders[i].bookmark = fresh
@@ -405,10 +434,20 @@ final class Library: ObservableObject {
         reindex()
         onRemove?(ids)
         scheduleSave()
+        // a song sent over Wi-Fi takes room inside the player: its file goes too (and comes back with Undo)
+        var moved: [(from: URL, to: URL)] = []
+        let bin = FileManager.default.temporaryDirectory.appendingPathComponent("removed", isDirectory: true)
+        let wifiRels = Set(removed.filter { $0.element.folderID == Self.wifiID }.compactMap(\.element.relPath))
+        for rel in wifiRels where !tracks.contains(where: { $0.folderID == Self.wifiID && $0.relPath == rel }) {
+            let from = Self.wifiFolder.appendingPathComponent(rel), to = bin.appendingPathComponent(UUID().uuidString)
+            try? FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+            if (try? FileManager.default.moveItem(at: from, to: to)) != nil { moved.append((from, to)) }
+        }
         let text = removed.count == 1 ? tr("Удалено: «{}»", "\(removed[0].element.title)") : tr("Удалено ") + plural(removed.count, tr("песня"), tr("песни"), tr("песен"))
         Toaster.shared.show(text, action: tr("Отменить")) { [weak self] in
             guard let self else { return }
             for (i, t) in removed { self.tracks.insert(t, at: min(i, self.tracks.count)) }
+            for m in moved { try? FileManager.default.moveItem(at: m.to, to: m.from) }
             self.hidden.subtract(hiddenNow)
             self.reindex()
             self.scheduleSave()
