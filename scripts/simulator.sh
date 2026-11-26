@@ -55,9 +55,9 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^(02-list|80-radio)'
+ONLY='^(01b|01c)'
 # The touch tests take 4-8 minutes: TOUCH=1 only when buttons or gestures change
-TOUCH=0
+TOUCH=1
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -70,6 +70,8 @@ shot() { # shot <name> <arguments…>
 # the first start after installing is slow: warm up
 t 60 xcrun simctl launch "$DEV" $ID -demo > /dev/null; sleep 25; t 30 xcrun simctl terminate "$DEV" $ID > /dev/null 2>&1
 shot 01-player
+shot 01b-loop -loop
+shot 01c-loop-uk -loop -lang uk
 shot 02-list -panel list
 shot 02a-albums -folder -panel list -tab albums
 shot 02b-album -folder -panel list -tab albums -album

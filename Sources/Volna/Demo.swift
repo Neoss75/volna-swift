@@ -79,6 +79,13 @@ enum Demo {
             return
         }
         if !args.contains("-lossless"), !args.contains("-aac"), !args.contains("-cue"), let first = library.tracks.first { player.play(first.id, from: library.tracks.map(\.id)) }
+        if args.contains("-loop") {
+            player.seek(to: 3)
+            player.markLoop()
+            player.seek(to: 9)
+            player.markLoop()
+            player.seek(to: 5)
+        }
         if args.contains("-radio") {
             server = await makeServer()
             if let server { showRadio(player, stations, server) }
@@ -277,6 +284,28 @@ enum Demo {
         player.play(ids[1], from: [ids[1], ids[2]])
         await wait(1)
         check("plays after removal", player.isPlaying && player.position > 0.4, "")
+        player.seek(to: 2)
+        player.markLoop()
+        check("loop start", player.loopA.map { abs($0 - 2) < 0.3 } == true && player.loopB == nil, "\(player.loopA ?? -1)")
+        player.seek(to: 4)
+        player.markLoop()
+        check("loop end", player.loopB.map { abs($0 - 4) < 0.3 } == true && player.position < 2.6, String(format: "%.2f", player.position))
+        var lowest = 99.0, highest = 0.0
+        for _ in 0..<35 {
+            await wait(0.1)
+            lowest = min(lowest, player.position)
+            highest = max(highest, player.position)
+        }
+        check("loop goes round", player.isPlaying && lowest >= 1.8 && highest < 4.35 && highest > 3.5, String(format: "%.2f…%.2f", lowest, highest))
+        player.markLoop()
+        check("loop off", player.loopA == nil && player.loopB == nil, "")
+        player.seek(to: 6)
+        player.markLoop()
+        player.seek(to: 6.3)
+        player.markLoop()
+        check("loop too short", player.loopB == nil && player.loopA != nil, "")
+        player.next()
+        check("loop forgotten with the next song", player.loopA == nil, "")
         await folderTest(library, player, settings, check, wait)
         await radioTest(library, player, settings, stations, check, wait)
         await cueTest(library, player, settings, check, wait)

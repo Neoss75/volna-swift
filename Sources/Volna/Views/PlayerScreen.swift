@@ -389,8 +389,9 @@ struct SeekBlock: View {
         VStack(spacing: 2) {
             GeometryReader { geo in
                 TimelineView(.animation(minimumInterval: 1 / 60, paused: covered || !player.isPlaying || dragging != nil)) { _ in
-                    let p = player.duration > 0 ? min(1, max(0, (dragging ?? player.position) / player.duration)) : 0
-                    WaveCanvas(wave: t?.wave, hasTrack: t != nil, progress: p, accent: settings.accent)
+                    let d = player.duration, p = d > 0 ? min(1, max(0, (dragging ?? player.position) / d)) : 0
+                    let loop = d > 0 ? player.loopA.map { (a: $0 / d, b: player.loopB.map { $0 / d }) } : nil
+                    WaveCanvas(wave: t?.wave, hasTrack: t != nil, progress: p, accent: settings.accent, loop: loop)
                 }
                 .contentShape(Rectangle())
                 .gesture(drag(span: WaveCanvas.span(geo.size.width)))
@@ -402,13 +403,16 @@ struct SeekBlock: View {
             .accessibilityAdjustableAction { dir in
                 player.seek(to: player.position + (dir == .increment ? 10 : -10))
             }
-            HStack {
-                Text(formatTime(dragging ?? clock.time))
-                    .foregroundStyle(dragging != nil ? settings.accent : Theme.muted)
-                Spacer()
-                Text(formatTime(player.duration)).foregroundStyle(Theme.muted)
+            ZStack {
+                HStack {
+                    Text(formatTime(dragging ?? clock.time))
+                        .foregroundStyle(dragging != nil ? settings.accent : Theme.muted)
+                    Spacer()
+                    Text(formatTime(player.duration)).foregroundStyle(Theme.muted)
+                }
+                .font(.mono(12).monospacedDigit())
+                if t != nil { LoopButton() }
             }
-            .font(.mono(12).monospacedDigit())
         }
     }
 
@@ -429,6 +433,31 @@ struct SeekBlock: View {
     }
 }
 
+/// A-B repeat: the start, then the end, then off.
+struct LoopButton: View {
+    @EnvironmentObject private var player: Player
+    @EnvironmentObject private var settings: Settings
+
+    var body: some View {
+        let on = player.loopB != nil, half = player.loopA != nil && !on
+        Button { player.markLoop() } label: {
+            Text(half ? "A–…" : "A–B")
+                .font(.mono(11, .semibold))
+                .foregroundStyle(on ? Theme.accentInk : half ? settings.accent : Theme.muted)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background {
+                    Capsule().fill(on ? settings.accent : Color.clear)
+                    Capsule().stroke(on ? Color.clear : half ? settings.accent : Theme.line, lineWidth: 1)
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tr("Повтор отрезка"))
+        .accessibilityValue(on ? tr("включён") : half ? tr("начало отмечено, нажмите в конце") : tr("выключен"))
+    }
+}
+
 /// The whole track is laid out twice as wide as the screen and slides left as it plays:
 /// the centre line is "now", the played part is to its left in the accent colour.
 struct WaveCanvas: View {
@@ -436,6 +465,8 @@ struct WaveCanvas: View {
     let hasTrack: Bool
     let progress: Double
     let accent: Color
+    /// A-B repeat as parts of the song; `b` is nil while only the start is marked.
+    var loop: (a: Double, b: Double?)?
 
     static let step: CGFloat = 5
 
@@ -460,6 +491,15 @@ struct WaveCanvas: View {
             var played = ctx
             played.clip(to: Path(CGRect(x: 0, y: 0, width: cx, height: size.height)))
             played.fill(bars, with: .color(accent))
+            if let loop {
+                let xa = shift + CGFloat(loop.a) * span
+                if let b = loop.b {
+                    let xb = shift + CGFloat(b) * span
+                    ctx.fill(Path(CGRect(x: xa, y: 0, width: max(0, xb - xa), height: size.height)), with: .color(accent.opacity(0.14)))
+                    ctx.fill(Path(CGRect(x: xb - 1, y: 0, width: 2, height: size.height)), with: .color(accent))
+                }
+                ctx.fill(Path(CGRect(x: xa - 1, y: 0, width: 2, height: size.height)), with: .color(accent))
+            }
         }
         .mask {
             LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.12),

@@ -115,6 +115,70 @@ final class Player: ObservableObject {
     /// Exact position, for the waveform that moves every frame.
     var position: Double { deck.file == nil ? savedTime : deck.position }
 
+    // MARK: - A-B repeat
+
+    /// A part of the song played round and round: A is marked first, then B.
+    @Published private(set) var loopA: Double?
+    @Published private(set) var loopB: Double?
+    private var loopJump: DispatchWorkItem?
+
+    /// One button: the start, then the end, then off.
+    func markLoop() {
+        guard radio == nil, current != nil, duration > 0 else { return }
+        let now = position
+        if loopB != nil {
+            clearLoop()
+            toast(tr("Повтор отрезка выключен"))
+            return
+        }
+        guard let a = loopA else {
+            loopA = now
+            toast(tr("Начало отрезка: {}. Нажмите ещё раз в конце", formatTime(now)))
+            return
+        }
+        // went back before A: the two marks change places
+        let start = min(a, now), end = min(max(a, now), duration - 0.05)
+        guard end - start >= 1 else {
+            toast(tr("Отрезок слишком короткий, нужна хотя бы секунда"))
+            return
+        }
+        loopA = start
+        loopB = end
+        toast(tr("Повтор отрезка {}–{}", formatTime(start), formatTime(end)))
+        Haptic.tap()
+        seek(to: start)
+    }
+
+    func clearLoop() {
+        loopJump?.cancel()
+        loopJump = nil
+        loopA = nil
+        loopB = nil
+    }
+
+    /// The timer comes five times a second: the exact jump is set up when B is near.
+    private func checkLoop() {
+        guard let a = loopA, let b = loopB, isPlaying, radio == nil else { return }
+        let left = (b - position) / settings.v.effectiveRate
+        if left <= 0.02 { return jumpLoop(a) }
+        guard left < 0.3, loopJump == nil else { return }
+        let w = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.loopJump = nil
+                if self.loopB == b, self.loopA == a, self.isPlaying { self.jumpLoop(a) }
+            }
+        }
+        loopJump = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + left, execute: w)
+    }
+
+    private func jumpLoop(_ a: Double) {
+        loopJump?.cancel()
+        loopJump = nil
+        seek(to: a)
+    }
+
     // MARK: - Queue
 
     func play(_ id: UUID, from list: [UUID]) {
@@ -355,6 +419,7 @@ final class Player: ObservableObject {
 
     private func load(play: Bool, at time: Double = 0) {
         closeRadio()
+        clearLoop()
         guard let t = current else { return }
         endFade()
         forgetChain()
@@ -433,6 +498,12 @@ final class Player: ObservableObject {
     }
 
     private func ended() {
+        // the end of the song is B: round again
+        if let a = loopA, loopB != nil, current != nil {
+            deck.play(from: a)
+            clock.time = a
+            return
+        }
         stats.flush()
         if sleepAfterTrack {
             sleepAfterTrack = false
@@ -448,6 +519,7 @@ final class Player: ObservableObject {
     // MARK: - Radio
 
     func play(_ s: Station, from list: [UUID]) {
+        clearLoop()
         if radio == nil {
             // the song goes on from here later
             savedTime = position
@@ -566,7 +638,7 @@ final class Player: ObservableObject {
     /// Shortly before the end puts the next song right behind the current one. Skipped when the formats differ
     /// (then the song is loaded the usual way) and when crossfade is on.
     private func maybeChain() {
-        guard settings.v.gapless, settings.v.crossfade == 0, isPlaying, chainIndex == nil, !sleepAfterTrack,
+        guard settings.v.gapless, settings.v.crossfade == 0, isPlaying, chainIndex == nil, !sleepAfterTrack, loopB == nil,
               queue.indices.contains(qi), duration - deck.position < 10, chainTried != queue[qi] else { return }
         chainTried = queue[qi]
         let ni = repeatMode == .one ? qi : qi + 1 < queue.count ? qi + 1 : repeatMode == .all ? 0 : -1
@@ -620,7 +692,7 @@ final class Player: ObservableObject {
 
     private func maybeCrossfade() {
         let xf = settings.v.crossfade
-        guard xf > 0, isPlaying, fadeTask == nil, !sleepAfterTrack, repeatMode != .one, !queue.isEmpty else { return }
+        guard xf > 0, isPlaying, fadeTask == nil, !sleepAfterTrack, repeatMode != .one, !queue.isEmpty, loopB == nil else { return }
         guard duration >= xf * 2 + 4 else { return }
         let left = (duration - deck.position) / settings.v.effectiveRate
         guard left <= xf, left > 0.4 else { return }
@@ -873,6 +945,7 @@ final class Player: ObservableObject {
         }
         clock.time = position
         if let t = current { stats.tick(t) }
+        checkLoop()
         maybeCrossfade()
         maybeChain()
         checkSleep()
