@@ -100,10 +100,21 @@ final class Deck {
         return true
     }
 
+    /// Settings → Playback: silence at the start and the end of a song is skipped.
+    static var trimSilence = true
+
     static func part(of f: AVAudioFile, _ t: Track?) -> (first: AVAudioFramePosition, count: AVAudioFramePosition) {
-        guard let t, let from = t.cueStart else { return (0, f.length) }
-        let rate = f.processingFormat.sampleRate, first = min(AVAudioFramePosition((from * rate).rounded()), f.length)
-        let end = t.cueEnd.map { min(AVAudioFramePosition(($0 * rate).rounded()), f.length) } ?? f.length
+        guard let t else { return (0, f.length) }
+        let rate = f.processingFormat.sampleRate
+        var from = t.cueStart ?? 0, to = t.cueEnd ?? Double(f.length) / rate
+        // only a real pause is cut, and never most of the song
+        if trimSilence, let s = t.soundStart, let e = t.soundEnd, e - s > 1 {
+            let length = to - from
+            if e < length - 0.3 { to = from + e }
+            if s > 0.2 { from += s }
+        }
+        let first = min(AVAudioFramePosition((from * rate).rounded()), f.length)
+        let end = min(AVAudioFramePosition((to * rate).rounded()), f.length)
         return (first, max(0, end - first))
     }
 

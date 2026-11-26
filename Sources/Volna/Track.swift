@@ -44,6 +44,10 @@ struct Track: Identifiable, Codable, Equatable {
     var cueArtist: String?
     var cueAlbum: String?
 
+    /// Where the sound begins and ends, in seconds from the start of the song; the rest is silence.
+    var soundStart: Double?
+    var soundEnd: Double?
+
     static let currentMeta = 4
 
     /// Better than CD: more than 48 kHz or at least 24 bits.

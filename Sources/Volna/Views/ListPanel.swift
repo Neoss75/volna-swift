@@ -4,6 +4,8 @@ import SwiftUI
 enum SongCollection: Hashable {
     case all, favourites
     case recent, often, forgotten, lossless
+    /// Played most this month; played most at this time of day.
+    case month, dayPart
     case playlist(UUID)
     case album(String), artist(String), folder(String)
 
@@ -50,6 +52,16 @@ extension Library {
         case .forgotten:
             return Array(tracks.sorted { (stats.entry($0.id)?.last ?? .distantPast) < (stats.entry($1.id)?.last ?? .distantPast) }.prefix(50))
         case .lossless: return tracks.filter(\.isLossless)
+        case .month:
+            let m = Stats.monthKey()
+            return Array(tracks.filter { stats.seconds($0.id, month: m) >= 60 }.sorted { stats.seconds($0.id, month: m) > stats.seconds($1.id, month: m) }.prefix(50))
+        case .dayPart:
+            // songs heard at this time of day, and mostly at it
+            let p = Stats.DayPart.of()
+            return Array(tracks.filter {
+                let here = stats.seconds($0.id, part: p), all = stats.entry($0.id)?.seconds ?? 0
+                return here >= 60 && here >= all * 0.3
+            }.sorted { stats.seconds($0.id, part: p) > stats.seconds($1.id, part: p) }.prefix(50))
         case .playlist(let id):
             return (playlists.first { $0.id == id }?.keys ?? []).compactMap { track($0) }
         case .album(let key):
@@ -180,6 +192,13 @@ struct ListPanel: View {
                         Chip(text: tr("Недавние"), on: ui.collection == .recent) { ui.collection = .recent }
                         Chip(text: tr("Часто играют"), on: ui.collection == .often) { ui.collection = .often }
                         Chip(text: tr("Давно не слушали"), on: ui.collection == .forgotten) { ui.collection = .forgotten }
+                        let month = library.songs(in: .month, stats: stats).count, part = library.songs(in: .dayPart, stats: stats).count
+                        if month > 0 || ui.collection == .month {
+                            Chip(text: Stats.monthName(), count: month, on: ui.collection == .month) { ui.collection = .month }
+                        }
+                        if part > 0 || ui.collection == .dayPart {
+                            Chip(text: Stats.DayPart.of().name, count: part, on: ui.collection == .dayPart) { ui.collection = .dayPart }
+                        }
                         ForEach(library.playlists) { p in
                             Chip(text: p.name, count: p.keys.filter { library.track($0) != nil }.count, on: ui.collection == .playlist(p.id)) { ui.collection = .playlist(p.id) }
                         }
@@ -409,6 +428,8 @@ struct ListPanel: View {
         case .playlist: return tr("Плейлист пуст. Добавьте песни через «⋯» → «Добавить в плейлист».")
         case .lossless: return tr("Песен без потерь пока нет. Это файлы FLAC, ALAC, WAV и AIFF.")
         case .often: return tr("Здесь появятся песни, которые вы слушаете чаще всего.")
+        case .month: return tr("Здесь появятся песни, которые вы чаще всего слушаете в этом месяце.")
+        case .dayPart: return tr("Здесь появятся песни, которые вы обычно слушаете в это время суток.")
         default: return tr("Список пуст. Добавьте файлы или папку.")
         }
     }

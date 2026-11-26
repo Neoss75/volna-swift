@@ -468,6 +468,8 @@ final class Player: ObservableObject {
         covers.auto(t)
         if qi + 1 < queue.count, let n = library.track(queue[qi + 1]) {
             covers.auto(n)
+            // its silence is found before it comes
+            analyzer.request(n, first: false)
             // the next Ogg song is decoded in advance, then it follows without a gap
             if OggFile.handles(n.path), OggFile.cached(n.id) == nil, let a = library.open(n) {
                 let id = n.id

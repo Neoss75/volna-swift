@@ -77,6 +77,8 @@ final class Settings: ObservableObject {
         /// Up or down in semitones, the speed stays.
         var semitones: Double = 0
         var haptics = true
+        /// Skip the silence at the start and the end of songs.
+        var trimSilence = true
         var onlineArt = true
         /// Cover and lyrics of the song on the radio, from the internet.
         var radioExtras = false
@@ -110,6 +112,7 @@ final class Settings: ObservableObject {
             guard v != oldValue else { return }
             if v.language != oldValue.language { Lang.apply(v.language) }
             Haptic.on = v.haptics
+            Deck.trimSilence = v.trimSilence
             save()
             onChange?()
         }
@@ -125,6 +128,7 @@ final class Settings: ObservableObject {
         v = Self.merged(UserDefaults.standard.data(forKey: Self.key)) ?? Values()
         Lang.apply(v.language)
         Haptic.on = v.haptics
+        Deck.trimSilence = v.trimSilence
     }
 
     private static func merged(_ saved: Data?) -> Values? {

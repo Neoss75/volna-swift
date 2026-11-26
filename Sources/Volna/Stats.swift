@@ -9,6 +9,52 @@ final class Stats: ObservableObject {
         var title = ""
         var artist = ""
         var last: Date? // optional: entries saved by older builds do not have it
+        /// Seconds by month, "2026-11".
+        var months: [String: Double]?
+        /// Seconds in the morning, the day, the evening and the night.
+        var parts: [Double]?
+    }
+
+    /// The time of day: 5–11 morning, 11–17 day, 17–23 evening, 23–5 night.
+    enum DayPart: Int, CaseIterable {
+        case morning, day, evening, night
+
+        static func of(_ date: Date = Date()) -> DayPart {
+            switch Calendar.current.component(.hour, from: date) {
+            case 5..<11: .morning
+            case 11..<17: .day
+            case 17..<23: .evening
+            default: .night
+            }
+        }
+
+        var name: String {
+            switch self {
+            case .morning: tr("Утро")
+            case .day: tr("День")
+            case .evening: tr("Вечер")
+            case .night: tr("Ночь")
+            }
+        }
+    }
+
+    static func monthKey(_ date: Date = Date()) -> String {
+        let c = Calendar.current.dateComponents([.year, .month], from: date)
+        return String(format: "%04d-%02d", c.year ?? 0, c.month ?? 0)
+    }
+
+    /// The name of this month in the language of the app: «Ноябрь».
+    static func monthName(_ date: Date = Date()) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: Lang.current.rawValue)
+        f.dateFormat = "LLLL"
+        return f.string(from: date).capitalized(with: f.locale)
+    }
+
+    func seconds(_ id: UUID, month: String) -> Double { data.songs[id.uuidString]?.months?[month] ?? 0 }
+    func seconds(_ id: UUID, part: DayPart) -> Double {
+        guard let p = data.songs[id.uuidString]?.parts, p.count == DayPart.allCases.count else { return 0 }
+        return p[part.rawValue]
     }
 
     struct Data: Codable {
@@ -50,6 +96,15 @@ final class Stats: ObservableObject {
         e.artist = t.artist
         e.seconds += dt
         e.last = now
+        var months = e.months ?? [:]
+        months[Self.monthKey(now), default: 0] += dt
+        // a year is enough
+        if months.count > 13, let oldest = months.keys.min() { months[oldest] = nil }
+        e.months = months
+        var parts = e.parts ?? []
+        if parts.count != DayPart.allCases.count { parts = Array(repeating: 0, count: DayPart.allCases.count) }
+        parts[DayPart.of(now).rawValue] += dt
+        e.parts = parts
         pending.total += dt
         pending.days[Self.dayKey(), default: 0] += dt
         listened += dt

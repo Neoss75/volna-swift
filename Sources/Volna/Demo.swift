@@ -312,6 +312,7 @@ enum Demo {
         await headphoneTest(player, settings, headphones, check, wait)
         await wifiTest(library, settings, check, wait)
         await oggTest(library, player, stations, check, wait)
+        await smartTest(library, player, check, wait)
         let formats = await addFormats(library)
         check("formats added", formats.map(\.kind) == ["FLAC", "ALAC", "M4A"], "\(formats.map(\.formatLine))")
         check("lossless mark", formats.map(\.isLossless) == [true, true, false], "\(formats.map { $0.bits ?? 0 })")

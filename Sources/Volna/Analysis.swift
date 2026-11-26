@@ -6,7 +6,13 @@ enum Analysis {
     struct Result: Sendable {
         var gainDb: Double
         var wave: [Int]
+        /// Seconds from the start of the song to the first sound and to the end of the last one.
+        var soundStart: Double = 0
+        var soundEnd: Double = 0
     }
+
+    /// Quieter than −50 dB counts as silence.
+    static let quiet: Float = 0.0032
 
     static let points = 180
     private static let target = -16.0 // gated RMS, dBFS — roughly −14 LUFS for typical music
@@ -26,6 +32,7 @@ enum Analysis {
         var peak: Float = 0, gated = 0.0, gatedBlocks = 0
         var blockSum = 0.0, blockCount = 0, inBlock = 0
         var pos = 0
+        var firstLoud: Int?, lastLoud = 0
 
         while pos < total {
             if Task.isCancelled { return nil }
@@ -36,6 +43,22 @@ enum Analysis {
                 var m: Float = 0
                 vDSP_maxmgv(data[c], 1, &m, vDSP_Length(n))
                 peak = max(peak, m)
+            }
+            // where the sound is: windows of 1024 samples
+            var w = 0
+            while w < n {
+                let len = min(1024, n - w)
+                var loud = false
+                for c in 0..<channels where !loud {
+                    var m: Float = 0
+                    vDSP_maxmgv(data[c] + w, 1, &m, vDSP_Length(len))
+                    loud = m > quiet
+                }
+                if loud {
+                    if firstLoud == nil { firstLoud = pos + w }
+                    lastLoud = pos + w + len
+                }
+                w += len
             }
             // runs that stay inside one point of the waveform and one loudness block, each summed in one go
             var i = 0
@@ -72,7 +95,8 @@ enum Analysis {
             if peak > 0 { gain = min(gain, 20 * log10(1.12 / Double(peak))) }
             gain = (min(8, max(-12, gain)) * 10).rounded() / 10
         }
-        return Result(gainDb: gain, wave: wave)
+        let rate = format.sampleRate
+        return Result(gainDb: gain, wave: wave, soundStart: Double(firstLoud ?? 0) / rate, soundEnd: Double(firstLoud == nil ? pos : lastLoud) / rate)
     }
 }
 
@@ -89,7 +113,7 @@ final class Analyzer: ObservableObject {
     init(library: Library) { self.library = library }
 
     func request(_ t: Track, first: Bool) {
-        guard t.wave == nil || t.gainDb == nil, t.bad != true else { return }
+        guard t.wave == nil || t.gainDb == nil || t.soundEnd == nil, t.bad != true else { return }
         if let i = queue.firstIndex(of: t.id) {
             guard first else { return }
             queue.remove(at: i)
@@ -104,7 +128,7 @@ final class Analyzer: ObservableObject {
         running = true
         while !queue.isEmpty {
             let id = queue.removeFirst()
-            if let t = library.track(id), t.wave == nil || t.gainDb == nil {
+            if let t = library.track(id), t.wave == nil || t.gainDb == nil || t.soundEnd == nil {
                 var result: Analysis.Result?
                 if let access = library.open(t) {
                     result = await Task.detached(priority: .userInitiated) { Analysis.run((try? OggFile.playable(access.url, id: t.id)) ?? access.url, from: t.cueStart, to: t.cueEnd) }.value
@@ -112,6 +136,8 @@ final class Analyzer: ObservableObject {
                 library.update(id) {
                     $0.wave = result?.wave ?? []
                     $0.gainDb = result?.gainDb ?? 0
+                    $0.soundStart = result?.soundStart ?? 0
+                    $0.soundEnd = result.map(\.soundEnd) ?? $0.duration
                 }
                 onDone?(id)
             }

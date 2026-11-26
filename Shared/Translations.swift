@@ -677,5 +677,13 @@ AirPods, Sony, Sennheiser…‖AirPods, Sony, Sennheiser…‖AirPods, Sony, Sen
 Повтор отрезка‖Повтор відрізка‖A-B loop
 включён‖увімкнено‖on
 начало отмечено, нажмите в конце‖початок позначено, натисніть у кінці‖start marked, tap at the end
+Утро‖Ранок‖Morning
+День‖День‖Day
+Вечер‖Вечір‖Evening
+Ночь‖Ніч‖Night
+Здесь появятся песни, которые вы чаще всего слушаете в этом месяце.‖Тут з'являться пісні, які ви найчастіше слухаєте цього місяця.‖The songs you play most this month will appear here.
+Здесь появятся песни, которые вы обычно слушаете в это время суток.‖Тут з'являться пісні, які ви зазвичай слухаєте в цю пору доби.‖The songs you usually play at this time of day will appear here.
+Пропускать тишину в начале и в конце‖Пропускати тишу на початку й у кінці‖Skip silence at the start and the end
+Если в начале или в конце песни есть тишина дольше пары десятых секунды, она не играет, и следующая песня начинается сразу. Тишина находится вместе с волной песни, поэтому у новых песен срабатывает со второго включения.‖Якщо на початку або в кінці пісні є тиша довша за кілька десятих секунди, вона не грає, і наступна пісня починається одразу. Тиша знаходиться разом із хвилею пісні, тому в нових пісень спрацьовує з другого увімкнення.‖If a song has more than a few tenths of a second of silence at the start or the end, it is not played and the next song starts at once. The silence is found together with the waveform, so for new songs it works from the second play.
 """#
 }
