@@ -24,6 +24,10 @@ struct PanelView: View {
                             addButton(tr("Добавить список станций"), "plus") { ui.add(.stations) }
                         }
                         if panel == .list {
+                            addButton(tr("Передача по Wi-Fi"), "wifi") {
+                                ui.panel = .fx
+                                ui.settingsPath = [.wifi]
+                            }
                             addButton(tr("Добавить папку"), "folder.badge.plus") { ui.add(.folder) }
                             addButton(tr("Добавить файлы"), "plus") { ui.add(.files) }
                         }
