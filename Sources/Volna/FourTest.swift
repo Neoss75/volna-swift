@@ -51,6 +51,31 @@ extension Demo {
         library.update(t) { $0.lyricsTried = nil }
         if let own { LyricsStore.save(own, id: t) }
         player.pause()
+
+        // duplicates: the same file once more, from another folder
+        guard let original = library.track(ids[0]), let access = library.open(original) else { return check("duplicates: file", false, "") }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("копия", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let copy = dir.appendingPathComponent(original.fileName)
+        try? FileManager.default.removeItem(at: copy)
+        try? FileManager.default.copyItem(at: access.url, to: copy)
+        let before = Set(library.tracks.map(\.id))
+        await library.add(urls: [copy])
+        guard let twin = library.tracks.first(where: { !before.contains($0.id) }) else { return check("duplicates: copy added", false, "") }
+        let group = library.duplicates().first { $0.contains { $0.id == twin.id } } ?? []
+        check("duplicates found", Set(group.map(\.id)) == [original.id, twin.id] && group.first?.id == original.id, "\(group.count)")
+        let wasLiked = library.isFavourite(original.id)
+        if wasLiked { library.toggleFavourite(original.id) }
+        library.toggleFavourite(twin.id)
+        let list = library.createPlaylist("Дубль", with: [twin.id, ids[1]])
+        library.merge(keep: original.id, drop: [twin.id])
+        library.remove([twin.id])
+        let p = library.playlists.first { $0.id == list.id }?.keys ?? []
+        check("duplicates merged", library.isFavourite(original.id) && !library.isFavourite(twin.id) && p == [original.id, ids[1]]
+              && library.track(twin.id) == nil && !library.duplicates().contains { $0.contains { $0.id == original.id } }, "\(p.count)")
+        library.deletePlaylist(list.id)
+        if !wasLiked { library.toggleFavourite(original.id) }
+        try? FileManager.default.removeItem(at: dir)
     }
 }
 #endif

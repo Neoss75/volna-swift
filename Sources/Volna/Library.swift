@@ -90,6 +90,21 @@ final class Library: ObservableObject {
         return before - waiting.count
     }
 
+    /// Copies of one song: their likes, playlists and statistics go to the one that stays.
+    func merge(keep: UUID, drop: [UUID]) {
+        let gone = Set(drop)
+        guard !gone.isEmpty else { return }
+        if !favourites.isDisjoint(with: gone) { favourites.insert(keep) }
+        favourites.subtract(gone)
+        for i in playlists.indices {
+            var seen = Set<UUID>()
+            playlists[i].keys = playlists[i].keys.map { gone.contains($0) ? keep : $0 }.filter { seen.insert($0).inserted }
+        }
+        if LyricsStore.load(keep) == nil, let l = drop.lazy.compactMap({ LyricsStore.load($0) }).first { LyricsStore.save(l, id: keep) }
+        onAdopt?(Dictionary(uniqueKeysWithValues: drop.map { ($0, keep) }))
+        scheduleSave()
+    }
+
     func forgetWaiting() {
         waiting = []
         saveNow()

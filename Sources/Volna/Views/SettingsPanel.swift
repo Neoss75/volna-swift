@@ -528,6 +528,7 @@ private struct VizPage: View {
 private struct LibraryPage: View {
     @EnvironmentObject private var library: Library
     @EnvironmentObject private var ui: UIState
+    @State private var duplicates = false
 
     @EnvironmentObject private var settings: Settings
 
@@ -549,6 +550,13 @@ private struct LibraryPage: View {
                     .disabled(library.refreshing)
             }
         }
+        Block(tr("Дубликаты")) {
+            let n = library.duplicates().reduce(0) { $0 + $1.count - 1 }
+            Hint(n == 0 ? tr("Одинаковых песен нет.") : tr("Лишних копий: {}.", "\(n)"))
+            Button(tr("Найти дубликаты")) { duplicates = true }.buttonStyle(.glass)
+            Hint(tr("Одинаковые — это те же исполнитель, название и длина. Волна предложит оставить лучшую копию, лишние уберёт из плеера, а их лайки, плейлисты и статистику передаст оставленной."))
+        }
+        .sheet(isPresented: $duplicates) { DuplicatesView() }
         Block(tr("Добавить")) {
             HStack {
                 Button(tr("Файлы")) { ui.add(.files) }.buttonStyle(.glass)

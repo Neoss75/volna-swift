@@ -692,5 +692,15 @@ AirPlay и другие колонки‖AirPlay та інші колонки‖
 Оба наушника играют одно и то же: удобно с одним наушником или когда одно ухо слышит хуже.‖Обидва навушники грають одне й те саме: зручно з одним навушником або коли одне вухо чує гірше.‖Both earphones play the same: handy with one earphone or when one ear hears less.
 Поиск‖Пошук‖Search
 Добавь в избранное в Волне‖Додай в обране у Волні‖Add to favourites in Volna
+Одинаковых песен не нашлось.‖Однакових пісень не знайшлося.‖No identical songs found.
+Отмечена копия, которая останется. Волна выбрала лучшую: без потерь, с большим битрейтом. Можно отметить другую.‖Позначено копію, яка залишиться. Волна вибрала найкращу: без втрат, з більшим бітрейтом. Можна позначити іншу.‖The marked copy stays. Volna picked the best one: lossless, with a higher bitrate. You can mark another.
+Дубликаты‖Дублікати‖Duplicates
+Убрать лишние‖Прибрати зайві‖Remove extra copies
+Убрать из плеера: ‖Прибрати з плеєра: ‖Remove from the player: 
+Файлы останутся в «Файлах» (кроме присланных по Wi-Fi). Лайки, плейлисты и статистика лишних копий перейдут к оставленной.‖Файли залишаться у «Файлах» (крім надісланих по Wi-Fi). Лайки, плейлисти та статистика зайвих копій перейдуть до залишеної.‖The files stay in Files (except those sent over Wi-Fi). Likes, playlists and statistics of the extra copies go to the one that stays.
+Одинаковых песен нет.‖Однакових пісень немає.‖No identical songs.
+Лишних копий: {}.‖Зайвих копій: {}.‖Extra copies: {}.
+Найти дубликаты‖Знайти дублікати‖Find duplicates
+Одинаковые — это те же исполнитель, название и длина. Волна предложит оставить лучшую копию, лишние уберёт из плеера, а их лайки, плейлисты и статистику передаст оставленной.‖Однакові — це ті самі виконавець, назва й тривалість. Волна запропонує залишити найкращу копію, зайві прибере з плеєра, а їхні лайки, плейлисти та статистику передасть залишеній.‖Identical means the same artist, title and length. Volna offers to keep the best copy, removes the extra ones from the player and gives their likes, playlists and statistics to the one that stays.
 """#
 }
