@@ -1,1 +1,2 @@
 "CFBundleDisplayName" = "Волна";
+"NSLocalNetworkUsageDescription" = "Волна приймає музику з комп’ютера в тій самій мережі Wi-Fi.";
