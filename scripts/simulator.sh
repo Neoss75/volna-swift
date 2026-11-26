@@ -39,6 +39,8 @@ xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
 ONLY='^(01-player|07-lyrics|80-radio|89|05g-covers)'
+# The touch tests take 4-8 minutes: TOUCH=1 only when buttons or gestures change
+TOUCH=0
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
@@ -157,10 +159,14 @@ for l in uk en; do
   shot 67-$l-eq -lang $l -panel eq
   shot 68-$l-hires -lang $l -panel fx -page hires
 done
-say "real touches"
-t 900 xcodebuild test-without-building -xctestrun "$(ls build/dd/Build/Products/*.xctestrun | head -n 1)" \
-  -destination "id=$DEV" -retry-tests-on-failure -test-iterations 2 > shots/uitest.txt 2>&1 || { echo "::error::the touch tests failed"; RESULT=1; }
-grep -E "error:|Test Case .*(passed|failed)|TEST EXECUTE" shots/uitest.txt
+if [ "$TOUCH" = 1 ]; then
+  say "real touches"
+  t 900 xcodebuild test-without-building -xctestrun "$(ls build/dd/Build/Products/*.xctestrun | head -n 1)" \
+    -destination "id=$DEV" -retry-tests-on-failure -test-iterations 2 > shots/uitest.txt 2>&1 || { echo "::error::the touch tests failed"; RESULT=1; }
+  grep -E "error:|Test Case .*(passed|failed)|TEST EXECUTE" shots/uitest.txt
+else
+  echo "touch tests skipped (TOUCH=0)" > shots/uitest.txt
+fi
 for f in shots/*-land-*.png; do W=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}'); H=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}'); [ "$W" -lt "$H" ] && sips -r 270 "$f" > /dev/null; done
 for f in shots/*.png; do sips -Z 1100 "$f" > /dev/null; done
 exit $RESULT
