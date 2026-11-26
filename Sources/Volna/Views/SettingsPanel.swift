@@ -154,6 +154,7 @@ private struct SettingsRoot: View {
         case .playback:
             var p = [v.crossfade > 0 ? tr("кроссфейд {} с", "\(Int(v.crossfade))") : v.gapless ? tr("без пауз") : tr("без кроссфейда")]
             if v.rate != 1 { p.append(FXFormat.rate(v.rate)) }
+            if v.semitones != 0 { p.append(tr("тональность {}", FXFormat.semitones(v.semitones))) }
             if player.sleepAt != nil || player.sleepAfterTrack { p.append(tr("таймер сна")) }
             return p.joined(separator: " · ")
         case .path:
@@ -196,6 +197,7 @@ enum AppInfo {
 enum FXFormat {
     static func balance(_ v: Double) -> String { v == 0 ? tr("центр") : (v < 0 ? tr("Л ") : tr("П ")) + "\(Int(abs(v)))%" }
     static func rate(_ v: Double) -> String { String(format: "%.2f×", v) }
+    static func semitones(_ v: Double) -> String { v == 0 ? tr("обычная") : String(format: "%+d", Int(v)) }
 }
 
 /// A titled block inside a settings page.
@@ -332,6 +334,13 @@ private struct PlaybackPage: View {
                 Button(tr("Обычная скорость")) { settings.v.rate = 1 }.buttonStyle(.glass)
             }
         }
+        Block(tr("Тональность")) {
+            SliderRow(label: tr("Тональность"), value: $settings.v.semitones, range: -6...6, step: 1, format: FXFormat.semitones)
+            Hint(tr("Выше или ниже на полутоны, скорость при этом не меняется. Удобно, чтобы подпевать в своей тональности."))
+            if settings.v.semitones != 0 {
+                Button(tr("Обычная тональность")) { settings.v.semitones = 0 }.buttonStyle(.glass)
+            }
+        }
         Block(tr("Радио: запас звука")) {
             Flow {
                 ForEach(Settings.radioBuffers, id: \.self) { s in
@@ -419,6 +428,10 @@ private struct ThemePage: View {
                     Chip(text: tr(a.name), dot: a.color, on: settings.v.accent == a.id) { settings.v.accent = a.id }
                 }
             }
+        }
+        Block(tr("Отклик")) {
+            SwitchRow(label: tr("Лёгкая вибрация при нажатиях"), on: $settings.v.haptics)
+            Hint(tr("Телефон слегка отзывается на кнопки плеера, смахивание обложки и лайк."))
         }
     }
 }
@@ -582,7 +595,8 @@ private struct LyricsPage: View {
 private struct SiriPage: View {
     private var phrases: [String] {
         [tr("Включи избранное в Волне"), tr("Перемешай музыку в Волне"), tr("Включи музыку в Волне"),
-         tr("Включи песню … в Волне"), tr("Включи исполнителя … в Волне"), tr("Включи плейлист … в Волне"), tr("Включи радио … в Волне")]
+         tr("Включи песню … в Волне"), tr("Включи исполнителя … в Волне"), tr("Включи плейлист … в Волне"), tr("Включи радио … в Волне"),
+         tr("Таймер сна 30 минут в Волне"), tr("Эквалайзер Рок в Волне")]
     }
 
     var body: some View {
@@ -596,6 +610,9 @@ private struct SiriPage: View {
         Block(tr("Команды")) {
             Hint(tr("Эти же действия есть в приложении «Команды»: там их можно повесить на кнопку «Действие» или в автоматизацию."))
             ShortcutsLink()
+        }
+        Block(tr("Пункт управления")) {
+            Hint(tr("Кнопки «Волны» можно добавить в Пункт управления и на экран блокировки: играть или пауза, следующая песня, эквалайзер. Откройте Пункт управления, нажмите «+», затем «Добавить элемент» и найдите «Волна»."))
         }
     }
 }

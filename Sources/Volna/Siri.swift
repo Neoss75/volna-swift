@@ -8,6 +8,7 @@ enum SiriBridge {
     static var library: Library?
     static var player: Player?
     static var stations: Stations?
+    static var settings: Settings?
 }
 
 // MARK: - What can be named
@@ -223,6 +224,81 @@ struct PlayStationIntent: AudioPlaybackIntent {
     }
 }
 
+struct SleepTimerIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Таймер сна"
+    @Parameter(title: "Время") var time: SleepChoice
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let player = SiriBridge.player else { return .result(dialog: "\(tr("Плеер ещё не готов"))") }
+        switch time {
+        case .off:
+            player.sleep(minutes: nil)
+            return .result(dialog: "\(tr("Таймер сна выключен"))")
+        case .song:
+            player.sleepAfterThisTrack()
+            return .result(dialog: "\(tr("Остановлю в конце песни"))")
+        default:
+            player.sleep(minutes: time.minutes)
+            return .result(dialog: "\(tr("Остановлю через {} минут", "\(time.minutes)"))")
+        }
+    }
+}
+
+enum SleepChoice: String, AppEnum {
+    case m15, m30, m45, m60, song, off
+
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Время")
+    static let caseDisplayRepresentations: [SleepChoice: DisplayRepresentation] = [
+        .m15: DisplayRepresentation(title: "15 минут", synonyms: ["пятнадцать минут"]),
+        .m30: DisplayRepresentation(title: "30 минут", synonyms: ["полчаса", "тридцать минут"]),
+        .m45: DisplayRepresentation(title: "45 минут", synonyms: ["сорок пять минут"]),
+        .m60: DisplayRepresentation(title: "час", synonyms: ["1 час", "60 минут"]),
+        .song: DisplayRepresentation(title: "конец песни", synonyms: ["после песни"]),
+        .off: DisplayRepresentation(title: "выключить", synonyms: ["выкл"]),
+    ]
+
+    var minutes: Int { ["m15": 15, "m30": 30, "m45": 45, "m60": 60][rawValue] ?? 0 }
+}
+
+struct PresetIntent: AppIntent {
+    static let title: LocalizedStringResource = "Настройка эквалайзера"
+    static let openAppWhenRun = false
+    @Parameter(title: "Настройка") var preset: PresetChoice
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let settings = SiriBridge.settings else { return .result(dialog: "\(tr("Плеер ещё не готов"))") }
+        if preset == .off {
+            settings.v.eqOn = false
+            return .result(dialog: "\(tr("Эквалайзер выключен"))")
+        }
+        guard let p = EQPreset.all.first(where: { $0.id == preset.rawValue }) else { return .result(dialog: "\(tr("Такой настройки нет"))") }
+        settings.v.bands = p.bands
+        settings.v.eqOn = true
+        return .result(dialog: "\(tr("Эквалайзер: ") + tr(p.name))")
+    }
+}
+
+/// The same names as the chips on the equaliser screen.
+enum PresetChoice: String, AppEnum {
+    case flat, bass, rock, pop, vocal, jazz, classic, electro, treble, off
+
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Настройка")
+    static let caseDisplayRepresentations: [PresetChoice: DisplayRepresentation] = [
+        .flat: DisplayRepresentation(title: "Ровно", synonyms: ["ровный", "обычный"]),
+        .bass: DisplayRepresentation(title: "Бас", synonyms: ["басы"]),
+        .rock: DisplayRepresentation(title: "Рок"),
+        .pop: DisplayRepresentation(title: "Поп"),
+        .vocal: DisplayRepresentation(title: "Вокал", synonyms: ["голос"]),
+        .jazz: DisplayRepresentation(title: "Джаз"),
+        .classic: DisplayRepresentation(title: "Классика"),
+        .electro: DisplayRepresentation(title: "Электроника"),
+        .treble: DisplayRepresentation(title: "Верха", synonyms: ["высокие"]),
+        .off: DisplayRepresentation(title: "выключить", synonyms: ["выкл"]),
+    ]
+}
+
 // MARK: - What to say
 
 struct VolnaShortcuts: AppShortcutsProvider {
@@ -255,5 +331,15 @@ struct VolnaShortcuts: AppShortcutsProvider {
             "Включи радио \(\.$station) в \(.applicationName)",
             "Включи радио в \(.applicationName)",
         ], shortTitle: "Радио", systemImageName: "dot.radiowaves.left.and.right")
+        AppShortcut(intent: SleepTimerIntent(), phrases: [
+            "Таймер сна \(\.$time) в \(.applicationName)",
+            "Выключи музыку через \(\.$time) в \(.applicationName)",
+            "Таймер сна в \(.applicationName)",
+        ], shortTitle: "Таймер сна", systemImageName: "moon.zzz")
+        AppShortcut(intent: PresetIntent(), phrases: [
+            "Эквалайзер \(\.$preset) в \(.applicationName)",
+            "Включи эквалайзер \(\.$preset) в \(.applicationName)",
+            "Эквалайзер в \(.applicationName)",
+        ], shortTitle: "Эквалайзер", systemImageName: "slider.vertical.3")
     }
 }

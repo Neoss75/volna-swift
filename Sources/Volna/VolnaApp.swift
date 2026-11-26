@@ -70,6 +70,7 @@ struct VolnaApp: App {
         SiriBridge.library = library
         SiriBridge.player = player
         SiriBridge.stations = stations
+        SiriBridge.settings = settings
     }
 
     var body: some Scene {

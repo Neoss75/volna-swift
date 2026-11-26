@@ -140,6 +140,14 @@ enum Demo {
         await wait(2)
         check("speed 1.5", abs(player.position - r - 3) < 0.8, String(format: "%.2f", player.position - r))
         settings.v.rate = 1
+        settings.v.semitones = 3
+        let r2 = player.position
+        await wait(2)
+        let pd = player.graph.decks[0].pitch
+        check("pitch without speed", pd.pitch == 300 && pd.rate == 1 && !pd.bypass && abs(player.position - r2 - 2) < 0.6,
+              String(format: "%.0f %.2f %.2f", pd.pitch, pd.rate, player.position - r2))
+        settings.v.semitones = 0
+        check("pitch back", player.graph.decks.allSatisfy { $0.pitch.bypass && $0.pitch.pitch == 0 }, "")
         settings.v.crossfade = 3
         player.seek(to: player.duration - 4)
         await wait(2.5)
@@ -185,6 +193,31 @@ enum Demo {
         PlayerBridge.toggle?()
         check("widget button", !player.isPlaying && !WidgetState.load().playing, "")
         PlayerBridge.toggle?()
+        let bandsBefore = settings.v.bands, eqBefore = settings.v.eqOn
+        let nextIndex = ((EQPreset.all.firstIndex { $0.id == settings.preset?.id } ?? 0) + 1) % EQPreset.all.count
+        PlayerBridge.nextPreset?()
+        await wait(0.3)
+        check("preset from the widget", settings.preset?.id == EQPreset.all[nextIndex].id && WidgetState.load().preset == tr(EQPreset.all[nextIndex].name),
+              "\(settings.preset?.id ?? "-") \(WidgetState.load().preset ?? "-")")
+        var presetIntent = PresetIntent()
+        presetIntent.preset = .rock
+        _ = try? await presetIntent.perform()
+        check("siri preset", settings.preset?.id == "rock" && settings.v.eqOn, "\(settings.preset?.id ?? "-")")
+        presetIntent.preset = .off
+        _ = try? await presetIntent.perform()
+        check("siri equaliser off", !settings.v.eqOn, "")
+        settings.v.bands = bandsBefore
+        settings.v.eqOn = eqBefore
+        var sleepIntent = SleepTimerIntent()
+        sleepIntent.time = .m30
+        _ = try? await sleepIntent.perform()
+        check("siri sleep timer", abs((player.sleepAt?.timeIntervalSinceNow ?? 0) - 1800) < 10, "\(player.sleepAt?.timeIntervalSinceNow ?? 0)")
+        sleepIntent.time = .song
+        _ = try? await sleepIntent.perform()
+        check("siri sleep at the end of the song", player.sleepAfterTrack && player.sleepAt == nil, "")
+        sleepIntent.time = .off
+        _ = try? await sleepIntent.perform()
+        check("siri sleep timer off", !player.sleepAfterTrack && player.sleepAt == nil, "")
         check("waveforms", library.tracks.allSatisfy { ($0.wave?.count ?? 0) == 180 && ($0.wave?.max() ?? 0) == 100 }, "\(library.tracks.map { $0.gainDb ?? 99 })")
         player.seek(to: 1)
         player.play(ids[0], from: ids)

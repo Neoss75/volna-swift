@@ -74,6 +74,9 @@ final class Settings: ObservableObject {
         var crossfade: Double = 0
         var rate: Double = 1
         var keepPitch = true
+        /// Up or down in semitones, the speed stays.
+        var semitones: Double = 0
+        var haptics = true
         var onlineArt = true
         var themeMode = "system"
         var accent = "amber"
@@ -104,6 +107,7 @@ final class Settings: ObservableObject {
         didSet {
             guard v != oldValue else { return }
             if v.language != oldValue.language { Lang.apply(v.language) }
+            Haptic.on = v.haptics
             save()
             onChange?()
         }
@@ -126,6 +130,7 @@ final class Settings: ObservableObject {
             v = base
         }
         Lang.apply(v.language)
+        Haptic.on = v.haptics
     }
 
     private static func dictionary(_ data: Data?) -> [String: Any] {
@@ -150,8 +155,22 @@ final class Settings: ObservableObject {
     var preset: EQPreset? { EQPreset.all.first { $0.bands == v.bands } }
 
     /// Anything on the settings screen that changes the sound, for the mark under the icon.
-    var fxActive: Bool { v.direct || v.bass != 0 || v.balance != 0 || v.rate != 1 || v.normalize || v.crossfade > 0 }
+    var fxActive: Bool { v.direct || v.bass != 0 || v.balance != 0 || v.rate != 1 || v.semitones != 0 || v.normalize || v.crossfade > 0 }
     var eqActive: Bool { v.eqOn && !v.direct && preset?.id != "flat" }
+
+    /// The next preset of the equaliser, from the widget and the Control Centre.
+    func nextPreset() {
+        let all = EQPreset.all, i = preset.flatMap { p in all.firstIndex { $0.id == p.id } } ?? 0
+        v.bands = all[(i + 1) % all.count].bands
+        v.eqOn = true
+        toast(tr("Эквалайзер: ") + tr(all[(i + 1) % all.count].name))
+    }
+
+    /// What the widget writes under the buttons.
+    var presetName: String {
+        guard v.eqOn, !v.direct else { return tr("выключен") }
+        return preset.map { tr($0.name) } ?? tr("Свой")
+    }
 
     func cycleColors() {
         let all = VizColors.allCases, i = all.firstIndex(of: v.vizPalette) ?? 0

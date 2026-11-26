@@ -10,6 +10,8 @@ struct WidgetState: Codable, Equatable {
     var accent = "amber"
     var coverVersion = ""
     var lang: String?
+    /// The preset of the equaliser, already in the language of the app.
+    var preset: String?
 
     static let group = "group.com.neoss75.volna"
 
@@ -55,6 +57,7 @@ enum PlayerBridge {
     static var toggle: (() -> Void)?
     static var next: (() -> Void)?
     static var previous: (() -> Void)?
+    static var nextPreset: (() -> Void)?
 }
 
 struct ToggleIntent: AudioPlaybackIntent {
@@ -71,6 +74,15 @@ struct NextIntent: AudioPlaybackIntent {
 
     func perform() async throws -> some IntentResult {
         await MainActor.run { PlayerBridge.next?() }
+        return .result()
+    }
+}
+
+struct NextPresetIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Следующая настройка эквалайзера"
+
+    func perform() async throws -> some IntentResult {
+        await MainActor.run { PlayerBridge.nextPreset?() }
         return .result()
     }
 }

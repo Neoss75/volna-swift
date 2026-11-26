@@ -28,7 +28,7 @@ for line in body.split("\n"):
         bad.append("Russian letters in Ukrainian: " + line)
 
 # these are Russian on purpose: data, regular expressions, names translated where they are shown
-DATA = {"Siri.swift", "CueTest.swift", "HeadphoneTest.swift", "WifiTest.swift", "RadioTest.swift", "MetadataReader.swift", "Demo.swift", "Covers.swift", "Translations.swift", "Lang.swift", "WidgetState.swift"}
+DATA = {"Siri.swift", "CueTest.swift", "HeadphoneTest.swift", "WifiTest.swift", "RadioTest.swift", "MetadataReader.swift", "Demo.swift", "Covers.swift", "Translations.swift", "Lang.swift", "WidgetState.swift", "Controls.swift"}
 LINES = re.compile(r'EQPreset\(id|Accent\(id|case songs = |"я"|"волна"|source: "|"синхр"|lyrics\?\.source|configurationDisplayName|\.description\(|^\s+\("(Аудио|Графика|Музыка|Прочее)"')
 used = set()
 for top in ("Sources", "Shared", "Widget"):
@@ -48,8 +48,8 @@ for k in sorted(used - set(table)):
     if re.search("[А-Яа-яЁё]", k):
         bad.append("no translation: " + k)
 # texts that iOS translates itself
-siri = read("Sources/Volna/Siri.swift") + read("Shared/WidgetState.swift")
-names = set(re.findall(r'(?:LocalizedStringResource = |shortTitle: |\(title: |\(name: )"([А-Яа-яЁё][^"]*)"', siri))
+siri = read("Sources/Volna/Siri.swift") + read("Shared/WidgetState.swift") + read("Widget/Controls.swift")
+names = set(re.findall(r'(?:LocalizedStringResource = |shortTitle: |\(title: |\(name: |Label\(|displayName\(|description\()"([А-Яа-яЁё][^"]*)"', siri))
 phrases = {re.sub(r"\\\(\.applicationName\)", "${applicationName}", re.sub(r"\\\(\\\.\$(\w+)\)", r"${\1}", x))
            for x in re.findall(r'^\s+"(.*applicationName\))",$', siri, re.M)}
 for code in ("ru", "uk", "en"):

@@ -12,3 +12,9 @@
 "Включи плейлист в ${applicationName}" = "Увімкни плейлист у ${applicationName}";
 "Включи радио ${station} в ${applicationName}" = "Увімкни радіо ${station} у ${applicationName}";
 "Включи радио в ${applicationName}" = "Увімкни радіо у ${applicationName}";
+"Таймер сна ${time} в ${applicationName}" = "Таймер сну ${time} у ${applicationName}";
+"Выключи музыку через ${time} в ${applicationName}" = "Вимкни музику через ${time} у ${applicationName}";
+"Таймер сна в ${applicationName}" = "Таймер сну в ${applicationName}";
+"Эквалайзер ${preset} в ${applicationName}" = "Еквалайзер ${preset} у ${applicationName}";
+"Включи эквалайзер ${preset} в ${applicationName}" = "Увімкни еквалайзер ${preset} у ${applicationName}";
+"Эквалайзер в ${applicationName}" = "Еквалайзер у ${applicationName}";

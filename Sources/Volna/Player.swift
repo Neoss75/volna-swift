@@ -99,6 +99,7 @@ final class Player: ObservableObject {
         PlayerBridge.toggle = { [weak self] in self?.toggle() }
         PlayerBridge.next = { [weak self] in self?.next() }
         PlayerBridge.previous = { [weak self] in self?.previous() }
+        PlayerBridge.nextPreset = { [weak self] in self?.settings.nextPreset() }
         publishWidget()
     }
 
@@ -723,6 +724,7 @@ final class Player: ObservableObject {
         s.playing = isPlaying
         s.accent = settings.v.accent
         s.lang = Lang.current.rawValue
+        s.preset = settings.presetName
         if !key.isEmpty, let image { s.coverVersion = "\(key) \(ObjectIdentifier(image).hashValue)" }
         guard s != widgetState else { return }
         if s.coverVersion != widgetState.coverVersion { WidgetState.saveCover(image) }

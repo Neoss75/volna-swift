@@ -183,8 +183,11 @@ struct CoverArea: View {
     @EnvironmentObject private var player: Player
     @EnvironmentObject private var settings: Settings
     @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var library: Library
     @State private var shift: CGFloat = 0
     @State private var fadeOut = false
+    /// The heart over the cover after a double tap: filled when liked, crossed out when not.
+    @State private var heart: Bool?
 
     var body: some View {
         if settings.v.lyricsOn, player.radio == nil {
@@ -203,23 +206,50 @@ struct CoverArea: View {
                 }
                 .offset(x: shift)
                 .opacity(fadeOut ? 0 : 1)
+                .overlay {
+                    if let heart {
+                        Image(systemName: heart ? "heart.fill" : "heart.slash.fill")
+                            .font(.system(size: min(110, side * 0.4)))
+                            .foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.4), radius: 12)
+                            .transition(.scale(scale: 0.4).combined(with: .opacity))
+                            .allowsHitTesting(false)
+                    }
+                }
                 .frame(width: geo.size.width, height: geo.size.height)
                 .contentShape(Rectangle())
+                .onTapGesture(count: 2) { like() }
                 .gesture(DragGesture(minimumDistance: 20)
                     .onEnded { g in
                         let dx = g.translation.width
                         if SwipeUp.isUp(g.translation) { return ui.panel = .fx }
                         guard abs(dx) > 50, abs(dx) > abs(g.translation.height) * 1.4, player.radio != nil || !player.queue.isEmpty else { return }
                         if dx < 0 {
+                            Haptic.tap()
                             swipe(-1)
                             player.next()
                         } else if player.previousTrack() {
+                            Haptic.tap()
                             swipe(1)
                         }
                     })
             }
             .accessibilityElement()
             .accessibilityLabel(tr("Обложка. Смахивание переключает песню"))
+            .accessibilityHint(player.current == nil ? "" : tr("Двойное нажатие: в избранное"))
+            .accessibilityAction { like() }
+        }
+    }
+
+    /// Double tap on the cover: the song goes to the favourites or leaves them.
+    private func like() {
+        guard player.radio == nil, let t = player.current else { return }
+        library.toggleFavourite(t.id)
+        let on = library.isFavourite(t.id)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { heart = on }
+        Task {
+            try? await Task.sleep(for: .seconds(0.7))
+            withAnimation(.easeOut(duration: 0.25)) { heart = nil }
         }
     }
 
@@ -468,9 +498,15 @@ struct Transport: View {
                 small(player.shuffle ? tr("Перемешивание включено") : tr("Перемешать"), "shuffle", on: player.shuffle) { player.toggleShuffle() }
             }
             Spacer()
-            side(tr("Предыдущий"), "backward.end.fill") { player.previous() }
+            side(tr("Предыдущий"), "backward.end.fill") {
+                Haptic.tap()
+                player.previous()
+            }
             Spacer()
-            Button { player.toggle() } label: {
+            Button {
+                Haptic.tap()
+                player.toggle()
+            } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: compact ? 24 : 30))
                     .foregroundStyle(Theme.accentInk)
@@ -481,7 +517,10 @@ struct Transport: View {
             .buttonStyle(.plain)
             .accessibilityLabel(player.isPlaying ? tr("Пауза") : tr("Играть"))
             Spacer()
-            side(tr("Следующий"), "forward.end.fill") { player.next() }
+            side(tr("Следующий"), "forward.end.fill") {
+                Haptic.tap()
+                player.next()
+            }
             Spacer()
             if player.radio != nil {
                 small(tr("Вернуться к песням"), "music.note", on: false) { player.leaveRadio() }

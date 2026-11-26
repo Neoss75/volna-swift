@@ -43,6 +43,15 @@ struct VolnaWidgetView: View {
 }
 
 @main
+struct VolnaWidgets: WidgetBundle {
+    var body: some Widget {
+        VolnaWidget()
+        PlayPauseControl()
+        NextSongControl()
+        PresetControl()
+    }
+}
+
 struct VolnaWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "VolnaNowPlaying", provider: VolnaProvider()) { VolnaWidgetView(entry: $0) }

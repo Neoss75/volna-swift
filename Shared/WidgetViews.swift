@@ -80,7 +80,7 @@ struct MediumWidgetView: View {
     var body: some View {
         HStack(spacing: 16) {
             WidgetCover(image: cover, accent: state.accentColor).aspectRatio(1, contentMode: .fit)
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 WidgetTitles(state: state)
                 HStack(spacing: 20) {
                     Button(intent: PreviousIntent()) { icon("backward.end.fill") }.accessibilityLabel(tr("Предыдущая"))
@@ -88,6 +88,19 @@ struct MediumWidgetView: View {
                     Button(intent: NextIntent()) { icon("forward.end.fill") }.accessibilityLabel(tr("Следующая"))
                 }
                 .buttonStyle(.plain)
+                if let p = state.preset {
+                    Button(intent: NextPresetIntent()) {
+                        Label(tr("Эквалайзер: ") + p, systemImage: "slider.vertical.3")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(widgetFg)
+                            .lineLimit(1)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(tr("Следующая настройка эквалайзера"))
+                }
             }
             Spacer(minLength: 0)
         }

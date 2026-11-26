@@ -461,9 +461,11 @@ final class Library: ObservableObject {
 
     func toggleFavourite(_ id: UUID) {
         if favourites.remove(id) != nil {
+            Haptic.liked(false)
             toast(tr("Убрано из избранного"))
         } else {
             favourites.insert(id)
+            Haptic.liked(true)
             toast(tr("Добавлено в избранное"))
         }
         scheduleSave()

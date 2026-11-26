@@ -323,10 +323,11 @@ final class AudioGraph {
         eq.bypass = v.direct
         limiter.bypass = !v.limiter || v.direct
         out.pan = v.direct ? 0 : Float(v.balance / 100)
+        let cents = v.direct ? 0 : (v.keepPitch ? 0 : 1200 * log2(v.rate)) + v.semitones * 100
         for d in decks {
-            d.pitch.rate = Float(v.rate)
-            d.pitch.pitch = v.keepPitch ? 0 : Float(1200 * log2(v.rate))
-            d.pitch.bypass = v.effectiveRate == 1
+            d.pitch.rate = Float(v.effectiveRate)
+            d.pitch.pitch = Float(cents)
+            d.pitch.bypass = v.effectiveRate == 1 && cents == 0
         }
     }
 

@@ -68,6 +68,18 @@ final class GestureTests: XCTestCase {
         XCTAssertFalse(app.navigationBars["Настройки"].exists, "songs opened the settings")
     }
 
+    func testDoubleTapLikes() {
+        start()
+        XCTAssertTrue(app.buttons["Добавить в избранное"].exists, "the song is not a favourite at the start")
+        cover.doubleTap()
+        XCTAssertTrue(app.buttons["Убрать из избранного"].waitForExistence(timeout: 4), "double tap did not like the song")
+        XCTAssertFalse(app.navigationBars["Настройки"].exists, "double tap opened the settings")
+        XCTAssertTrue(app.staticTexts["Обійми"].exists, "double tap changed the song")
+        sleep(2)
+        cover.doubleTap()
+        XCTAssertTrue(app.buttons["Добавить в избранное"].waitForExistence(timeout: 4), "second double tap did not take the like back")
+    }
+
     func testStationFromSearchKeepsWholeList() {
         start(["-radio"])
         app.buttons["Радио"].firstMatch.tap()
