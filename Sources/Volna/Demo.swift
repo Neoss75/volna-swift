@@ -39,6 +39,7 @@ enum Demo {
         // the simulator keeps the settings from the screenshot before
         settings.v.buttons = value("-buttons") ?? "classic"
         settings.v.glass = value("-glass").flatMap(Double.init) ?? 0.4
+        settings.v.accent = value("-accent") ?? "amber"
         settings.v.lyricsOn = args.contains("-lyrics")
         if args.contains("-waiting") {
             _ = library.restore(favourites: [], playlists: [], songs: [

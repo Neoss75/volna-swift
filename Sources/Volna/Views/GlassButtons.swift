@@ -17,9 +17,9 @@ enum ButtonLook: String, CaseIterable, Identifiable {
     /// The ink of icons and words on this glass: dark on chrome, the usual text colour on clear and frosted glass.
     var ink: Color { self == .chrome ? Color(white: 0.16) : Theme.fg }
 
-    /// The ink on glass coloured with the accent: a strongly coloured body takes the ink made for the accent colour.
+    /// The ink on glass coloured with the accent: the coloured body takes the ink made for the accent colour.
     func tintedInk(_ clearness: Double) -> Color {
-        self == .chrome ? ink : clearness < 0.5 ? Theme.accentInk : Theme.fg
+        self == .chrome ? ink : Theme.accentInk
     }
 
     static func of(_ s: String) -> ButtonLook { ButtonLook(rawValue: s) ?? .classic }
@@ -53,16 +53,30 @@ struct GlassBody<S: InsettableShape>: View {
                         Capsule().fill(light).frame(width: max(0, w - h * 0.5), height: h * 0.46)
                     }
                 }
-                .offset(y: -h * 0.21)
-                // the rim: light at the top, darker at the bottom
-                shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.95), .white.opacity(0.2), .black.opacity(0.3)], startPoint: .top, endPoint: .bottom),
+                .opacity(pressed ? 0.35 : 1)
+                .offset(y: pressed ? h * 0.24 : -h * 0.21)
+                if pressed {
+                    // pushed in: the upper edge falls into shade, like a dent
+                    shape.fill(LinearGradient(colors: [.black.opacity(0.45), .black.opacity(0)], startPoint: .top, endPoint: UnitPoint(x: 0.5, y: 0.6)))
+                }
+                // the rim: light at the top, darker at the bottom; turned over when pushed in
+                shape.strokeBorder(LinearGradient(colors: pressed ? [.black.opacity(0.45), .white.opacity(0.15), .white.opacity(0.75)]
+                                                                  : [.white.opacity(0.95), .white.opacity(0.2), .black.opacity(0.3)],
+                                                  startPoint: .top, endPoint: .bottom),
                                    lineWidth: h > 60 ? 2.2 : h > 26 ? 1.6 : 1)
             }
             .frame(width: w, height: h)
             .clipShape(shape)
         }
         .compositingGroup()
-        .shadow(color: .black.opacity(0.18 + 0.22 * seen), radius: pressed ? 2 : 6, y: pressed ? 1 : 4)
+        .shadow(color: glow, radius: pressed ? 1 : 6, y: pressed ? 0.5 : 4)
+    }
+
+    /// A coloured button glows in its colour, the others cast a plain shadow; pushed in, almost none.
+    private var glow: Color {
+        if pressed { return .black.opacity(0.1) }
+        if let tint { return tint.opacity(0.6) }
+        return .black.opacity(0.18 + 0.22 * seen)
     }
 
     @ViewBuilder private func base(_ w: CGFloat, _ h: CGFloat, round: Bool) -> some View {
@@ -79,17 +93,17 @@ struct GlassBody<S: InsettableShape>: View {
                     }
                 }
                 .opacity(seen)
-                if let tint { shape.fill(tint.opacity(0.3 * seen + 0.1)) }
+                if let tint { shape.fill(tint.opacity(0.4 * seen + 0.25)) }
             }
         case .frosted:
             ZStack {
                 shape.fill(.thickMaterial).opacity(0.3 + 0.7 * seen)
-                shape.fill((tint ?? .white).opacity(tint == nil ? 0.12 * seen : 0.25 + 0.55 * seen))
+                shape.fill((tint ?? .white).opacity(tint == nil ? 0.12 * seen : 0.55 + 0.4 * seen))
             }
         case .glass, .classic:
             ZStack {
                 shape.fill(.ultraThinMaterial).opacity(seen)
-                shape.fill((tint ?? .white).opacity(tint == nil ? 0.08 + 0.1 * seen : 0.25 + 0.55 * seen))
+                shape.fill((tint ?? .white).opacity(tint == nil ? 0.08 + 0.1 * seen : 0.55 + 0.4 * seen))
             }
         }
     }
@@ -118,8 +132,9 @@ struct Orb<Label: View>: View {
             .shadow(color: .black.opacity(0.22), radius: 0.8, y: 0.8)
             .frame(width: size, height: size)
             .background(GlassBody(look: look, clearness: clearness, shape: Circle(), tint: tint, pressed: pressed))
-            .scaleEffect(pressed ? 0.93 : 1)
-            .brightness(pressed ? -0.07 : 0)
+            .scaleEffect(pressed ? 0.9 : 1)
+            .offset(y: pressed ? 1.5 : 0)
+            .brightness(pressed ? -0.05 : 0)
             .animation(.spring(response: 0.25, dampingFraction: 0.6), value: pressed)
     }
 }
@@ -153,12 +168,41 @@ struct PlayerGlass<S: InsettableShape>: ViewModifier {
     }
 }
 
-/// A press that only dims: for the items of the menu bar on glass.
+/// The press of a menu bar item: it dims, and on glass a dent appears under it.
 struct DimPress: ButtonStyle {
+    var look = ButtonLook.classic
+
     func makeBody(configuration: Configuration) -> some View {
+        let p = configuration.isPressed, glass = look != .classic
         configuration.label
-            .opacity(configuration.isPressed ? 0.55 : 1)
-            .scaleEffect(configuration.isPressed ? 0.9 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .background {
+                if p && glass {
+                    Circle()
+                        .fill(LinearGradient(colors: [.black.opacity(0.35), .white.opacity(0.12)], startPoint: .top, endPoint: .bottom))
+                        .overlay(Circle().strokeBorder(LinearGradient(colors: [.black.opacity(0.35), .white.opacity(0.55)], startPoint: .top, endPoint: .bottom), lineWidth: 1))
+                        .frame(width: 42, height: 42)
+                }
+            }
+            .opacity(p && !glass ? 0.55 : 1)
+            .scaleEffect(p ? 0.9 : 1)
+            .offset(y: p && glass ? 1 : 0)
+            .animation(.easeOut(duration: 0.12), value: p)
+    }
+}
+
+/// A glass pill that sinks in when pressed: the A–B button.
+struct GlassPillStyle: ButtonStyle {
+    let look: ButtonLook
+    let clearness: Double
+    var tint: Color?
+
+    func makeBody(configuration: Configuration) -> some View {
+        let p = configuration.isPressed
+        configuration.label
+            .background(GlassBody(look: look, clearness: clearness, shape: Capsule(), tint: tint, pressed: p))
+            .scaleEffect(p ? 0.92 : 1)
+            .offset(y: p ? 1 : 0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: p)
+            .contentShape(Capsule())
     }
 }

@@ -116,6 +116,9 @@ shot 10d-chrome -buttons chrome -theme dark
 shot 10e-chrome-light -buttons chrome -theme light
 shot 10f-glass-clear -buttons glass -glass 0.9 -theme dark
 shot 10g-buttons-settings -panel fx -page theme -buttons chrome -theme dark
+shot 10h-sky-loop -buttons glass -theme dark -accent sky -loop
+shot 10i-sky-loop-light -buttons glass -theme light -accent sky -loop
+shot 10j-sky-direct -buttons glass -theme dark -accent sky -lossless
 shot 10-light -theme light
 shot 11-widgets -widgets -theme dark
 shot 12-land-bars -landscape -theme dark -viz bars

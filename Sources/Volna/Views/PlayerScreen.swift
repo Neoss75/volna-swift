@@ -168,7 +168,7 @@ struct OutputBadges: View {
             Text(text)
                 .font(.system(size: 10, weight: .heavy))
                 .kerning(0.5)
-                .foregroundStyle(on ? look.tintedInk(settings.v.glass) : look.ink.opacity(look == .chrome ? 1 : 0.75))
+                .foregroundStyle(on ? look.tintedInk(settings.v.glass) : look.ink.opacity(look == .chrome ? 0.7 : 0.55))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(GlassBody(look: look, clearness: settings.v.glass, shape: Capsule(), tint: on ? settings.accent : nil))
@@ -471,6 +471,28 @@ struct LoopButton: View {
 
     var body: some View {
         let on = player.loopB != nil, half = player.loopA != nil && !on
+        button(on: on, half: half)
+            .accessibilityLabel(tr("Повтор отрезка"))
+            .accessibilityValue(on ? tr("включён") : half ? tr("начало отмечено, нажмите в конце") : tr("выключен"))
+    }
+
+    @ViewBuilder private func button(on: Bool, half: Bool) -> some View {
+        let look = ButtonLook.of(settings.v.buttons)
+        if look != .classic {
+            Button { player.markLoop() } label: {
+                Text(half ? "A–…" : "A–B")
+                    .font(.mono(11, .semibold))
+                    .foregroundStyle(on ? look.tintedInk(settings.v.glass) : half ? settings.accent : look.ink.opacity(0.8))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+            }
+            .buttonStyle(GlassPillStyle(look: look, clearness: settings.v.glass, tint: on ? settings.accent : nil))
+        } else {
+            plain(on: on, half: half)
+        }
+    }
+
+    private func plain(on: Bool, half: Bool) -> some View {
         Button { player.markLoop() } label: {
             Text(half ? "A–…" : "A–B")
                 .font(.mono(11, .semibold))
@@ -484,8 +506,6 @@ struct LoopButton: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(tr("Повтор отрезка"))
-        .accessibilityValue(on ? tr("включён") : half ? tr("начало отмечено, нажмите в конце") : tr("выключен"))
     }
 }
 
@@ -614,10 +634,8 @@ struct Transport: View {
             .buttonStyle(.plain)
             .accessibilityLabel(label)
         } else {
-            // a strongly coloured body takes the ink made for the accent colour, a clear one the usual ink
-            let strong = look != .chrome && settings.v.glass < 0.5
             orb(label, icon, size: compact ? 58 : 76, iconSize: compact ? 24 : 30, tint: settings.accent,
-                color: look == .chrome ? ink : strong ? Theme.accentInk : Theme.fg) {
+                color: look.tintedInk(settings.v.glass)) {
                 Haptic.tap()
                 player.toggle()
             }
@@ -638,7 +656,8 @@ struct Transport: View {
 
     @ViewBuilder private func small(_ label: String, _ icon: String, on: Bool, _ action: @escaping () -> Void) -> some View {
         if look != .classic {
-            orb(label, icon, size: compact ? 42 : 48, iconSize: compact ? 15 : 17, color: on ? settings.accent : ink, action)
+            orb(label, icon, size: compact ? 42 : 48, iconSize: compact ? 15 : 17, tint: on ? settings.accent : nil,
+                color: on ? look.tintedInk(settings.v.glass) : ink, action)
         } else {
             smallPlain(label, icon, on: on, action)
         }
@@ -764,10 +783,10 @@ struct MenuBar: View {
                     if count > 0 {
                         Text(count > 99 ? "99+" : "\(count)")
                             .font(.mono(9.5, .medium))
-                            .foregroundStyle(Theme.fg)
+                            .foregroundStyle(look == .classic ? Theme.fg : Theme.accentInk)
                             .padding(.horizontal, 4)
                             .frame(minWidth: 16, minHeight: 15)
-                            .background(Capsule().fill(Theme.raise))
+                            .background(Capsule().fill(look == .classic ? Theme.raise : settings.accent))
                             .offset(x: 13, y: 6)
                     }
                 }
@@ -776,7 +795,7 @@ struct MenuBar: View {
                 }
                 .contentShape(Rectangle())
         }
-        .buttonStyle(DimPress())
+        .buttonStyle(DimPress(look: look))
         .accessibilityLabel(label)
     }
 
