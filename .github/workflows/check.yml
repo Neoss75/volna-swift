@@ -9,8 +9,8 @@ on:
 
 jobs:
   check:
-    # the image with Xcode 27 and the iOS 27 SDK (Apple wants it for uploads from April 2027)
-    runs-on: xcode-27
+    # Xcode 27 builds the app too (checked 27.11.2026 on the xcode-27 image, still a preview there): move before April 2027
+    runs-on: macos-15
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -26,8 +26,7 @@ jobs:
 
       - name: Generate the Xcode project
         run: |
-          X=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -n 1)
-          sudo xcode-select -s "${X:-/Applications/Xcode.app}"
+          sudo xcode-select -s /Applications/Xcode_26.3.app
           xcodebuild -version
           xcodebuild -showsdks | grep -i ios
           command -v xcodegen >/dev/null || brew install xcodegen

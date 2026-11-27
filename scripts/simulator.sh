@@ -61,7 +61,7 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='.'
+ONLY='^10a'
 # The touch tests take 4-8 minutes: TOUCH=1 only when buttons or gestures change
 TOUCH=1
 shot() { # shot <name> <arguments…>
