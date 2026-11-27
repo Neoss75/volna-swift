@@ -239,7 +239,7 @@ enum Demo {
         await wait(0.3)
         check("preset from the widget", settings.preset?.id == EQPreset.all[nextIndex].id && WidgetState.load().preset == tr(EQPreset.all[nextIndex].name),
               "\(settings.preset?.id ?? "-") \(WidgetState.load().preset ?? "-")")
-        var presetIntent = PresetIntent()
+        let presetIntent = PresetIntent()
         presetIntent.preset = .rock
         _ = try? await presetIntent.perform()
         check("siri preset", settings.preset?.id == "rock" && settings.v.eqOn, "\(settings.preset?.id ?? "-")")
@@ -248,7 +248,7 @@ enum Demo {
         check("siri equaliser off", !settings.v.eqOn, "")
         settings.v.bands = bandsBefore
         settings.v.eqOn = eqBefore
-        var sleepIntent = SleepTimerIntent()
+        let sleepIntent = SleepTimerIntent()
         sleepIntent.time = .m30
         _ = try? await sleepIntent.perform()
         check("siri sleep timer", abs((player.sleepAt?.timeIntervalSinceNow ?? 0) - 1800) < 10, "\(player.sleepAt?.timeIntervalSinceNow ?? 0)")

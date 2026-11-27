@@ -879,8 +879,8 @@ private struct BackupPage: View {
                 Button(tr("Восстановить"), role: .destructive) { restore() }
                 Button(tr("Отмена"), role: .cancel) { found = nil }
             } message: {
-                Text(found.map { tr("Копия от {}.", $0.made.formatted(date: .long, time: .shortened)) + " " } ?? "")
-                    + Text(tr("Настройки, станции, профили наушников и статистика будут заменены."))
+                Text((found.map { tr("Копия от {}.", $0.made.formatted(date: .long, time: .shortened)) + " " } ?? "")
+                     + tr("Настройки, станции, профили наушников и статистика будут заменены."))
             }
     }
 

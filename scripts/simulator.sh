@@ -8,9 +8,10 @@ mkdir -p shots
 t() { local s="$1"; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
 say() { echo "[$(date +%T)] $*"; }
 
-RUNTIME=$(xcrun simctl list runtimes | grep -E '^iOS 2[6-9]' | sort -V | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimRuntime\.iOS-[0-9-]+')
+# the identifier is the last word of the line
+RUNTIME=$(xcrun simctl list runtimes | grep -E '^iOS 2[6-9]' | sort -V | tail -n 1 | awk '{print $NF}')
 [ -n "$RUNTIME" ] || { echo "::error::no iOS 26+ simulator here"; xcrun simctl list runtimes; exit 1; }
-TYPE=$(xcrun simctl list devicetypes | grep -E 'iPhone 1[6-9] Pro Max' | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimDeviceType\.[A-Za-z0-9-]+')
+TYPE=$(xcrun simctl list devicetypes | grep -E 'iPhone 1[6-9] Pro Max' | sort -V | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimDeviceType\.[A-Za-z0-9-]+')
 echo "$RUNTIME $TYPE"
 DEV=$(xcrun simctl create volna "$TYPE" "$RUNTIME")
 say boot
