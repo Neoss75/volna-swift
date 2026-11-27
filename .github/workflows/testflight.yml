@@ -7,10 +7,16 @@
 #   ASC_ISSUER_ID   — Issuer ID shown above the list of keys
 #   ASC_KEY_P8      — full text of the AuthKey_XXXX.p8 file
 # Runs after every upload to main that changes the app (not only documents), or by hand: Actions → "TestFlight" → Run workflow.
+# By hand with "ipa_only" ticked it skips TestFlight and keeps an unsigned Volna-swift.ipa (to sign with AltStore or Sideloadly).
 name: TestFlight
 
 on:
   workflow_dispatch:
+    inputs:
+      ipa_only:
+        description: 'Only an unsigned .ipa, no TestFlight upload'
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths-ignore: ['**.md', 'LICENSE*', '.gitignore', '.gitattributes', '.github/**', 'UITests/**']
@@ -31,7 +37,10 @@ jobs:
       - name: Check the Apple keys are set
         id: keys
         run: |
-          if [ -z "$TEAM_ID" ] || [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8" ]; then
+          if [ "${{ inputs.ipa_only }}" = "true" ]; then
+            echo "::notice::Only an unsigned .ipa this time, no TestFlight upload"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$TEAM_ID" ] || [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8" ]; then
             echo "::warning::Apple keys are not set yet (see the top of testflight.yml): only a build check, no TestFlight upload"
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
@@ -58,7 +67,7 @@ jobs:
           xcodegen generate
           xcodebuild -version
 
-      - name: Build only (no keys yet)
+      - name: Build only (no keys, or only an .ipa asked for)
         if: steps.keys.outputs.ok != 'true'
         run: |
           mkdir -p build
