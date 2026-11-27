@@ -8,9 +8,9 @@ mkdir -p shots
 t() { local s="$1"; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
 say() { echo "[$(date +%T)] $*"; }
 
-RUNTIME=$(xcrun simctl list runtimes | grep -E '^iOS 26' | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimRuntime\.iOS-[0-9-]+')
-[ -n "$RUNTIME" ] || { echo "::error::no iOS 26 simulator here"; xcrun simctl list runtimes; exit 1; }
-TYPE=$(xcrun simctl list devicetypes | grep -E 'iPhone 1[67] Pro Max' | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimDeviceType\.[A-Za-z0-9-]+')
+RUNTIME=$(xcrun simctl list runtimes | grep -E '^iOS 2[6-9]' | sort -V | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimRuntime\.iOS-[0-9-]+')
+[ -n "$RUNTIME" ] || { echo "::error::no iOS 26+ simulator here"; xcrun simctl list runtimes; exit 1; }
+TYPE=$(xcrun simctl list devicetypes | grep -E 'iPhone 1[6-9] Pro Max' | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimDeviceType\.[A-Za-z0-9-]+')
 echo "$RUNTIME $TYPE"
 DEV=$(xcrun simctl create volna "$TYPE" "$RUNTIME")
 say boot
@@ -55,9 +55,9 @@ xcrun simctl uninstall "$DEV" $ID
 xcrun simctl install "$DEV" "$APP"
 
 # Only the screens touched by the current change, all of them take 20 minutes: ONLY='.'
-ONLY='^1[01]'
+ONLY='.'
 # The touch tests take 4-8 minutes: TOUCH=1 only when buttons or gestures change
-TOUCH=0
+TOUCH=1
 shot() { # shot <name> <arguments…>
   local name="$1"; shift
   [[ "$name" =~ $ONLY ]] || return 0
