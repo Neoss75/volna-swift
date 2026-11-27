@@ -479,14 +479,16 @@ struct LoopButton: View {
     @ViewBuilder private func button(on: Bool, half: Bool) -> some View {
         let look = ButtonLook.of(settings.v.buttons)
         if look != .classic {
-            Button { player.markLoop() } label: {
-                Text(half ? "A–…" : "A–B")
-                    .font(.mono(11, .semibold))
-                    .foregroundStyle(on ? look.tintedInk(settings.v.glass) : half ? settings.accent : look.ink.opacity(0.8))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
+            Pressable(action: { player.markLoop() }) { pulse, act in
+                Button(action: act) {
+                    Text(half ? "A–…" : "A–B")
+                        .font(.mono(11, .semibold))
+                        .foregroundStyle(on ? look.tintedInk(settings.v.glass) : half ? settings.accent : look.ink.opacity(0.8))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                }
+                .buttonStyle(GlassPillStyle(look: look, clearness: settings.v.glass, tint: on ? settings.accent : nil, pulse: pulse))
             }
-            .buttonStyle(GlassPillStyle(look: look, clearness: settings.v.glass, tint: on ? settings.accent : nil))
         } else {
             plain(on: on, half: half)
         }
@@ -644,13 +646,15 @@ struct Transport: View {
 
     private func orb(_ label: String, _ icon: String, size: CGFloat, iconSize: CGFloat, tint: Color? = nil, color: Color,
                      _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: iconSize, weight: .semibold))
-                .foregroundStyle(color)
-                .contentTransition(.symbolEffect(.replace))
+        Pressable(action: action) { pulse, act in
+            Button(action: act) {
+                Image(systemName: icon)
+                    .font(.system(size: iconSize, weight: .semibold))
+                    .foregroundStyle(color)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(OrbButtonStyle(look: look, clearness: settings.v.glass, size: size, tint: tint, pulse: pulse))
         }
-        .buttonStyle(OrbButtonStyle(look: look, clearness: settings.v.glass, size: size, tint: tint))
         .accessibilityLabel(label)
     }
 
@@ -772,6 +776,13 @@ struct MenuBar: View {
     }
 
     private func item(_ label: String, _ icon: String, count: Int = 0, on: Bool = false, dot: Bool = false, _ action: @escaping () -> Void) -> some View {
+        Pressable(action: action) { pulse, act in
+            itemButton(icon, count: count, on: on, dot: dot, pulse: pulse, act)
+        }
+        .accessibilityLabel(label)
+    }
+
+    private func itemButton(_ icon: String, count: Int, on: Bool, dot: Bool, pulse: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 19, weight: .medium))
@@ -795,8 +806,7 @@ struct MenuBar: View {
                 }
                 .contentShape(Rectangle())
         }
-        .buttonStyle(DimPress(look: look))
-        .accessibilityLabel(label)
+        .buttonStyle(DimPress(look: look, pulse: pulse))
     }
 
     private var look: ButtonLook { ButtonLook.of(settings.v.buttons) }

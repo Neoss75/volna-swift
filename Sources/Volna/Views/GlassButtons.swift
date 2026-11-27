@@ -139,15 +139,42 @@ struct Orb<Label: View>: View {
     }
 }
 
+/// A button whose press is always seen. The swipe-up gesture around the player buttons holds the touch back
+/// until the finger lifts, so the button is "pressed" only for an instant: a tap keeps it pushed in a little longer.
+struct Pressable<Content: View>: View {
+    let action: () -> Void
+    let content: (_ pulse: Bool, _ action: @escaping () -> Void) -> Content
+    @State private var pulse = false
+    @State private var release: Task<Void, Never>?
+
+    init(action: @escaping () -> Void, @ViewBuilder content: @escaping (_ pulse: Bool, _ action: @escaping () -> Void) -> Content) {
+        self.action = action
+        self.content = content
+    }
+
+    var body: some View {
+        content(pulse) {
+            pulse = true
+            action()
+            release?.cancel()
+            release = Task {
+                try? await Task.sleep(for: .milliseconds(200))
+                if !Task.isCancelled { pulse = false }
+            }
+        }
+    }
+}
+
 /// A button drawn as an orb that sinks in when pressed.
 struct OrbButtonStyle: ButtonStyle {
     let look: ButtonLook
     let clearness: Double
     let size: CGFloat
     var tint: Color?
+    var pulse = false
 
     func makeBody(configuration: Configuration) -> some View {
-        Orb(look: look, clearness: clearness, size: size, tint: tint, pressed: configuration.isPressed) { configuration.label }
+        Orb(look: look, clearness: clearness, size: size, tint: tint, pressed: configuration.isPressed || pulse) { configuration.label }
             .contentShape(Circle())
     }
 }
@@ -171,9 +198,10 @@ struct PlayerGlass<S: InsettableShape>: ViewModifier {
 /// The press of a menu bar item: it dims, and on glass a dent appears under it.
 struct DimPress: ButtonStyle {
     var look = ButtonLook.classic
+    var pulse = false
 
     func makeBody(configuration: Configuration) -> some View {
-        let p = configuration.isPressed, glass = look != .classic
+        let p = configuration.isPressed || pulse, glass = look != .classic
         configuration.label
             .background {
                 if p && glass {
@@ -195,9 +223,10 @@ struct GlassPillStyle: ButtonStyle {
     let look: ButtonLook
     let clearness: Double
     var tint: Color?
+    var pulse = false
 
     func makeBody(configuration: Configuration) -> some View {
-        let p = configuration.isPressed
+        let p = configuration.isPressed || pulse
         configuration.label
             .background(GlassBody(look: look, clearness: clearness, shape: Capsule(), tint: tint, pressed: p))
             .scaleEffect(p ? 0.92 : 1)
