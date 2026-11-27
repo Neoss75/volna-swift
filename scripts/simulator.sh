@@ -8,12 +8,17 @@ mkdir -p shots
 t() { local s="$1"; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
 say() { echo "[$(date +%T)] $*"; }
 
-# the identifier is the last word of the line
-RUNTIME=$(xcrun simctl list runtimes | grep -E '^iOS 2[6-9]' | sort -V | tail -n 1 | awk '{print $NF}')
-[ -n "$RUNTIME" ] || { echo "::error::no iOS 26+ simulator here"; xcrun simctl list runtimes; exit 1; }
-TYPE=$(xcrun simctl list devicetypes | grep -E 'iPhone 1[6-9] Pro Max' | sort -V | tail -n 1 | grep -oE 'com\.apple\.CoreSimulator\.SimDeviceType\.[A-Za-z0-9-]+')
+# The newest iOS and the newest big iPhone that go together: some runtimes are made for one model only.
+# The identifier is the last word of the line.
+DEV=""
+for RUNTIME in $(xcrun simctl list runtimes | grep -E '^iOS 2[6-9]' | sort -rV | awk '{print $NF}'); do
+  for TYPE in $(xcrun simctl list devicetypes | grep -E 'iPhone 1[6-9] Pro Max' | sort -rV | grep -oE 'com\.apple\.CoreSimulator\.SimDeviceType\.[A-Za-z0-9-]+'); do
+    if DEV=$(xcrun simctl create volna "$TYPE" "$RUNTIME" 2>/dev/null); then break 2; fi
+    DEV=""
+  done
+done
+[ -n "$DEV" ] || { echo "::error::no iPhone simulator can be made here"; xcrun simctl list runtimes; exit 1; }
 echo "$RUNTIME $TYPE"
-DEV=$(xcrun simctl create volna "$TYPE" "$RUNTIME")
 say boot
 xcrun simctl boot "$DEV"
 t 420 xcrun simctl bootstatus "$DEV" -b | tail -n 3
