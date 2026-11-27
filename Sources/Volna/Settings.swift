@@ -91,6 +91,18 @@ final class Settings: ObservableObject {
         var lyricsAuto = false
         /// The same sound in both ears.
         var mono = false
+        /// The alarm clock, see `WakeAlarm`.
+        var alarmOn = false
+        var alarmHour = 7
+        var alarmMinute = 0
+        /// Calendar weekdays, 1 = Sunday; none = rings once.
+        var alarmDays = [2, 3, 4, 5, 6]
+        /// The song the alarm rings with; empty = the system sound.
+        var alarmSong = ""
+        /// What plays after "Listen": song, favourites, all, playlist:<id>.
+        var alarmMusic = "song"
+        /// Seconds the music takes to grow to full volume.
+        var alarmRise: Double = 60
         /// How the player buttons look, see `ButtonLook`.
         var buttons = "classic"
         /// How much one sees through the glass buttons, 0…1.

@@ -8,7 +8,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
     case path, headphones, sound, eq, loudness, playback, hires
     case theme, viz
     case library, wifi, covers, lyrics
-    case siri, language, stats, backup, about
+    case alarm, siri, language, stats, backup, about
 
     var title: String {
         switch self {
@@ -25,6 +25,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .wifi: tr("Передача по Wi-Fi")
         case .covers: tr("Обложки")
         case .lyrics: tr("Тексты песен")
+        case .alarm: tr("Будильник")
         case .siri: tr("Siri и команды")
         case .language: tr("Язык")
         case .stats: tr("Статистика")
@@ -48,6 +49,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         case .wifi: "wifi"
         case .covers: "photo"
         case .lyrics: "text.bubble"
+        case .alarm: "alarm"
         case .siri: "mic"
         case .language: "globe"
         case .stats: "chart.xyaxis.line"
@@ -60,7 +62,7 @@ enum SettingsPage: String, Hashable, CaseIterable {
         ("Аудио", [.path, .headphones, .eq, .sound, .loudness, .playback, .hires]),
         ("Графика", [.theme, .viz]),
         ("Музыка", [.library, .wifi, .covers, .lyrics]),
-        ("Прочее", [.siri, .language, .stats, .backup, .about]),
+        ("Прочее", [.alarm, .siri, .language, .stats, .backup, .about]),
     ]
 }
 
@@ -166,6 +168,8 @@ private struct SettingsRoot: View {
             return o.name + " · " + OutputInfo.khz(o.rate)
         case .hires:
             return v.direct ? tr("Прямой вывод") : OutputInfo.now().rateText
+        case .alarm:
+            return AlarmPage.summary(v)
         case .theme:
             let mode = ["dark": tr("Тёмная"), "light": tr("Светлая")][v.themeMode] ?? tr("Как в системе")
             let look = ButtonLook.of(v.buttons)
@@ -252,6 +256,7 @@ private struct SettingsPageView: View {
                         case .wifi: WifiPage()
                         case .covers: CoversPage()
                         case .lyrics: LyricsPage()
+                        case .alarm: AlarmPage()
                         case .siri: SiriPage()
                         case .language: LanguagePage()
                         case .backup: BackupPage()
@@ -373,7 +378,138 @@ private struct PlaybackPage: View {
                 }
                 Chip(text: tr("После трека"), on: player.sleepAfterTrack) { player.sleepAfterThisTrack() }
             }
+            SleepAtRow()
             SleepNote()
+        }
+    }
+}
+
+/// The sleep timer at a clock time: today, or tomorrow when that time has passed.
+private struct SleepAtRow: View {
+    @EnvironmentObject private var player: Player
+    @State private var time = Date().addingTimeInterval(3600)
+
+    var body: some View {
+        HStack(spacing: 12) {
+            DatePicker(tr("Остановить в"), selection: $time, displayedComponents: .hourAndMinute)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.fg)
+            Button(tr("Поставить")) {
+                let c = Calendar.current.dateComponents([.hour, .minute], from: time)
+                var at = Calendar.current.date(bySettingHour: c.hour ?? 0, minute: c.minute ?? 0, second: 0, of: Date()) ?? time
+                if at <= Date() { at = Calendar.current.date(byAdding: .day, value: 1, to: at) ?? at }
+                player.sleep(at: at)
+                toast(tr("Таймер сна: остановлю в {}", at.formatted(date: .omitted, time: .shortened)))
+            }
+            .buttonStyle(.glass)
+        }
+    }
+}
+
+/// The alarm clock: time, days, the sound and what plays after waking up.
+private struct AlarmPage: View {
+    @EnvironmentObject private var settings: Settings
+    @EnvironmentObject private var library: Library
+    @EnvironmentObject private var player: Player
+    @State private var problem: String?
+    @State private var applying: Task<Void, Never>?
+
+    /// Monday first.
+    static let week = [2, 3, 4, 5, 6, 7, 1]
+
+    static func dayName(_ d: Int) -> String {
+        [2: tr("Пн"), 3: tr("Вт"), 4: tr("Ср"), 5: tr("Чт"), 6: tr("Пт"), 7: tr("Сб"), 1: tr("Вс")][d] ?? ""
+    }
+
+    static func summary(_ v: Settings.Values) -> String {
+        guard v.alarmOn else { return tr("Выключен") }
+        let days = Set(v.alarmDays)
+        let when: String
+        switch days {
+        case []: when = tr("один раз")
+        case [2, 3, 4, 5, 6]: when = tr("по будням")
+        case [1, 7]: when = tr("по выходным")
+        case Set(1...7): when = tr("каждый день")
+        default: when = week.filter { days.contains($0) }.map(dayName).joined(separator: " ")
+        }
+        return String(format: "%02d:%02d", v.alarmHour, v.alarmMinute) + " · " + when
+    }
+
+    private var time: Binding<Date> {
+        Binding(get: { Calendar.current.date(bySettingHour: settings.v.alarmHour, minute: settings.v.alarmMinute, second: 0, of: Date()) ?? Date() },
+                set: {
+                    let c = Calendar.current.dateComponents([.hour, .minute], from: $0)
+                    settings.v.alarmHour = c.hour ?? 7
+                    settings.v.alarmMinute = c.minute ?? 0
+                })
+    }
+
+    /// Everything the system alarm depends on.
+    private var key: String {
+        let v = settings.v
+        return "\(v.alarmOn) \(v.alarmHour) \(v.alarmMinute) \(v.alarmDays.sorted()) \(v.alarmSong) \(settings.v.accent)"
+    }
+
+    var body: some View {
+        Block(tr("Будильник")) {
+            SwitchRow(label: tr("Будить в это время"), on: $settings.v.alarmOn)
+            DatePicker(tr("Время"), selection: time, displayedComponents: .hourAndMinute)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.fg)
+            Flow {
+                ForEach(Self.week, id: \.self) { d in
+                    Chip(text: Self.dayName(d), on: settings.v.alarmDays.contains(d)) {
+                        if let i = settings.v.alarmDays.firstIndex(of: d) { settings.v.alarmDays.remove(at: i) } else { settings.v.alarmDays.append(d) }
+                    }
+                }
+            }
+            Hint(settings.v.alarmDays.isEmpty ? tr("Дни не выбраны: будильник прозвонит один раз.")
+                                              : tr("Звонит как будильник iPhone: и в беззвучном режиме, и в «Не беспокоить»."))
+            if let problem {
+                Text(problem).font(.system(size: 13)).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .onChange(of: key) { schedule() }
+        Block(tr("Звонок")) {
+            Flow {
+                Chip(text: tr("Стандартный звук"), on: settings.v.alarmSong.isEmpty) { settings.v.alarmSong = "" }
+                if let t = player.current {
+                    Chip(text: tr("Песня, что играет сейчас"), on: settings.v.alarmSong == t.id.uuidString) { settings.v.alarmSong = t.id.uuidString }
+                }
+            }
+            if let t = UUID(uuidString: settings.v.alarmSong).flatMap({ library.track($0) }) {
+                Label(t.artist.isEmpty ? t.title : t.artist + " — " + t.title, systemImage: "music.note")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(settings.accent)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            Hint(tr("Звучат первые 30 секунд песни. Чтобы выбрать другую, включите её и вернитесь сюда."))
+        }
+        Block(tr("После «Слушать»")) {
+            Flow {
+                ForEach([("song", tr("Песня будильника")), ("favourites", tr("Избранное")), ("all", tr("Вся музыка вперемешку"))]
+                        + library.playlists.map { ("playlist:" + $0.id.uuidString, $0.name) }, id: \.0) { m in
+                    Chip(text: m.1, on: settings.v.alarmMusic == m.0) { settings.v.alarmMusic = m.0 }
+                }
+            }
+            Flow {
+                ForEach([(0.0, tr("Сразу громко")), (30, tr("30 секунд")), (60, tr("1 минута")), (180, tr("3 минуты"))], id: \.0) { r in
+                    Chip(text: r.1, on: settings.v.alarmRise == r.0) { settings.v.alarmRise = r.0 }
+                }
+            }
+            Hint(tr("Нажмите «Слушать» на будильнике: Волна откроется и включит музыку, громкость будет нарастать плавно."))
+        }
+        Block(tr("Музыка без звонка")) {
+            Hint(tr("Чтобы музыка включалась сама: приложение «Команды» → «Автоматизация» → «Время суток» → «Запускать сразу» → действие Волны «Разбудить музыкой»."))
+        }
+    }
+
+    private func schedule() {
+        applying?.cancel()
+        applying = Task {
+            try? await Task.sleep(for: .milliseconds(700))
+            if Task.isCancelled { return }
+            problem = await WakeAlarm.apply(settings, library)
         }
     }
 }

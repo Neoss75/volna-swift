@@ -45,6 +45,8 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Волна ставит будильник, который будит вас музыкой.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Волна принимает музыку с компьютера в той же сети Wi-Fi.</string>
 	<key>UIFileSharingEnabled</key>

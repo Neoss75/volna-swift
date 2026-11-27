@@ -40,6 +40,9 @@ enum Demo {
         settings.v.buttons = value("-buttons") ?? "classic"
         settings.v.glass = value("-glass").flatMap(Double.init) ?? 0.4
         settings.v.accent = value("-accent") ?? "amber"
+        WakeAlarm.dryRun = true
+        settings.v.alarmOn = args.contains("-alarm")
+        if args.contains("-alarm") { settings.v.alarmSong = library.tracks.first?.id.uuidString ?? "" }
         settings.v.lyricsOn = args.contains("-lyrics")
         if args.contains("-waiting") {
             _ = library.restore(favourites: [], playlists: [], songs: [
@@ -324,6 +327,7 @@ enum Demo {
         await oggTest(library, player, stations, check, wait)
         await smartTest(library, player, check, wait)
         await fourTest(library, player, settings, check, wait)
+        await alarmTest(library, player, settings, check, wait)
         let formats = await addFormats(library)
         check("formats added", formats.map(\.kind) == ["FLAC", "ALAC", "M4A"], "\(formats.map(\.formatLine))")
         check("lossless mark", formats.map(\.isLossless) == [true, true, false], "\(formats.map { $0.bits ?? 0 })")

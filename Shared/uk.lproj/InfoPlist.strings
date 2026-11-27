@@ -1,2 +1,3 @@
 "CFBundleDisplayName" = "Волна";
 "NSLocalNetworkUsageDescription" = "Волна приймає музику з комп’ютера в тій самій мережі Wi-Fi.";
+"NSAlarmKitUsageDescription" = "Волна ставить будильник, який будить вас музикою.";

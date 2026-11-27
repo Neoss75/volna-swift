@@ -211,6 +211,31 @@ struct PlayPlaylistIntent: AudioPlaybackIntent {
     }
 }
 
+/// For the "Time of day" automation in Shortcuts: music without an alarm sound, louder bit by bit.
+struct WakeUpIntent: AudioPlaybackIntent {
+    static let title: LocalizedStringResource = "Разбудить музыкой"
+    @Parameter(title: "Плейлист") var playlist: PlaylistEntity?
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        WakeAlarm.listen(playlist: playlist?.id, oneTime: false)
+        return .result()
+    }
+}
+
+/// The "Listen" button of the alarm: opens Volna and plays the music chosen for the morning.
+struct WakeListenIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Слушать после будильника"
+    static let isDiscoverable = false
+    static let openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        WakeAlarm.listen()
+        return .result()
+    }
+}
+
 struct PlayStationIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Включить радио"
     @Parameter(title: "Радиостанция") var station: StationEntity

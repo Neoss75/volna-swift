@@ -51,6 +51,7 @@ final class Player: ObservableObject {
     private var failures = 0
     private var fadeTask: Task<Void, Never>?
     private var sleepFade: Task<Void, Never>?
+    private var riseTask: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
     private var lastSave = Date.distantPast
     private var chainIndex: Int?
@@ -756,6 +757,33 @@ final class Player: ObservableObject {
     func sleep(minutes: Int?) {
         sleepAfterTrack = false
         sleepAt = minutes.map { Date().addingTimeInterval(Double($0) * 60) }
+    }
+
+    /// Stops at a clock time.
+    func sleep(at date: Date) {
+        sleepAfterTrack = false
+        sleepAt = date
+    }
+
+    /// Wakes softly: the sound grows from almost silence to the full volume.
+    func rise(over seconds: Double) {
+        riseTask?.cancel()
+        riseTask = nil
+        guard seconds > 0 else {
+            graph.master = 1
+            return
+        }
+        graph.master = 0.02
+        riseTask = Task { [weak self] in
+            let steps = max(1, Int(seconds * 10))
+            for i in 1...steps {
+                try? await Task.sleep(for: .milliseconds(100))
+                if Task.isCancelled { return }
+                let k = Double(i) / Double(steps)
+                self?.graph.master = Float(0.02 + 0.98 * k * k)
+            }
+            self?.riseTask = nil
+        }
     }
 
     func sleepAfterThisTrack() {
