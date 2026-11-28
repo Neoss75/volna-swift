@@ -306,7 +306,7 @@ enum RadioText {
         switch live.state {
         case .idle: return tr("На паузе")
         case .connecting: return tr("Подключаюсь…")
-        case .buffering: return tr("Набираю запас звука: {} из {} с", "\(Int(live.stored))", "\(Int(live.target.rounded()))")
+        case .buffering: return tr("Заполняю буфер: {} из {} с", "\(Int(live.stored))", "\(Int(live.target.rounded()))")
         case .waiting: return tr("Связь пропала, подключаюсь снова…")
         case .playing: return tr("Прямой эфир")
         }
@@ -394,18 +394,18 @@ struct LiveBlock: View {
                 Text(player.isPlaying ? formatTime(clock.time) : " ").foregroundStyle(Theme.muted)
                 Spacer()
                 Menu {
-                    Picker(tr("Радио: запас звука"), selection: $settings.v.radioBuffer) {
+                    Picker(tr("Радио: буфер"), selection: $settings.v.radioBuffer) {
                         ForEach(Settings.radioBuffers, id: \.self) { Text(tr("{} с", "\(Int($0))")).tag($0) }
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text(on ? tr("запас {} с", "\(Int(live.stored.rounded()))") : tr("запас"))
+                        Text(on ? tr("буфер {} с", "\(Int(live.stored.rounded()))") : tr("буфер"))
                         Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold))
                     }
                     .foregroundStyle(Theme.muted)
                     .contentShape(Rectangle())
                 }
-                .accessibilityLabel(tr("Радио: запас звука"))
+                .accessibilityLabel(tr("Радио: буфер"))
             }
             .font(.mono(12).monospacedDigit())
         }

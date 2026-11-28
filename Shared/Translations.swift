@@ -496,13 +496,13 @@ Siri и команды‖Siri та команди‖Siri and Shortcuts
 Подключаюсь…‖Підключаюся…‖Connecting…
 ≈ {} МБ/ч‖≈ {} МБ/год‖≈ {} MB/h
 ≈ %.1f ГБ/ч‖≈ %.1f ГБ/год‖≈ %.1f GB/h
-Набираю запас звука: {} из {} с‖Набираю запас звуку: {} з {} с‖Buffering: {} of {} s
-запас‖запас‖store
-Радио: запас звука‖Радіо: запас звуку‖Radio: sound in store
-Столько звука плеер набирает, прежде чем заиграть. Больше запас: реже прерывается при плохой связи, но станция дольше включается.‖Стільки звуку плеєр набирає, перш ніж заграти. Більший запас: рідше переривається за поганого зв’язку, але станція довше вмикається.‖The player collects this much sound before it plays. A bigger store means fewer breaks on a poor connection, but stations take longer to start.
+Заполняю буфер: {} из {} с‖Заповнюю буфер: {} з {} с‖Buffering: {} of {} s
+буфер‖буфер‖buffer
+Радио: буфер‖Радіо: буфер‖Radio: buffer
+Столько звука плеер набирает, прежде чем заиграть. Больше буфер: реже прерывается при плохой связи, но станция дольше включается.‖Стільки звуку плеєр набирає, перш ніж заграти. Більший буфер: рідше переривається за поганого зв’язку, але станція довше вмикається.‖The player collects this much sound before it plays. A bigger buffer means fewer breaks on a poor connection, but stations take longer to start.
 Связь пропала, подключаюсь снова…‖Зв’язок зник, підключаюся знову…‖Connection lost, connecting again…
 На паузе‖На паузі‖Paused
-запас {} с‖запас {} с‖{} s in store
+буфер {} с‖буфер {} с‖buffer {} s
 Новая станция‖Нова станція‖New station
 Изменить станцию‖Змінити станцію‖Edit the station
 Ссылка‖Посилання‖Link

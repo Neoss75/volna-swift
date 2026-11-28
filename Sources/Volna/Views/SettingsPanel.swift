@@ -359,13 +359,13 @@ private struct PlaybackPage: View {
                 Button(tr("Обычная тональность")) { settings.v.semitones = 0 }.buttonStyle(.glass)
             }
         }
-        Block(tr("Радио: запас звука")) {
+        Block(tr("Радио: буфер")) {
             Flow {
                 ForEach(Settings.radioBuffers, id: \.self) { s in
                     Chip(text: tr("{} с", "\(Int(s))"), on: settings.v.radioBuffer == s) { settings.v.radioBuffer = s }
                 }
             }
-            Hint(tr("Столько звука плеер набирает, прежде чем заиграть. Больше запас: реже прерывается при плохой связи, но станция дольше включается."))
+            Hint(tr("Столько звука плеер набирает, прежде чем заиграть. Больше буфер: реже прерывается при плохой связи, но станция дольше включается."))
         }
         Block(tr("Таймер сна")) {
             Flow {
