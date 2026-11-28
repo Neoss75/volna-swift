@@ -179,6 +179,10 @@ VBR ≈ {} кбит/с‖VBR ≈ {} кбіт/с‖VBR ≈ {} kbps
 Удалить из плеера‖Видалити з плеєра‖Remove from the player
 файл не открывается‖файл не відкривається‖the file cannot be opened
 без потерь‖без втрат‖lossless
+передана по Wi-Fi‖передана по Wi-Fi‖sent over Wi-Fi
+в iCloud Drive‖в iCloud Drive‖in iCloud Drive
+на внешнем диске‖на зовнішньому диску‖on an external drive
+на iPhone‖на iPhone‖on iPhone
 Действия с песней‖Дії з піснею‖Song actions
 Очередь пуста. Откройте «Песни» и выберите трек.‖Черга порожня. Відкрийте «Пісні» та виберіть трек.‖The queue is empty. Open Songs and choose one.
 Нажатие на песню в списке запускает весь список с этого места. Перетащите строку, чтобы поменять порядок; смахните, чтобы убрать.‖Натискання на пісню у списку запускає весь список із цього місця. Перетягніть рядок, щоб змінити порядок; змахніть, щоб прибрати.‖Tapping a song in a list plays the whole list from there. Drag a row to change the order, swipe to remove it.

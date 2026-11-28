@@ -218,6 +218,15 @@ struct SongRow: View {
     let on: Bool
     let play: () -> Void
 
+    /// Where the file lies: sent over Wi-Fi, in iCloud Drive, on a drive plugged into the phone, or on the phone itself.
+    private var source: (icon: String, label: String) {
+        let p = track.path
+        if track.folderID == Library.wifiID { return ("wifi", tr("передана по Wi-Fi")) }
+        if p.contains("/Mobile Documents/") { return ("icloud", tr("в iCloud Drive")) }
+        if p.contains("/LiveFiles/") || p.hasPrefix("/Volumes/") { return ("externaldrive", tr("на внешнем диске")) }
+        return ("iphone", tr("на iPhone"))
+    }
+
     var body: some View {
         HStack(spacing: 2) {
             Button(action: play) {
@@ -234,7 +243,13 @@ struct SongRow: View {
                     .lineLimit(1)
                     Spacer(minLength: 6)
                     VStack(alignment: .trailing, spacing: 1) {
-                        Text(formatTime(track.duration)).font(.mono(12).monospacedDigit())
+                        HStack(spacing: 4) {
+                            let where_ = source
+                            Image(systemName: where_.icon)
+                                .font(.system(size: 9, weight: .semibold))
+                                .accessibilityLabel(where_.label)
+                            Text(formatTime(track.duration)).font(.mono(12).monospacedDigit())
+                        }
                         Text(track.rowQuality).font(.mono(10)).opacity(0.85)
                         if track.isLossless {
                             Text("LOSSLESS")
