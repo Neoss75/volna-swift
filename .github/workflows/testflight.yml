@@ -1,6 +1,6 @@
 # Builds the Swift version of «Волна» on a GitHub Mac.
 # With the four Apple secrets set it signs the app and uploads it to TestFlight;
-# without them it only checks that the app builds and keeps an unsigned Volna-swift.ipa.
+# without them it only checks that the app builds. Either way it keeps an unsigned Volna-swift.ipa for 14 days.
 # Secrets (Settings → Secrets and variables → Actions), the same values as in volna-ios:
 #   APPLE_TEAM_ID   — Team ID (10 characters, developer.apple.com → Membership)
 #   ASC_KEY_ID      — App Store Connect API key ID
@@ -119,6 +119,18 @@ jobs:
           APP=build/Volna.xcarchive/Products/Applications/Volna.app
           codesign --force --sign - --entitlements Config/Volna.entitlements "$APP/PlugIns/VolnaWidget.appex"
           codesign --force --sign - --entitlements Config/Volna.entitlements "$APP"
+          # the same app as an unsigned .ipa, to sign with AltStore or Sideloadly
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry Volna-swift.ipa Payload
+          ls -l Volna-swift.ipa
+
+      - uses: actions/upload-artifact@v4
+        if: steps.keys.outputs.ok == 'true'
+        with:
+          name: Volna-swift-ipa
+          path: Volna-swift.ipa
+          retention-days: 14
 
       - name: Sign and check
         if: steps.keys.outputs.ok == 'true'
